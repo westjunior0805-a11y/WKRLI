@@ -193,65 +193,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </div>
 
-        {/* Quick Operations Button Bar */}
-        <div className="px-4 py-3 border-b border-slate-800">
+        {/* Top Primary Action */}
+        <div className="px-3.5 py-3 border-b border-slate-800/80">
           <button
-            onClick={() => {
-              handleNavClick('new_sale');
-            }}
-            className={`w-full flex items-center justify-center gap-2 py-2 px-3 mb-2 rounded-lg font-bold text-xs shadow-xs transition-colors ${
+            onClick={() => handleNavClick('new_sale')}
+            className={`w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg font-bold text-xs transition-colors shadow-xs ${
               activeView === 'new_sale'
                 ? 'bg-amber-400 text-slate-950'
                 : 'bg-amber-500 hover:bg-amber-400 text-slate-950'
             }`}
           >
-            <ShoppingCart className="w-4 h-4 text-slate-950" />
-            Nouvelle Vente Comptoir
+            <ShoppingCart className="w-4 h-4 text-slate-950 shrink-0" />
+            <span>+ Nouvelle Vente</span>
           </button>
-
-          <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider block mb-1.5 px-1">
-            Opérations Stock
-          </span>
-          <div className="grid grid-cols-3 gap-1.5">
-            <button
-              onClick={() => {
-                onOpenStockIn();
-                onCloseMobile();
-              }}
-              className="flex flex-col items-center justify-center p-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-emerald-400 text-[11px] font-medium border border-slate-800 transition-colors"
-            >
-              <ArrowDownLeft className="w-4 h-4 mb-0.5 text-emerald-400" />
-              Entrée
-            </button>
-            <button
-              onClick={() => {
-                onOpenStockOut();
-                onCloseMobile();
-              }}
-              className="flex flex-col items-center justify-center p-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-rose-400 text-[11px] font-medium border border-slate-800 transition-colors"
-            >
-              <ArrowUpRight className="w-4 h-4 mb-0.5 text-rose-400" />
-              Sortie
-            </button>
-            <button
-              onClick={() => {
-                onOpenTransfer();
-                onCloseMobile();
-              }}
-              className="flex flex-col items-center justify-center p-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-amber-400 text-[11px] font-medium border border-slate-800 transition-colors"
-            >
-              <ArrowLeftRight className="w-4 h-4 mb-0.5 text-amber-400" />
-              Transfert
-            </button>
-          </div>
         </div>
 
         {/* Navigation items */}
         <nav className="flex-1 px-3 py-3 space-y-4 overflow-y-auto">
-          {/* Section 1: Ventes & Caisse */}
+          {/* Section 1: Commercial & Point de Vente */}
           <div>
-            <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider block mb-1.5 px-3">
-              Ventes & Caisse
+            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1.5 px-3">
+              Commercial & Vente
             </span>
             <div className="space-y-0.5">
               {salesNavItems.map((item) => {
@@ -267,17 +229,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         : 'text-slate-300 hover:bg-slate-900 hover:text-white'
                     }`}
                   >
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex items-center gap-2.5 truncate">
                       <Icon
-                        className={`w-4 h-4 ${
+                        className={`w-4 h-4 shrink-0 ${
                           isActive ? 'text-slate-950' : 'text-slate-400'
                         }`}
                       />
-                      <span>{item.label}</span>
+                      <span className="truncate">{item.label}</span>
                     </div>
                     {item.badge !== undefined && (
                       <span
-                        className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-semibold ${
+                        className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-semibold shrink-0 ml-1.5 ${
                           isActive
                             ? 'bg-slate-950 text-amber-400'
                             : item.badgeColor || 'bg-slate-800 text-slate-300'
@@ -292,10 +254,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </div>
 
-          {/* Section 2: Stock & Dépôts */}
+          {/* Section 2: Stocks & Entrepôts */}
           <div>
-            <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider block mb-1.5 px-3">
-              Stock & Entrepôts
+            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1.5 px-3">
+              Stocks & Approvisionnement
             </span>
             <div className="space-y-0.5">
               {stockNavItems.map((item) => {
@@ -311,24 +273,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         : 'text-slate-300 hover:bg-slate-900 hover:text-white'
                     }`}
                   >
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex items-center gap-2.5 truncate">
                       <Icon
-                        className={`w-4 h-4 ${
+                        className={`w-4 h-4 shrink-0 ${
                           isActive ? 'text-slate-950' : 'text-slate-400'
                         }`}
                       />
-                      <span>{item.label}</span>
+                      <span className="truncate">{item.label}</span>
                     </div>
+                    {item.badge !== undefined && (
+                      <span
+                        className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-semibold shrink-0 ml-1.5 ${
+                          isActive
+                            ? 'bg-slate-950 text-amber-400'
+                            : item.badgeColor || 'bg-slate-800 text-slate-300'
+                        }`}
+                      >
+                        {item.badge}
+                      </span>
+                    )}
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* Section 3: Analyses & Contrôle */}
+          {/* Section 3: Pilotage & Sécurité */}
           <div>
-            <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider block mb-1.5 px-3">
-              Analyses & Audit
+            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1.5 px-3">
+              Pilotage & Sécurité
             </span>
             <div className="space-y-0.5">
               {analysisNavItems.map((item) => {
@@ -344,17 +317,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         : 'text-slate-300 hover:bg-slate-900 hover:text-white'
                     }`}
                   >
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex items-center gap-2.5 truncate">
                       <Icon
-                        className={`w-4 h-4 ${
+                        className={`w-4 h-4 shrink-0 ${
                           isActive ? 'text-slate-950' : 'text-slate-400'
                         }`}
                       />
-                      <span>{item.label}</span>
+                      <span className="truncate">{item.label}</span>
                     </div>
                     {item.badge !== undefined && (
                       <span
-                        className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-semibold ${
+                        className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-semibold shrink-0 ml-1.5 ${
                           isActive
                             ? 'bg-slate-950 text-amber-400'
                             : item.badgeColor || 'bg-slate-800 text-slate-300'
@@ -371,14 +344,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
 
         {/* User Account / Session Bar */}
-        <div className="p-3 border-t border-slate-800 bg-slate-900/90 flex items-center justify-between gap-2">
+        <div className="p-3 border-t border-slate-800/80 bg-slate-900/60 flex items-center justify-between gap-2">
           <button
             type="button"
             onClick={() => {
               onSelectView('auth_management');
               onCloseMobile();
             }}
-            className="flex items-center gap-2.5 min-w-0 text-left hover:opacity-85 transition-opacity flex-1"
+            className="flex items-center gap-2.5 min-w-0 text-left hover:opacity-90 transition-opacity flex-1"
             title="Gérer les accès et rôles"
           >
             <div className="relative shrink-0">
@@ -386,10 +359,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <img
                   src={firebaseUser.photoURL}
                   alt={currentUser.name}
-                  className="w-8 h-8 rounded-full object-cover border border-slate-700"
+                  className="w-8 h-8 rounded-lg object-cover border border-slate-700"
                 />
               ) : (
-                <div className="w-8 h-8 rounded-full bg-slate-800 text-amber-400 font-bold text-xs flex items-center justify-center border border-slate-700">
+                <div className="w-8 h-8 rounded-lg bg-slate-800 text-amber-400 font-bold text-xs flex items-center justify-center border border-slate-700">
                   {currentUser.name.charAt(0)}
                 </div>
               )}
@@ -399,10 +372,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-xs font-bold text-white truncate">{currentUser.name}</div>
-              <div className="text-[10px] text-slate-400 flex items-center gap-1">
-                <span className="text-purple-300 font-semibold">{currentUser.role}</span>
+              <div className="text-[10px] text-slate-400 flex items-center gap-1.5">
+                <span className="text-amber-400 font-semibold">{currentUser.role}</span>
                 <span>·</span>
-                <span>{firebaseUser ? 'Google Cloud' : 'Session Locale'}</span>
+                <span>{firebaseUser ? 'Cloud' : 'Local'}</span>
               </div>
             </div>
           </button>
@@ -414,56 +387,46 @@ export const Sidebar: React.FC<SidebarProps> = ({
               else onSelectView('auth_management');
             }}
             className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors shrink-0"
-            title="Ouvrir le portail de connexion / changer de compte"
+            title="Connexion Google / Authentification"
           >
             <LogIn className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Bottom Box: Database status & Controls */}
-        <div className="p-4 border-t border-slate-800 bg-slate-950/70">
-          <div className="p-3 rounded-lg bg-slate-900 border border-slate-800">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[11px] font-semibold text-amber-400 uppercase tracking-wider">
-                Base Locale
-              </span>
-              <span
-                className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
-                  articles.length === 0
-                    ? 'bg-emerald-500/20 text-emerald-300 font-semibold'
-                    : 'bg-slate-800 text-slate-300'
-                }`}
-              >
-                {articles.length === 0 ? 'Vierge (0)' : `${articles.length} pièces`}
-              </span>
-            </div>
-            <p className="text-[11px] text-slate-400 leading-snug mb-3">
-              Stockage local persistant dans le navigateur.
-            </p>
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={exportDatabaseJson}
-                className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors"
-                title="Télécharger une sauvegarde complète en JSON"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Backup</span>
-              </button>
-              <button
-                onClick={onWipeData}
-                className="inline-flex items-center justify-center p-1.5 rounded text-xs font-medium bg-slate-800 hover:bg-rose-950/80 hover:text-rose-400 text-slate-400 transition-colors"
-                title="Faire table rase (Vider toutes les données)"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={onResetDemo}
-                className="inline-flex items-center justify-center p-1.5 rounded text-xs font-medium bg-slate-800 hover:bg-amber-950/60 hover:text-amber-400 text-slate-400 transition-colors"
-                title="Recharger le jeu d'exemples de démo (CAT, Komatsu...)"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-              </button>
-            </div>
+        {/* Minimalist Database & Utility Footer */}
+        <div className="px-3.5 py-2.5 border-t border-slate-800/80 bg-slate-950 flex items-center justify-between text-xs">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-slate-500 shrink-0" />
+            <span className="text-[11px] text-slate-400 font-mono truncate">
+              {articles.length === 0 ? 'Base vierge (0)' : `${articles.length} pièces`}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              onClick={exportDatabaseJson}
+              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded transition-colors"
+              title="Télécharger une sauvegarde complète JSON"
+              aria-label="Sauvegarder JSON"
+            >
+              <Download className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={onResetDemo}
+              className="p-1.5 text-slate-400 hover:text-amber-400 hover:bg-slate-800 rounded transition-colors"
+              title="Charger les pièces d'exemple démo (CAT, Komatsu...)"
+              aria-label="Recharger démo"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={onWipeData}
+              className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded transition-colors"
+              title="Faire table rase (Vider toutes les données)"
+              aria-label="Table rase"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       </aside>

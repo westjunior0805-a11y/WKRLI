@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useStock } from '../../context/StockContext';
 import { Article, ArticleCategory } from '../../types';
 import { formatFCFA, exportToCSV } from '../../utils/formatters';
@@ -24,6 +24,7 @@ import {
   X,
   Image as ImageIcon,
   RotateCcw,
+  MoreHorizontal,
 } from 'lucide-react';
 import { ArticleDetailModal } from './ArticleDetailModal';
 import { ArticleFormModal } from './ArticleFormModal';
@@ -83,6 +84,16 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingArticle, setEditingArticle] = useState<Article | null>(null);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [activeActionMenuArticleId, setActiveActionMenuArticleId] = useState<string | null>(null);
+
+  // Close row action menus on click outside
+  useEffect(() => {
+    const handleGlobalClick = () => {
+      setActiveActionMenuArticleId(null);
+    };
+    document.addEventListener('click', handleGlobalClick);
+    return () => document.removeEventListener('click', handleGlobalClick);
+  }, []);
 
 
   // Collect unique brands and categories for dropdown filters (including brandOffers)
@@ -426,48 +437,65 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
       )}
 
       {/* Top Header & Search Bar */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+      <div className="bg-white border border-slate-200/80 rounded-xl p-3.5 sm:p-4 shadow-xs space-y-3.5">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
           <div className="flex-1 relative">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Recherche par réf principale (ex: 1R-0716), désignation, marque, réf équivalente (P551313) ou engin..."
-              className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+              placeholder="Recherche par réf principale (ex: 1R-0716), désignation, marque ou cross-ref..."
+              className="w-full pl-9 pr-8 py-2 text-xs sm:text-sm bg-slate-50/50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-colors"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+                title="Effacer la recherche"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsImportModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-amber-950 bg-amber-400 hover:bg-amber-300 rounded-lg shadow-2xs transition-colors whitespace-nowrap"
-              title="Importer le catalogue et stock depuis Excel ou CSV"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5" />
-              Importer Excel / CSV
-            </button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Grouped Secondary Data Actions */}
+            <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-0.5 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setIsImportModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-md transition-colors whitespace-nowrap"
+                title="Importer le catalogue et stock depuis Excel ou CSV"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-amber-600" />
+                <span>Importer</span>
+              </button>
+              <div className="w-px h-4 bg-slate-200" />
+              <button
+                type="button"
+                onClick={handleExportCSV}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-md transition-colors whitespace-nowrap"
+                title="Exporter les pièces en fichier CSV"
+              >
+                <Download className="w-3.5 h-3.5 text-slate-500" />
+                <span>Exporter</span>
+              </button>
+            </div>
 
-            <button
-              onClick={handleExportCSV}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg transition-colors whitespace-nowrap"
-              title="Exporter les pièces en fichier CSV Excel"
-            >
-              <Download className="w-3.5 h-3.5" />
-              Exporter CSV
-            </button>
-
+            {/* Primary Action Button */}
             {currentUser.role !== 'MAGASINIER' && (
               <button
+                type="button"
                 onClick={() => {
                   setEditingArticle(null);
                   setIsFormOpen(true);
                 }}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-xs transition-colors whitespace-nowrap"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-slate-950 hover:bg-slate-800 rounded-lg shadow-xs transition-colors whitespace-nowrap"
               >
                 <Plus className="w-3.5 h-3.5" />
-                Nouvelle pièce
+                <span>Nouvelle pièce</span>
               </button>
             )}
           </div>
@@ -831,48 +859,90 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
 
                       {/* Actions */}
                       <td
-                        className="py-3 px-3 text-right whitespace-nowrap"
+                        className="py-2.5 px-3 text-right whitespace-nowrap"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <div className="flex items-center justify-end gap-1">
+                        <div className="relative inline-flex items-center justify-end gap-1">
                           <button
-                            onClick={() => setViewingArticle(article)}
-                            className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded"
-                            title="Consulter la fiche détaillée"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                          </button>
-                          <button
+                            type="button"
                             onClick={() => {
                               setEditingArticle(article);
                               setIsFormOpen(true);
                             }}
-                            className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded"
+                            className="px-2.5 py-1 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 hover:text-slate-900 rounded-md transition-colors"
                             title="Modifier l'article"
                           >
-                            <Edit2 className="w-3.5 h-3.5" />
+                            Modifier
                           </button>
+                          
                           <button
-                            onClick={() => onOpenStockIn(article.id)}
-                            className="p-1.5 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded"
-                            title="Entrée en stock"
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveActionMenuArticleId(
+                                activeActionMenuArticleId === article.id ? null : article.id
+                              );
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-md transition-colors"
+                            title="Plus d'actions"
+                            aria-label="Plus d'actions"
                           >
-                            <ArrowDownLeft className="w-3.5 h-3.5" />
+                            <MoreHorizontal className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => onOpenStockOut(article.id)}
-                            className="p-1.5 text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded"
-                            title="Sortie de stock"
-                          >
-                            <ArrowUpRight className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => setArticleToDelete(article)}
-                            className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded"
-                            title="Supprimer ou archiver cette pièce"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+
+                          {/* Row Context Dropdown */}
+                          {activeActionMenuArticleId === article.id && (
+                            <div
+                              className="absolute right-0 top-full mt-1 w-48 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-30 text-xs text-left"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveActionMenuArticleId(null);
+                                  setViewingArticle(article);
+                                }}
+                                className="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-slate-50 text-slate-700 transition-colors"
+                              >
+                                <Eye className="w-3.5 h-3.5 text-slate-400" />
+                                <span>Voir la fiche</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveActionMenuArticleId(null);
+                                  onOpenStockIn(article.id);
+                                }}
+                                className="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-slate-50 text-emerald-700 transition-colors"
+                              >
+                                <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>Entrée de stock (+)</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveActionMenuArticleId(null);
+                                  onOpenStockOut(article.id);
+                                }}
+                                className="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-slate-50 text-rose-700 transition-colors"
+                              >
+                                <ArrowUpRight className="w-3.5 h-3.5 text-rose-600" />
+                                <span>Sortie de stock (-)</span>
+                              </button>
+                              <div className="my-1 border-t border-slate-100" />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveActionMenuArticleId(null);
+                                  setArticleToDelete(article);
+                                }}
+                                className="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-rose-50 text-rose-600 transition-colors"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                                <span>Archiver / Supprimer</span>
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </td>
                     </tr>
