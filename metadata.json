@@ -1,0 +1,8 @@
+{
+  "name": "EquipStock Pro - Gestion de Pièces d'Engins Lourds",
+  "description": "Système ERP professionnel de gestion de stock multi-magasins pour pièces détachées d'engins lourds (BTP, mines, carrières).",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

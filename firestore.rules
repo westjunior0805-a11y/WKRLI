@@ -1,0 +1,130 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Deny Catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper Functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.token.email == 'westjunior0805@gmail.com'
+      );
+    }
+
+    // Connection Health Check collection (used by testConnection())
+    match /test/{testId} {
+      allow read, write: if true;
+    }
+
+    // Admin authorization collection
+    match /admins/{adminId} {
+      allow read: if isSignedIn() && isValidId(adminId);
+      allow write: if isAdmin() && isValidId(adminId);
+    }
+
+    // User profiles
+    match /users/{userId} {
+      allow read, list: if true;
+      allow create, update, delete: if isValidId(userId);
+    }
+
+    // Spare parts catalog
+    match /articles/{articleId} {
+      allow read, list: if true;
+      allow create, update, delete: if isValidId(articleId);
+    }
+
+    // Warehouses
+    match /warehouses/{warehouseId} {
+      allow read, list: if true;
+      allow create, update, delete: if isValidId(warehouseId);
+    }
+
+    // Warehouse stock balances
+    match /stocks/{stockId} {
+      allow read, list: if true;
+      allow create, update, delete: if isValidId(stockId);
+    }
+
+    // Stock movements audit log
+    match /movements/{movementId} {
+      allow read, list: if true;
+      allow create, update, delete: if isValidId(movementId);
+    }
+
+    // Customers and accounts receivable
+    match /customers/{customerId} {
+      allow read, list: if true;
+      allow create, update, delete: if isValidId(customerId);
+    }
+
+    // Sales transactions
+    match /sales/{saleId} {
+      allow read, list: if true;
+      allow create, update, delete: if isValidId(saleId);
+    }
+
+    // Payment receipts
+    match /payments/{paymentId} {
+      allow read, list: if true;
+      allow create, update, delete: if isValidId(paymentId);
+    }
+
+    // Cash register sessions
+    match /cashSessions/{sessionId} {
+      allow read, list: if true;
+      allow create, update, delete: if isValidId(sessionId);
+    }
+
+    // Cash register drawer movements
+    match /cashMovements/{cashMovementId} {
+      allow read, list: if true;
+      allow create, update, delete: if isValidId(cashMovementId);
+    }
+
+    // Physical inventory campaigns
+    match /inventories/{inventoryId} {
+      allow read, list: if true;
+      allow create, update, delete: if isValidId(inventoryId);
+    }
+
+    // Suppliers
+    match /suppliers/{supplierId} {
+      allow read, list: if true;
+      allow create, update, delete: if isValidId(supplierId);
+    }
+
+    // Purchase orders
+    match /supplierOrders/{orderId} {
+      allow read, list: if true;
+      allow create, update, delete: if isValidId(orderId);
+    }
+
+    // Customer quotes / proformas
+    match /quotes/{quoteId} {
+      allow read, list: if true;
+      allow create, update, delete: if isValidId(quoteId);
+    }
+  }
+}

@@ -1,0 +1,312 @@
+{
+  "entities": {
+    "user": {
+      "title": "UserProfile",
+      "description": "User account profile with RBAC role and assigned warehouse",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 120 },
+        "email": { "type": "string", "maxLength": 150 },
+        "role": { "type": "string", "enum": ["ADMIN", "RESPONSABLE", "MAGASINIER"] },
+        "assignedWarehouseId": { "type": "string", "maxLength": 128 },
+        "isActive": { "type": "boolean" },
+        "phone": { "type": "string", "maxLength": 50 },
+        "avatarUrl": { "type": "string" },
+        "firebaseUid": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "lastLoginAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "name", "email", "role"]
+    },
+    "article": {
+      "title": "Article",
+      "description": "Spare part catalog record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "mainReference": { "type": "string", "maxLength": 100 },
+        "designation": { "type": "string", "maxLength": 255 },
+        "brand": { "type": "string", "maxLength": 100 },
+        "category": { "type": "string", "maxLength": 100 },
+        "purchasePrice": { "type": "number" },
+        "salePrice": { "type": "number" },
+        "minStockThreshold": { "type": "number" },
+        "defaultLocation": { "type": "string", "maxLength": 100 },
+        "status": { "type": "string", "enum": ["active", "archived"] },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "mainReference", "designation", "brand", "category", "purchasePrice", "salePrice", "status"]
+    },
+    "warehouse": {
+      "title": "Warehouse",
+      "description": "Depot or physical warehouse",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "code": { "type": "string", "maxLength": 50 },
+        "name": { "type": "string", "maxLength": 120 },
+        "location": { "type": "string", "maxLength": 200 },
+        "isActive": { "type": "boolean" },
+        "isDefault": { "type": "boolean" }
+      },
+      "required": ["id", "code", "name", "isActive"]
+    },
+    "warehouseStock": {
+      "title": "WarehouseStock",
+      "description": "Current inventory balance per article and warehouse",
+      "type": "object",
+      "properties": {
+        "articleId": { "type": "string", "maxLength": 128 },
+        "warehouseId": { "type": "string", "maxLength": 128 },
+        "quantity": { "type": "number" },
+        "shelfLocation": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["articleId", "warehouseId", "quantity"]
+    },
+    "stockMovement": {
+      "title": "StockMovement",
+      "description": "Audit record of any inventory stock change",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "date": { "type": "string", "maxLength": 64 },
+        "type": { "type": "string", "enum": ["ENTREE", "SORTIE", "TRANSFERT", "AJUSTEMENT"] },
+        "articleId": { "type": "string", "maxLength": 128 },
+        "quantity": { "type": "number" },
+        "userId": { "type": "string", "maxLength": 128 },
+        "userName": { "type": "string", "maxLength": 120 },
+        "documentRef": { "type": "string", "maxLength": 100 },
+        "reason": { "type": "string", "maxLength": 255 }
+      },
+      "required": ["id", "date", "type", "articleId", "quantity", "userId", "documentRef", "reason"]
+    },
+    "customer": {
+      "title": "Customer",
+      "description": "Client profile and balance",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "code": { "type": "string", "maxLength": 50 },
+        "name": { "type": "string", "maxLength": 150 },
+        "phone": { "type": "string", "maxLength": 50 },
+        "email": { "type": "string", "maxLength": 150 },
+        "outstandingBalance": { "type": "number" },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "code", "name", "outstandingBalance", "createdAt"]
+    },
+    "sale": {
+      "title": "Sale",
+      "description": "Sale invoice or cash receipt",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "receiptNumber": { "type": "string", "maxLength": 50 },
+        "date": { "type": "string", "maxLength": 64 },
+        "warehouseId": { "type": "string", "maxLength": 128 },
+        "warehouseName": { "type": "string", "maxLength": 120 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "userName": { "type": "string", "maxLength": 120 },
+        "customerName": { "type": "string", "maxLength": 150 },
+        "subtotal": { "type": "number" },
+        "totalDiscount": { "type": "number" },
+        "totalAmount": { "type": "number" },
+        "totalPaid": { "type": "number" },
+        "remainingDue": { "type": "number" },
+        "paymentStatus": { "type": "string", "enum": ["UNPAID", "PARTIALLY_PAID", "PAID"] },
+        "status": { "type": "string", "enum": ["VALIDATED", "CANCELLED", "REFUNDED"] }
+      },
+      "required": ["id", "receiptNumber", "date", "warehouseId", "totalAmount", "totalPaid", "status"]
+    },
+    "paymentRecord": {
+      "title": "PaymentRecord",
+      "description": "Payment receipt for sales or debt settlements",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "date": { "type": "string", "maxLength": 64 },
+        "warehouseId": { "type": "string", "maxLength": 128 },
+        "method": { "type": "string", "maxLength": 50 },
+        "amount": { "type": "number" },
+        "userId": { "type": "string", "maxLength": 128 },
+        "userName": { "type": "string", "maxLength": 120 }
+      },
+      "required": ["id", "date", "warehouseId", "method", "amount", "userId"]
+    },
+    "cashSession": {
+      "title": "CashSession",
+      "description": "Cash register session",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "warehouseId": { "type": "string", "maxLength": 128 },
+        "openedAt": { "type": "string", "maxLength": 64 },
+        "openedByUserId": { "type": "string", "maxLength": 128 },
+        "initialCashFloat": { "type": "number" },
+        "status": { "type": "string", "enum": ["OPEN", "CLOSED"] },
+        "theoreticalCash": { "type": "number" }
+      },
+      "required": ["id", "warehouseId", "openedAt", "openedByUserId", "initialCashFloat", "status"]
+    },
+    "cashMovement": {
+      "title": "CashMovement",
+      "description": "Cash movement in or out of drawer",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "cashSessionId": { "type": "string", "maxLength": 128 },
+        "warehouseId": { "type": "string", "maxLength": 128 },
+        "date": { "type": "string", "maxLength": 64 },
+        "type": { "type": "string", "maxLength": 50 },
+        "method": { "type": "string", "maxLength": 50 },
+        "amount": { "type": "number" },
+        "direction": { "type": "string", "enum": ["IN", "OUT"] },
+        "reason": { "type": "string", "maxLength": 200 }
+      },
+      "required": ["id", "cashSessionId", "warehouseId", "date", "type", "amount", "direction", "reason"]
+    },
+    "inventorySession": {
+      "title": "InventorySession",
+      "description": "Stock count campaign",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "warehouseId": { "type": "string", "maxLength": 128 },
+        "code": { "type": "string", "maxLength": 50 },
+        "date": { "type": "string", "maxLength": 64 },
+        "status": { "type": "string", "enum": ["DRAFT", "COUNTING", "VALIDATED", "CANCELLED"] },
+        "supervisor": { "type": "string", "maxLength": 120 }
+      },
+      "required": ["id", "warehouseId", "code", "date", "status", "supervisor"]
+    },
+    "supplier": {
+      "title": "Supplier",
+      "description": "Equipment and parts supplier",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "code": { "type": "string", "maxLength": 50 },
+        "name": { "type": "string", "maxLength": 150 },
+        "phone": { "type": "string", "maxLength": 50 },
+        "email": { "type": "string", "maxLength": 150 }
+      },
+      "required": ["id", "code", "name"]
+    },
+    "supplierOrder": {
+      "title": "SupplierOrder",
+      "description": "Purchase order to a supplier",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "orderNumber": { "type": "string", "maxLength": 50 },
+        "date": { "type": "string", "maxLength": 64 },
+        "supplierName": { "type": "string", "maxLength": 150 },
+        "targetWarehouseId": { "type": "string", "maxLength": 128 },
+        "status": { "type": "string", "enum": ["DRAFT", "TO_ORDER", "ORDERED", "PARTIALLY_RECEIVED", "RECEIVED", "CANCELLED"] },
+        "totalAmount": { "type": "number" }
+      },
+      "required": ["id", "orderNumber", "date", "supplierName", "targetWarehouseId", "status", "totalAmount"]
+    },
+    "quote": {
+      "title": "Quote",
+      "description": "Customer quotation / proforma invoice",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "quoteNumber": { "type": "string", "maxLength": 50 },
+        "date": { "type": "string", "maxLength": 64 },
+        "customerName": { "type": "string", "maxLength": 150 },
+        "warehouseId": { "type": "string", "maxLength": 128 },
+        "status": { "type": "string", "enum": ["DRAFT", "SENT", "ACCEPTED", "REJECTED", "CONVERTED"] },
+        "totalAmount": { "type": "number" }
+      },
+      "required": ["id", "quoteNumber", "date", "customerName", "warehouseId", "status", "totalAmount"]
+    },
+    "userProfile": {
+      "title": "UserProfile",
+      "description": "User profile with assigned role",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 100 },
+        "role": { "type": "string", "enum": ["ADMIN", "RESPONSABLE", "MAGASINIER"] },
+        "email": { "type": "string", "maxLength": 150 }
+      },
+      "required": ["id", "name", "role", "email"]
+    },
+    "admin": {
+      "title": "Admin",
+      "description": "Designated system administrator UID",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 150 }
+      },
+      "required": ["uid", "email"]
+    }
+  },
+  "firestore": {
+    "/articles/{articleId}": {
+      "schema": "article",
+      "description": "Catalog of heavy equipment spare parts"
+    },
+    "/warehouses/{warehouseId}": {
+      "schema": "warehouse",
+      "description": "Warehouses and distribution hubs"
+    },
+    "/stocks/{stockId}": {
+      "schema": "warehouseStock",
+      "description": "Current stock quantities per article per warehouse"
+    },
+    "/movements/{movementId}": {
+      "schema": "stockMovement",
+      "description": "Stock movement audit trail"
+    },
+    "/customers/{customerId}": {
+      "schema": "customer",
+      "description": "Customers and accounts receivable ledger"
+    },
+    "/sales/{saleId}": {
+      "schema": "sale",
+      "description": "Sales records and point of sale transactions"
+    },
+    "/payments/{paymentId}": {
+      "schema": "paymentRecord",
+      "description": "Payment transactions for sales and customer debts"
+    },
+    "/cashSessions/{sessionId}": {
+      "schema": "cashSession",
+      "description": "Daily cash register sessions"
+    },
+    "/cashMovements/{cashMovementId}": {
+      "schema": "cashMovement",
+      "description": "Cash movements in and out of cash drawers"
+    },
+    "/inventories/{inventoryId}": {
+      "schema": "inventorySession",
+      "description": "Physical warehouse inventory counting campaigns"
+    },
+    "/suppliers/{supplierId}": {
+      "schema": "supplier",
+      "description": "Suppliers and parts manufacturers"
+    },
+    "/supplierOrders/{orderId}": {
+      "schema": "supplierOrder",
+      "description": "Purchase orders and supply tracking"
+    },
+    "/quotes/{quoteId}": {
+      "schema": "quote",
+      "description": "Quotations and proformas"
+    },
+    "/users/{userId}": {
+      "schema": "userProfile",
+      "description": "Authenticated user accounts and permissions"
+    },
+    "/admins/{adminId}": {
+      "schema": "admin",
+      "description": "Designated administrator UIDs"
+    }
+  }
+}
