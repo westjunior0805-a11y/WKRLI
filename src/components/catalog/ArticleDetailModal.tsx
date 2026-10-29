@@ -68,13 +68,27 @@ export const ArticleDetailModal: React.FC<ArticleDetailModalProps> = ({
             <h2 className="text-lg font-bold text-white mt-1">{article.mainReference}</h2>
             <p className="text-sm text-slate-300 font-medium">{article.designation}</p>
           </div>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-white p-1 rounded transition-colors"
-            aria-label="Fermer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onEditArticle(article);
+              }}
+              className="px-2.5 py-1.5 text-xs font-semibold text-slate-100 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors inline-flex items-center gap-1.5 border border-slate-700"
+              title="Modifier cette référence"
+            >
+              <Edit2 className="w-3.5 h-3.5 text-amber-400" />
+              <span>Modifier la fiche</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="text-slate-400 hover:text-white p-1 rounded transition-colors"
+              aria-label="Fermer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Content */}
@@ -359,13 +373,15 @@ export const ArticleDetailModal: React.FC<ArticleDetailModalProps> = ({
         <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={() => {
                 onClose();
                 onEditArticle(article);
               }}
-              className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+              className="px-3.5 py-2 text-xs font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 rounded-lg inline-flex items-center gap-1.5 shadow-xs transition-colors"
             >
-              Modifier la fiche
+              <Edit2 className="w-3.5 h-3.5 text-slate-950" />
+              <span>Modifier la fiche</span>
             </button>
             {onDeleteArticle && (
               <button

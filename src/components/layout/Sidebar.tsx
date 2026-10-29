@@ -137,16 +137,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: FlaskConical,
       badge: 'Auto',
       badgeColor: 'bg-indigo-500/20 text-indigo-400',
+      adminOnly: true,
     },
-    { id: 'architecture', label: 'Architecture & Schéma BDD', icon: Database },
+    { id: 'architecture', label: 'Architecture & Schéma BDD', icon: Database, adminOnly: true },
     {
       id: 'auth_management',
       label: 'Accès & Authentification',
       icon: ShieldCheck,
       badge: 'RBAC',
       badgeColor: 'bg-purple-500/20 text-purple-300',
+      adminOnly: true,
     },
-  ];
+  ].filter((item) => !item.adminOnly || currentUser.role === 'ADMIN' || currentUser.role === 'RESPONSABLE');
 
   const handleNavClick = (viewId: string) => {
     onSelectView(viewId);
@@ -190,21 +192,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             aria-label="Fermer le menu"
           >
             <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Top Primary Action */}
-        <div className="px-3.5 py-3 border-b border-slate-800/80">
-          <button
-            onClick={() => handleNavClick('new_sale')}
-            className={`w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg font-bold text-xs transition-colors shadow-xs ${
-              activeView === 'new_sale'
-                ? 'bg-amber-400 text-slate-950'
-                : 'bg-amber-500 hover:bg-amber-400 text-slate-950'
-            }`}
-          >
-            <ShoppingCart className="w-4 h-4 text-slate-950 shrink-0" />
-            <span>+ Nouvelle Vente</span>
           </button>
         </div>
 
@@ -372,10 +359,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-xs font-bold text-white truncate">{currentUser.name}</div>
-              <div className="text-[10px] text-slate-400 flex items-center gap-1.5">
+              <div className="text-[10px] text-slate-400">
                 <span className="text-amber-400 font-semibold">{currentUser.role}</span>
-                <span>·</span>
-                <span>{firebaseUser ? 'Cloud' : 'Local'}</span>
               </div>
             </div>
           </button>

@@ -168,6 +168,7 @@ export interface Customer {
   address?: string;
   email?: string;
   outstandingBalance: number; // Solde restant dû (créances clients)
+  depositBalance?: number; // Acomptes reçus / avances en compte / crédits disponibles
   creditLimit?: number; // Plafond crédit
   notes?: string;
   createdAt: string;
@@ -200,6 +201,8 @@ export interface PaymentRecord {
   date: string;
   saleId?: string;
   customerId?: string;
+  customerName?: string;
+  paymentType?: 'REGLEMENT_CREANCE' | 'ACOMPTE_CLIENT';
   cashSessionId?: string;
   warehouseId: string;
   method: PaymentMethod;
@@ -263,6 +266,7 @@ export type CashMovementType =
   | 'VENTE_ESPECES'
   | 'VENTE_DIGITAL'
   | 'REGLEMENT_CREANCE'
+  | 'ACOMPTE_CLIENT'
   | 'DEPENSE'
   | 'REMBOURSEMENT'
   | 'APPORT_ESPECES'

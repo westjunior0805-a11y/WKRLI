@@ -139,6 +139,15 @@ interface StockContextType {
     customer?: Customer;
   };
   updateCustomer: (id: string, updates: Partial<Customer>) => { success: boolean; error?: string };
+  recordCustomerPayment: (params: {
+    customerId: string;
+    type: 'REGLEMENT_CREANCE' | 'ACOMPTE_AVANCE';
+    amount: number;
+    method: PaymentMethod;
+    warehouseId: string;
+    reference?: string;
+    notes?: string;
+  }) => { success: boolean; error?: string; payment?: PaymentRecord };
   recordCustomerDebtPayment: (params: {
     customerId: string;
     amount: number;
@@ -146,7 +155,7 @@ interface StockContextType {
     warehouseId: string;
     reference?: string;
     notes?: string;
-  }) => { success: boolean; error?: string };
+  }) => { success: boolean; error?: string; payment?: PaymentRecord };
 
   // Sales actions & getters
   getSaleById: (id: string) => Sale | undefined;
@@ -935,61 +944,82 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return { success: true };
   };
 
-  // Customer debt settlement (Paiement ultérieur de créance)
-  const recordCustomerDebtPayment = (params: {
+  // Customer payment & advance management (Règlements de créances & Acomptes clients)
+  const recordCustomerPayment = (params: {
     customerId: string;
+    type: 'REGLEMENT_CREANCE' | 'ACOMPTE_AVANCE';
     amount: number;
     method: PaymentMethod;
     warehouseId: string;
     reference?: string;
     notes?: string;
-  }) => {
+  }): { success: boolean; error?: string; payment?: PaymentRecord } => {
     const customer = customers.find((c) => c.id === params.customerId);
-    if (!customer) return { success: false, error: 'Client introuvable.' };
+    if (!customer) return { success: false, error: 'Compte client introuvable.' };
 
-    if (params.amount <= 0 || !Number.isFinite(params.amount)) {
-      return { success: false, error: 'Le montant payé doit être un nombre supérieur à zéro.' };
-    }
-
-    if (params.amount > customer.outstandingBalance) {
-      return {
-        success: false,
-        error: `Le montant saisi (${params.amount.toLocaleString()} FCFA) est supérieur au solde dû (${customer.outstandingBalance.toLocaleString()} FCFA).`,
-      };
+    if (!params.amount || params.amount <= 0 || !Number.isFinite(params.amount)) {
+      return { success: false, error: 'Le montant payé doit être un nombre strictement supérieur à zéro.' };
     }
 
     const wh = warehouses.find((w) => w.id === params.warehouseId);
-    if (!wh) return { success: false, error: 'Magasin introuvable.' };
+    if (!wh) return { success: false, error: 'Magasin d\'encaissement introuvable.' };
 
     const activeSession = getActiveCashSession(params.warehouseId);
     const nowIso = new Date().toISOString();
-
     const paymentId = generatePaymentId();
+
+    const isAcompte = params.type === 'ACOMPTE_AVANCE';
+    const paymentTypeLabel = isAcompte ? 'ACOMPTE_CLIENT' : 'REGLEMENT_CREANCE';
+    const defaultReason = isAcompte
+      ? `Acompte / Avance sur commande (${customer.name})`
+      : `Règlement créance (${customer.name})`;
+
     const newPayment: PaymentRecord = {
       id: paymentId,
       date: nowIso,
       customerId: params.customerId,
+      customerName: customer.name,
+      paymentType: paymentTypeLabel,
       warehouseId: params.warehouseId,
       method: params.method,
       amount: params.amount,
       userId: currentUser.id,
       userName: currentUser.name,
-      reference: params.reference?.trim(),
-      notes: params.notes?.trim() || `Règlement de créance client ${customer.name}`,
+      reference: params.reference?.trim() || `${paymentId}`,
+      notes: params.notes?.trim() || defaultReason,
     };
 
-    // Decrease customer outstanding balance
-    setCustomers((prev) =>
-      prev.map((c) =>
+    // Update customer balances:
+    // If REGLEMENT_CREANCE: deduct debt. If amount > debt, surplus goes to depositBalance.
+    // If ACOMPTE_AVANCE: add directly to depositBalance (available credit).
+    let nextCustomers = [...customers];
+    if (isAcompte) {
+      nextCustomers = customers.map((c) =>
         c.id === params.customerId
-          ? { ...c, outstandingBalance: Math.max(0, c.outstandingBalance - params.amount) }
+          ? { ...c, depositBalance: (c.depositBalance || 0) + params.amount }
           : c
-      )
-    );
+      );
+    } else {
+      const debtToSettle = Math.min(params.amount, customer.outstandingBalance);
+      const surplus = params.amount - debtToSettle;
+      nextCustomers = customers.map((c) =>
+        c.id === params.customerId
+          ? {
+              ...c,
+              outstandingBalance: Math.max(0, c.outstandingBalance - debtToSettle),
+              depositBalance: (c.depositBalance || 0) + surplus,
+            }
+          : c
+      );
+    }
+    setCustomers(nextCustomers);
+    localStorage.setItem(STORAGE_KEY_PREFIX + 'customers', JSON.stringify(nextCustomers));
 
-    setPayments((prev) => [newPayment, ...prev]);
+    const nextPayments = [newPayment, ...payments];
+    setPayments(nextPayments);
+    localStorage.setItem(STORAGE_KEY_PREFIX + 'payments', JSON.stringify(nextPayments));
 
-    // Record cash movement if cash session is active
+    // Record cash movement if cash session is active (or if Espèces)
     if (activeSession) {
       const isDrawerCash = params.method === 'ESPECES';
       const csmId = generateCashMovementId();
@@ -998,22 +1028,21 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         cashSessionId: activeSession.id,
         warehouseId: params.warehouseId,
         date: nowIso,
-        type: 'REGLEMENT_CREANCE',
+        type: isAcompte ? 'ACOMPTE_CLIENT' : 'REGLEMENT_CREANCE',
         method: params.method,
         amount: params.amount,
         isCashInDrawer: isDrawerCash,
         direction: 'IN',
-        reason: `Règlement créance ${customer.name} (${params.method})`,
+        reason: `${defaultReason} - ${params.method}`,
         customerId: customer.id,
         documentRef: paymentId,
         userId: currentUser.id,
         userName: currentUser.name,
-        notes: params.notes,
+        notes: params.notes?.trim(),
       };
 
       setCashMovements((prev) => [newCashMvt, ...prev]);
 
-      // If cash in drawer, increase theoreticalCash of session
       if (isDrawerCash) {
         setCashSessions((prev) =>
           prev.map((s) =>
@@ -1023,7 +1052,18 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     }
 
-    return { success: true };
+    return { success: true, payment: newPayment };
+  };
+
+  const recordCustomerDebtPayment = (params: {
+    customerId: string;
+    amount: number;
+    method: PaymentMethod;
+    warehouseId: string;
+    reference?: string;
+    notes?: string;
+  }) => {
+    return recordCustomerPayment({ ...params, type: 'REGLEMENT_CREANCE' });
   };
 
   // Cash Register Management
@@ -3347,6 +3387,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         cancelInventorySession,
         createCustomer,
         updateCustomer,
+        recordCustomerPayment,
         recordCustomerDebtPayment,
         recordSale,
         cancelOrRefundSale,

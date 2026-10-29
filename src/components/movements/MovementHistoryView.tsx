@@ -15,6 +15,7 @@ import {
   Building2,
   User,
   Info,
+  X,
 } from 'lucide-react';
 
 export const MovementHistoryView: React.FC = () => {
@@ -53,17 +54,44 @@ export const MovementHistoryView: React.FC = () => {
       // User filter
       if (selectedUserFilter !== 'ALL' && mvt.userId !== selectedUserFilter) return false;
 
-      // Search query (matches article ref, designation, documentRef, reason, thirdParty)
+      // Search query (strictly matches product code, OEM ref, designation, brand, equivalent, documentRef, reason, thirdParty)
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const art = getArticleById(mvt.articleId);
+        const matchArtId = mvt.articleId.toLowerCase().includes(q) || art?.id.toLowerCase().includes(q);
+        const matchArtRef = art?.mainReference.toLowerCase().includes(q);
+        const matchArtDesig = art?.designation.toLowerCase().includes(q);
+        const matchArtBrand = art?.brand?.toLowerCase().includes(q);
+        const matchCategory = art?.category?.toLowerCase().includes(q);
+        const matchBarcode = art?.barcode?.toLowerCase().includes(q);
+        const matchEquiv = art?.equivalentReferences?.some((eq) => eq.toLowerCase().includes(q));
+        const matchBrandOffer = art?.brandOffers?.some(
+          (bo) =>
+            bo.brand.toLowerCase().includes(q) ||
+            bo.brandReference?.toLowerCase().includes(q) ||
+            bo.barcode?.toLowerCase().includes(q)
+        );
         const matchDoc = mvt.documentRef.toLowerCase().includes(q);
         const matchReason = mvt.reason.toLowerCase().includes(q);
         const matchThird = mvt.thirdParty?.toLowerCase().includes(q);
-        const matchArtRef = art?.mainReference.toLowerCase().includes(q);
-        const matchArtDesig = art?.designation.toLowerCase().includes(q);
+        const matchUser = mvt.userName.toLowerCase().includes(q);
+        const matchNotes = mvt.notes?.toLowerCase().includes(q);
 
-        if (!matchDoc && !matchReason && !matchThird && !matchArtRef && !matchArtDesig) {
+        if (
+          !matchArtId &&
+          !matchArtRef &&
+          !matchArtDesig &&
+          !matchArtBrand &&
+          !matchCategory &&
+          !matchBarcode &&
+          !matchEquiv &&
+          !matchBrandOffer &&
+          !matchDoc &&
+          !matchReason &&
+          !matchThird &&
+          !matchUser &&
+          !matchNotes
+        ) {
           return false;
         }
       }
@@ -156,9 +184,18 @@ export const MovementHistoryView: React.FC = () => {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Recherche par n° document (BL, Facture, BS), référence pièce, client ou motif..."
-              className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+              placeholder="Recherche par code pièce (ex: 1R-0716, ART-001), désignation (ex: Filtre), marque, document (BL/Facture) ou tiers..."
+              className="w-full pl-9 pr-9 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
             />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded"
+                title="Effacer la recherche"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
 
           <button
@@ -280,6 +317,9 @@ export const MovementHistoryView: React.FC = () => {
               </p>
             </div>
           ) : (
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
                 <tr>
@@ -351,13 +391,18 @@ export const MovementHistoryView: React.FC = () => {
                       </td>
 
                       {/* Article & Ref */}
-                      <td className="py-3 px-3 max-w-[180px]">
+                      <td className="py-3 px-3 max-w-[200px]">
                         <span className="font-mono font-bold text-slate-900 block truncate">
                           {art?.mainReference || mvt.articleId}
                         </span>
                         <span className="text-[11px] text-slate-500 truncate block">
                           {art?.designation || ''}
                         </span>
+                        {art?.brand && (
+                          <span className="text-[10px] text-slate-400 font-medium">
+                            {art.brand}
+                          </span>
+                        )}
                       </td>
 
                       {/* Quantity */}
@@ -418,6 +463,92 @@ export const MovementHistoryView: React.FC = () => {
                 })}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="block md:hidden divide-y divide-slate-100">
+            {filteredMovements.map((mvt, idx) => {
+              const art = getArticleById(mvt.articleId);
+              const srcWh = mvt.sourceWarehouseId ? getWarehouseById(mvt.sourceWarehouseId) : null;
+              const tgtWh = mvt.targetWarehouseId ? getWarehouseById(mvt.targetWarehouseId) : null;
+
+              let badgeClass = 'bg-slate-100 text-slate-700';
+              let label: string = mvt.type;
+              let qtySign = '+';
+              let qtyColor = 'text-slate-900';
+
+              if (mvt.type === 'ENTREE') {
+                badgeClass = 'bg-emerald-100 text-emerald-800';
+                label = 'Entrée';
+                qtySign = '+';
+                qtyColor = 'text-emerald-700';
+              } else if (mvt.type === 'SORTIE') {
+                badgeClass = 'bg-rose-100 text-rose-800';
+                label = 'Sortie';
+                qtySign = '-';
+                qtyColor = 'text-rose-700';
+              } else if (mvt.type === 'TRANSFERT') {
+                badgeClass = 'bg-blue-100 text-blue-800';
+                label = 'Transfert';
+                qtySign = '↔';
+                qtyColor = 'text-blue-700';
+              } else if (mvt.type === 'AJUSTEMENT') {
+                badgeClass = 'bg-amber-100 text-amber-800';
+                label = 'Ajustement';
+                qtySign = '±';
+                qtyColor = 'text-amber-700';
+              }
+
+              return (
+                <div
+                  key={`mob-mvt-${mvt.id}-${idx}`}
+                  onClick={() => setSelectedMovementDetail(mvt)}
+                  className="p-3.5 space-y-2 hover:bg-slate-50 transition-colors active:bg-slate-100 cursor-pointer"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${badgeClass}`}>
+                      {label}
+                    </span>
+                    <span className="text-[11px] font-mono text-slate-500">
+                      {formatDateTime(mvt.date)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <span className="font-mono font-bold text-slate-900 block truncate text-sm">
+                        {art?.mainReference || mvt.articleId}
+                      </span>
+                      <p className="text-xs text-slate-600 line-clamp-1">
+                        {art?.designation || mvt.reason}
+                      </p>
+                      {art?.brand && (
+                        <span className="text-[10px] text-slate-400 font-medium">
+                          Marque : {art.brand}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-right whitespace-nowrap">
+                      <span className={`font-mono font-bold text-base ${qtyColor}`}>
+                        {qtySign} {mvt.quantity}
+                      </span>
+                      <span className="text-[10px] text-slate-400 block">{art?.unit || 'U'}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1 text-[11px] text-slate-500 border-t border-slate-100">
+                    <span className="font-mono text-slate-600">Doc: {mvt.documentRef}</span>
+                    <span>
+                      {mvt.type === 'TRANSFERT'
+                        ? `${srcWh?.code} ➔ ${tgtWh?.code}`
+                        : (tgtWh?.name || srcWh?.name || '-')}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+            </>
           )}
         </div>
 

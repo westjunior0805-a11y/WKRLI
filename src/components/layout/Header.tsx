@@ -7,13 +7,14 @@ import {
   ArrowLeftRight,
   AlertTriangle,
   Menu,
-  ShoppingCart,
   LogIn,
   LogOut,
   ShieldCheck,
   ChevronDown,
   Layers,
-  UserCheck,
+  Sun,
+  Moon,
+  KeyRound,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -23,17 +24,22 @@ interface HeaderProps {
   onOpenNewSale?: () => void;
   onToggleSidebarMobile: () => void;
   onOpenAuth?: () => void;
+  onOpenLogin?: () => void;
   activeView: string;
+  theme?: 'light' | 'dark';
+  onToggleTheme?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   onOpenStockIn,
   onOpenStockOut,
   onOpenTransfer,
-  onOpenNewSale,
   onToggleSidebarMobile,
   onOpenAuth,
+  onOpenLogin,
   activeView,
+  theme = 'light',
+  onToggleTheme,
 }) => {
   const {
     currentUser,
@@ -124,19 +130,19 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-30 bg-white border-b border-slate-200/80 px-4 sm:px-6 py-2.5">
-      <div className="flex items-center justify-between gap-4">
+    <header className="sticky top-0 z-30 bg-white border-b border-slate-200/80 px-3 sm:px-6 py-2.5">
+      <div className="flex items-center justify-between gap-3">
         {/* Left: Mobile hamburger + View Title */}
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-2.5 min-w-0">
           <button
             onClick={onToggleSidebarMobile}
-            className="lg:hidden p-2 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors"
+            className="lg:hidden p-2 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors shrink-0"
             aria-label="Ouvrir le menu"
           >
             <Menu className="w-5 h-5" />
           </button>
           <div className="min-w-0">
-            <h1 className="text-base font-bold text-slate-900 tracking-tight truncate">
+            <h1 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight truncate">
               {getViewTitle()}
             </h1>
             <div className="hidden sm:flex items-center gap-2 text-xs text-slate-400">
@@ -148,16 +154,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Right Zone: Clean controls with strict visual hierarchy */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          {/* Subtle Cloud Sync Status */}
-          <div
-            className="hidden lg:flex items-center gap-2 px-2.5 py-1 text-xs text-slate-600 bg-slate-50 border border-slate-200/70 rounded-lg"
-            title="Synchronisation temps réel Firestore activée (fair-ability-gc70r)"
-          >
-            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-            <span className="font-medium text-slate-700">Cloud actif</span>
-          </div>
-
+        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
           {/* Warehouse Selector */}
           <div className="relative flex items-center">
             <Building2 className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 pointer-events-none" />
@@ -167,7 +164,7 @@ export const Header: React.FC<HeaderProps> = ({
                 setSelectedWarehouseId(e.target.value === 'ALL' ? null : e.target.value)
               }
               disabled={currentUser.role === 'MAGASINIER' && !!currentUser.assignedWarehouseId}
-              className="text-xs pl-8 pr-7 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-colors disabled:opacity-75 disabled:cursor-not-allowed cursor-pointer"
+              className="text-xs pl-8 pr-6 sm:pr-7 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-colors disabled:opacity-75 disabled:cursor-not-allowed cursor-pointer max-w-[130px] sm:max-w-none truncate"
               title="Filtrer la vue par magasin"
             >
               <option value="ALL">Tous les magasins</option>
@@ -179,85 +176,86 @@ export const Header: React.FC<HeaderProps> = ({
             </select>
           </div>
 
-          {/* Actions Group */}
-          <div className="flex items-center gap-1.5 border-l border-slate-200 pl-2 sm:pl-3">
-            {/* Unified Stock Operations Dropdown */}
-            <div className="relative" ref={stockMenuRef}>
-              <button
-                type="button"
-                onClick={() => setIsStockMenuOpen((prev) => !prev)}
-                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors whitespace-nowrap"
-                title="Effectuer une entrée, une sortie ou un transfert"
-              >
-                <Layers className="w-3.5 h-3.5 text-slate-500" />
-                <span>Mouvements</span>
-                <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${isStockMenuOpen ? 'rotate-180' : ''}`} />
-              </button>
+          {/* Unified Stock Operations Dropdown */}
+          <div className="relative" ref={stockMenuRef}>
+            <button
+              type="button"
+              onClick={() => setIsStockMenuOpen((prev) => !prev)}
+              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors whitespace-nowrap"
+              title="Effectuer une entrée, une sortie ou un transfert"
+            >
+              <Layers className="w-3.5 h-3.5 text-slate-500" />
+              <span className="hidden sm:inline">Mouvements</span>
+              <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${isStockMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
 
-              {isStockMenuOpen && (
-                <div className="absolute right-0 mt-1.5 w-56 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-50 text-xs">
-                  <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 border-b border-slate-100">
-                    Actions Stock
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsStockMenuOpen(false);
-                      onOpenStockIn();
-                    }}
-                    className="w-full text-left px-3 py-2 flex items-center gap-2.5 hover:bg-slate-50 text-slate-800 transition-colors"
-                  >
-                    <ArrowDownLeft className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <div>
-                      <div className="font-semibold">Entrée de pièces</div>
-                      <div className="text-[11px] text-slate-500">Réception fournisseur / bon d'entrée</div>
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsStockMenuOpen(false);
-                      onOpenStockOut();
-                    }}
-                    className="w-full text-left px-3 py-2 flex items-center gap-2.5 hover:bg-slate-50 text-slate-800 transition-colors"
-                  >
-                    <ArrowUpRight className="w-4 h-4 text-rose-600 shrink-0" />
-                    <div>
-                      <div className="font-semibold">Sortie de pièces</div>
-                      <div className="text-[11px] text-slate-500">Livraison chantier / consommation atelier</div>
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsStockMenuOpen(false);
-                      onOpenTransfer();
-                    }}
-                    className="w-full text-left px-3 py-2 flex items-center gap-2.5 hover:bg-slate-50 text-slate-800 transition-colors"
-                  >
-                    <ArrowLeftRight className="w-4 h-4 text-amber-600 shrink-0" />
-                    <div>
-                      <div className="font-semibold">Transfert inter-dépôts</div>
-                      <div className="text-[11px] text-slate-500">Déplacement Dakar, Thiès, Kédougou</div>
-                    </div>
-                  </button>
+            {isStockMenuOpen && (
+              <div className="absolute right-0 mt-1.5 w-56 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-50 text-xs">
+                <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                  Actions Stock
                 </div>
-              )}
-            </div>
-
-            {/* Singular High-Intent Primary CTA */}
-            {onOpenNewSale && (
-              <button
-                type="button"
-                onClick={onOpenNewSale}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 border border-amber-500/30 rounded-lg shadow-xs transition-colors whitespace-nowrap"
-                title="Accéder au terminal de vente rapide"
-              >
-                <ShoppingCart className="w-3.5 h-3.5 text-slate-950" />
-                <span>+ Vente Comptoir</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsStockMenuOpen(false);
+                    onOpenStockIn();
+                  }}
+                  className="w-full text-left px-3 py-2 flex items-center gap-2.5 hover:bg-slate-50 text-slate-800 transition-colors"
+                >
+                  <ArrowDownLeft className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <div>
+                    <div className="font-semibold">Entrée de pièces</div>
+                    <div className="text-[11px] text-slate-500">Réception / bon d'entrée</div>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsStockMenuOpen(false);
+                    onOpenStockOut();
+                  }}
+                  className="w-full text-left px-3 py-2 flex items-center gap-2.5 hover:bg-slate-50 text-slate-800 transition-colors"
+                >
+                  <ArrowUpRight className="w-4 h-4 text-rose-600 shrink-0" />
+                  <div>
+                    <div className="font-semibold">Sortie de pièces</div>
+                    <div className="text-[11px] text-slate-500">Livraison / consommation</div>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsStockMenuOpen(false);
+                    onOpenTransfer();
+                  }}
+                  className="w-full text-left px-3 py-2 flex items-center gap-2.5 hover:bg-slate-50 text-slate-800 transition-colors"
+                >
+                  <ArrowLeftRight className="w-4 h-4 text-amber-600 shrink-0" />
+                  <div>
+                    <div className="font-semibold">Transfert inter-dépôts</div>
+                    <div className="text-[11px] text-slate-500">Déplacement Dakar, Thiès, Kédougou</div>
+                  </div>
+                </button>
+              </div>
             )}
           </div>
+
+          {/* Theme Selection Button */}
+          {onToggleTheme && (
+            <button
+              type="button"
+              onClick={onToggleTheme}
+              className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200"
+              title={theme === 'dark' ? 'Passer en thème clair' : 'Passer en thème sombre'}
+              aria-label="Changer de thème"
+            >
+              {theme === 'dark' ? (
+                <Sun className="w-4 h-4 text-amber-400" />
+              ) : (
+                <Moon className="w-4 h-4 text-slate-600" />
+              )}
+            </button>
+          )}
 
           {/* Stock Rupture Alert Pill (if any) */}
           {criticalCount > 0 && (
@@ -271,7 +269,7 @@ export const Header: React.FC<HeaderProps> = ({
           )}
 
           {/* Refined Operator / User Trigger with Popover */}
-          <div className="relative border-l border-slate-200 pl-2 sm:pl-3" ref={userMenuRef}>
+          <div className="relative border-l border-slate-200 pl-2 sm:pl-2.5" ref={userMenuRef}>
             <button
               type="button"
               onClick={() => setIsUserMenuOpen((prev) => !prev)}
@@ -289,9 +287,6 @@ export const Header: React.FC<HeaderProps> = ({
                   <div className="w-7 h-7 rounded-md bg-slate-900 text-amber-400 font-bold text-xs flex items-center justify-center">
                     {currentUser.name.charAt(0)}
                   </div>
-                )}
-                {firebaseUser && (
-                  <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-emerald-500 border-2 border-white rounded-full" />
                 )}
               </div>
               <div className="hidden md:flex flex-col text-left">
@@ -314,8 +309,9 @@ export const Header: React.FC<HeaderProps> = ({
                     <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700">
                       {currentUser.role}
                     </span>
-                    <span>·</span>
-                    <span>{firebaseUser ? 'Google Cloud' : 'Session locale'}</span>
+                    {currentUser.email && (
+                      <span className="truncate max-w-[150px]">{currentUser.email}</span>
+                    )}
                   </div>
                 </div>
 
@@ -353,12 +349,27 @@ export const Header: React.FC<HeaderProps> = ({
                         setIsUserMenuOpen(false);
                         onOpenAuth();
                       }}
-                      className="w-full text-left px-3 py-1.5 flex items-center gap-2 text-slate-700 hover:bg-slate-50 transition-colors"
+                      className="w-full text-left px-3 py-1.5 flex items-center gap-2 text-slate-700 hover:bg-slate-50 transition-colors font-medium"
                     >
-                      <ShieldCheck className="w-3.5 h-3.5 text-slate-500" />
-                      <span>{firebaseUser ? 'Gérer les authentifications' : 'Se connecter (Google / Cloud)'}</span>
+                      <ShieldCheck className="w-3.5 h-3.5 text-slate-600" />
+                      <span>Gérer les accès & autorisations</span>
                     </button>
                   )}
+
+                  {onOpenLogin && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        onOpenLogin();
+                      }}
+                      className="w-full text-left px-3 py-1.5 flex items-center gap-2 text-slate-700 hover:bg-slate-50 transition-colors"
+                    >
+                      <LogIn className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Portail de connexion</span>
+                    </button>
+                  )}
+
                   {firebaseUser && (
                     <button
                       type="button"
@@ -369,7 +380,7 @@ export const Header: React.FC<HeaderProps> = ({
                       className="w-full text-left px-3 py-1.5 flex items-center gap-2 text-rose-600 hover:bg-rose-50 transition-colors"
                     >
                       <LogOut className="w-3.5 h-3.5 text-rose-600" />
-                      <span>Déconnexion Google</span>
+                      <span>Fermer la session</span>
                     </button>
                   )}
                 </div>
@@ -381,4 +392,5 @@ export const Header: React.FC<HeaderProps> = ({
     </header>
   );
 };
+
 

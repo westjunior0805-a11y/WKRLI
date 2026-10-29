@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StockProvider, useStock } from './context/StockContext';
 import { Header } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
@@ -112,6 +112,24 @@ function AppContent() {
     }
   };
 
+  // Theme state: light or dark
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    return (localStorage.getItem('equipstock_theme') as 'light' | 'dark') || 'light';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('equipstock_theme', theme);
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
+  };
+
   // If user is not authenticated via Firebase and has not bypassed the login screen, show LoginView portal
   if (!firebaseUser && showAuthGate) {
     return (
@@ -126,7 +144,7 @@ function AppContent() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100/70 flex flex-col antialiased">
+    <div className={`min-h-screen flex flex-col antialiased transition-colors ${theme === 'dark' ? 'bg-slate-900 text-slate-100' : 'bg-slate-100/70 text-slate-900'}`}>
       <div className="flex-1 flex w-full">
         {/* Sidebar */}
         <Sidebar
@@ -151,10 +169,13 @@ function AppContent() {
             onOpenStockOut={() => handleOpenStockOut()}
             onOpenTransfer={() => handleOpenTransfer()}
             onOpenNewSale={() => setActiveView('new_sale')}
-            onOpenAuth={() => setShowAuthGate(true)}
+            onOpenAuth={() => setActiveView('auth_management')}
+            onOpenLogin={() => setShowAuthGate(true)}
+            theme={theme}
+            onToggleTheme={toggleTheme}
           />
 
-          <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+          <main className="flex-1 p-3 sm:p-5 lg:p-7 max-w-7xl w-full mx-auto">
             {activeView === 'dashboard' && (
               <DashboardView
                 onNavigateToCatalog={() => setActiveView('catalog')}

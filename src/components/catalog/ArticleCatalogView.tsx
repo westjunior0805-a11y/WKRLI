@@ -678,35 +678,262 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
               )}
             </div>
           ) : (
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
-                <tr>
-                  <th className="py-3 px-3 w-10 text-center">
-                    <input
-                      type="checkbox"
-                      checked={isAllSelected}
-                      ref={(input) => {
-                        if (input) {
-                          input.indeterminate = isSomeSelected;
-                        }
-                      }}
-                      onChange={toggleSelectAll}
-                      className="w-4 h-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
-                      title="Sélectionner ou désélectionner tous les produits affichés"
-                    />
-                  </th>
-                  <th className="py-3 px-3">Réf. Pivot & Marques</th>
-                  <th className="py-3 px-3">Désignation & Catégorie</th>
-                  <th className="py-3 px-3">Équivalences Cross-Ref</th>
-                  <th className="py-3 px-3 text-right">Stock Dispo</th>
-                  <th className="py-3 px-3 text-right">Seuil Min</th>
-                  <th className="py-3 px-3 text-right">Prix Achat</th>
-                  <th className="py-3 px-3 text-right">Prix Vente</th>
-                  <th className="py-3 px-3 text-center">Statut</th>
-                  <th className="py-3 px-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
+            <>
+              {/* Desktop & Tablet Table (No horizontal scrollbar) */}
+              <table className="hidden md:table w-full text-left text-xs">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
+                  <tr>
+                    <th className="py-2.5 px-3 w-8 text-center">
+                      <input
+                        type="checkbox"
+                        checked={isAllSelected}
+                        ref={(input) => {
+                          if (input) {
+                            input.indeterminate = isSomeSelected;
+                          }
+                        }}
+                        onChange={toggleSelectAll}
+                        className="w-4 h-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                        title="Sélectionner ou désélectionner tous les produits affichés"
+                      />
+                    </th>
+                    <th className="py-2.5 px-3">Pièce & Réf. Constructeur</th>
+                    <th className="py-2.5 px-3">Catégorie & Équivalences</th>
+                    <th className="py-2.5 px-3 text-right">Stock & Seuil</th>
+                    <th className="py-2.5 px-3 text-right">Tarifs (Vente / Achat)</th>
+                    <th className="py-2.5 px-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {sortedArticles.map((article, idx) => {
+                    const currentStock = selectedWarehouseId
+                      ? getStockForArticleAndWarehouse(article.id, selectedWarehouseId)
+                      : getTotalStockForArticle(article.id);
+
+                    const isOutOfStock = currentStock === 0;
+                    const isLowStock = currentStock > 0 && currentStock <= article.minStockThreshold;
+                    const isSelected = selectedArticleIds.includes(article.id);
+
+                    return (
+                      <tr
+                        key={`${article.id}-${idx}`}
+                        className={`hover:bg-slate-50/80 transition-colors cursor-pointer group ${
+                          isSelected ? 'bg-amber-50/40' : ''
+                        }`}
+                        onClick={() => setViewingArticle(article)}
+                      >
+                        {/* Checkbox */}
+                        <td
+                          className="py-2.5 px-3 text-center w-8"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => toggleSelectArticle(article.id, e as any)}
+                            className="w-4 h-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                            aria-label={`Sélectionner ${article.mainReference}`}
+                          />
+                        </td>
+
+                        {/* Article Reference & Designation */}
+                        <td className="py-2.5 px-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
+                              {article.imageUrl ? (
+                                <img
+                                  src={article.imageUrl}
+                                  alt={article.mainReference}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <ImageIcon className="w-4 h-4 text-slate-300" />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-mono font-bold text-slate-900 group-hover:text-amber-600 transition-colors">
+                                  {article.mainReference}
+                                </span>
+                                <span className="text-[11px] text-slate-700 font-semibold">
+                                  · {article.brand}
+                                </span>
+                                {article.brandOffers && article.brandOffers.length > 1 && (
+                                  <span
+                                    className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-amber-100 text-amber-900"
+                                    title={article.brandOffers.map((b) => `${b.brand} (${b.salePrice.toLocaleString()} F)`).join(' • ')}
+                                  >
+                                    +{article.brandOffers.length - 1} marq.
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-xs text-slate-600 truncate max-w-sm font-medium" title={article.designation}>
+                                {article.designation}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Category & Cross-references */}
+                        <td className="py-2.5 px-3">
+                          <div className="text-slate-800 font-medium truncate max-w-[200px]">
+                            {article.category}
+                          </div>
+                          {article.equivalentReferences && article.equivalentReferences.length > 0 ? (
+                            <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                              {article.equivalentReferences.slice(0, 2).map((eq, i) => (
+                                <span
+                                  key={i}
+                                  className="px-1.5 py-0.2 bg-slate-100 text-slate-700 font-mono text-[10px] rounded"
+                                >
+                                  {eq}
+                                </span>
+                              ))}
+                              {article.equivalentReferences.length > 2 && (
+                                <span className="text-[10px] text-slate-400 font-mono">
+                                  +{article.equivalentReferences.length - 2}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-slate-400">Aucune équivalence</span>
+                          )}
+                        </td>
+
+                        {/* Available Stock & Status */}
+                        <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                          <div className="flex items-baseline justify-end gap-1">
+                            <span
+                              className={`font-mono font-bold text-sm tabular-nums ${
+                                isOutOfStock
+                                  ? 'text-rose-600'
+                                  : isLowStock
+                                  ? 'text-amber-600'
+                                  : 'text-slate-900'
+                              }`}
+                            >
+                              {currentStock}
+                            </span>
+                            <span className="text-[10px] text-slate-400">{article.unit}</span>
+                          </div>
+                          <div className="flex items-center justify-end gap-1.5 mt-0.5">
+                            {isOutOfStock ? (
+                              <span className="text-[10px] font-semibold text-rose-600">Rupture</span>
+                            ) : isLowStock ? (
+                              <span className="text-[10px] font-semibold text-amber-600">Sous seuil</span>
+                            ) : (
+                              <span className="text-[10px] font-semibold text-emerald-600">En stock</span>
+                            )}
+                            <span className="text-[10px] text-slate-400 font-mono">· Min: {article.minStockThreshold}</span>
+                          </div>
+                        </td>
+
+                        {/* Pricing (Sale / Purchase) */}
+                        <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                          <div className="font-mono font-bold text-emerald-700 tabular-nums text-xs">
+                            {formatSalePriceRange(article)}
+                          </div>
+                          <div className="text-[11px] font-mono text-slate-400 tabular-nums">
+                            Achat : {formatPurchasePriceRange(article)}
+                          </div>
+                        </td>
+
+                        {/* Actions */}
+                        <td
+                          className="py-2.5 px-3 text-right whitespace-nowrap"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="relative inline-flex items-center justify-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingArticle(article);
+                                setIsFormOpen(true);
+                              }}
+                              className="px-2.5 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 hover:text-slate-900 rounded-md transition-colors"
+                              title="Modifier la pièce"
+                            >
+                              Modifier
+                            </button>
+                            
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveActionMenuArticleId(
+                                  activeActionMenuArticleId === article.id ? null : article.id
+                                );
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-md transition-colors"
+                              title="Plus d'actions"
+                              aria-label="Plus d'actions"
+                            >
+                              <MoreHorizontal className="w-4 h-4" />
+                            </button>
+
+                            {/* Row Context Dropdown */}
+                            {activeActionMenuArticleId === article.id && (
+                              <div
+                                className="absolute right-0 top-full mt-1 w-48 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-30 text-xs text-left"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveActionMenuArticleId(null);
+                                    setViewingArticle(article);
+                                  }}
+                                  className="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-slate-50 text-slate-700 transition-colors"
+                                >
+                                  <Eye className="w-3.5 h-3.5 text-slate-400" />
+                                  <span>Voir la fiche</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveActionMenuArticleId(null);
+                                    onOpenStockIn(article.id);
+                                  }}
+                                  className="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-slate-50 text-emerald-700 transition-colors"
+                                >
+                                  <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-600" />
+                                  <span>Entrée de stock (+)</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveActionMenuArticleId(null);
+                                    onOpenStockOut(article.id);
+                                  }}
+                                  className="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-slate-50 text-rose-700 transition-colors"
+                                >
+                                  <ArrowUpRight className="w-3.5 h-3.5 text-rose-600" />
+                                  <span>Sortie de stock (-)</span>
+                                </button>
+                                <div className="my-1 border-t border-slate-100" />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveActionMenuArticleId(null);
+                                    setArticleToDelete(article);
+                                  }}
+                                  className="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-rose-50 text-rose-600 transition-colors"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                                  <span>Archiver / Supprimer</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+
+              {/* Mobile Card List View (< 768px, perfect responsiveness, zero scrollbar) */}
+              <div className="md:hidden divide-y divide-slate-100">
                 {sortedArticles.map((article, idx) => {
                   const currentStock = selectedWarehouseId
                     ? getStockForArticleAndWarehouse(article.id, selectedWarehouseId)
@@ -717,239 +944,90 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
                   const isSelected = selectedArticleIds.includes(article.id);
 
                   return (
-                    <tr
-                      key={`${article.id}-${idx}`}
-                      className={`hover:bg-slate-50/80 transition-colors cursor-pointer group ${
-                        isSelected ? 'bg-amber-50/40' : ''
+                    <div
+                      key={`mob-${article.id}-${idx}`}
+                      className={`p-3.5 space-y-2.5 transition-colors cursor-pointer ${
+                        isSelected ? 'bg-amber-50/50' : 'hover:bg-slate-50'
                       }`}
                       onClick={() => setViewingArticle(article)}
                     >
-                      {/* Checkbox */}
-                      <td
-                        className="py-3 px-3 text-center w-10"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={(e) => toggleSelectArticle(article.id, e as any)}
-                          className="w-4 h-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
-                          aria-label={`Sélectionner ${article.mainReference}`}
-                        />
-                      </td>
-
-                      {/* Main Reference & Brands */}
-                      <td className="py-3 px-3 whitespace-nowrap">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
-                            {article.imageUrl ? (
-                              <img
-                                src={article.imageUrl}
-                                alt={article.mainReference}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <ImageIcon className="w-4 h-4 text-slate-300" />
-                            )}
-                          </div>
-                          <div>
-                            <div className="font-mono font-bold text-slate-900 group-hover:text-amber-600 transition-colors">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => toggleSelectArticle(article.id, e as any)}
+                            className="w-4 h-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500 cursor-pointer shrink-0"
+                            aria-label={`Sélectionner ${article.mainReference}`}
+                          />
+                          <div className="min-w-0">
+                            <span className="font-mono font-bold text-sm text-slate-900 block truncate">
                               {article.mainReference}
-                            </div>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              <span className="text-[11px] text-slate-700 font-semibold">
-                                {article.brand}
-                              </span>
-                              {article.brandOffers && article.brandOffers.length > 1 && (
-                                <span
-                                  className="px-1.5 py-0.5 bg-amber-100 text-amber-900 text-[10px] font-semibold rounded"
-                                  title={article.brandOffers.map((b) => `${b.brand} (${b.salePrice.toLocaleString()} F)`).join(' • ')}
-                                >
-                                  +{article.brandOffers.length - 1} marque{article.brandOffers.length > 2 ? 's' : ''}
-                                </span>
-                              )}
-                            </div>
+                            </span>
+                            <span className="text-xs text-slate-500 truncate block">
+                              {article.brand} · {article.category}
+                            </span>
                           </div>
                         </div>
-                      </td>
 
-                      {/* Designation & Category */}
-                      <td className="py-3 px-3 max-w-xs">
-                        <div className="font-medium text-slate-800 truncate" title={article.designation}>
-                          {article.designation}
+                        {/* Stock status badge */}
+                        <div className="text-right shrink-0">
+                          <span
+                            className={`font-mono font-bold text-sm tabular-nums ${
+                              isOutOfStock ? 'text-rose-600' : isLowStock ? 'text-amber-600' : 'text-slate-900'
+                            }`}
+                          >
+                            {currentStock} {article.unit}
+                          </span>
+                          <span className="block text-[10px] text-slate-400">
+                            {isOutOfStock ? 'Rupture' : isLowStock ? 'Sous seuil' : 'En stock'}
+                          </span>
                         </div>
-                        <div className="text-[11px] text-slate-500 truncate">
-                          {article.category}
+                      </div>
+
+                      <div className="text-xs text-slate-700 font-medium line-clamp-2">
+                        {article.designation}
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs">
+                        <div className="font-mono font-bold text-emerald-700 tabular-nums">
+                          {formatSalePriceRange(article)}
                         </div>
-                      </td>
-
-                      {/* Equivalences Cross-Ref */}
-                      <td className="py-3 px-3 max-w-[200px]">
-                        {article.equivalentReferences && article.equivalentReferences.length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
-                            {article.equivalentReferences.slice(0, 2).map((eq, i) => (
-                              <span
-                                key={i}
-                                className="px-1.5 py-0.5 bg-slate-100 text-slate-700 font-mono text-[10px] rounded"
-                              >
-                                {eq}
-                              </span>
-                            ))}
-                            {article.equivalentReferences.length > 2 && (
-                              <span className="text-[10px] text-slate-400 font-mono">
-                                +{article.equivalentReferences.length - 2}
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-slate-400 text-[11px]">-</span>
-                        )}
-                      </td>
-
-                      {/* Available Stock */}
-                      <td className="py-3 px-3 text-right whitespace-nowrap">
-                        <span
-                          className={`font-mono font-bold text-sm tabular-nums ${
-                            isOutOfStock
-                              ? 'text-rose-600'
-                              : isLowStock
-                              ? 'text-amber-600'
-                              : 'text-slate-900'
-                          }`}
-                        >
-                          {currentStock}
-                        </span>
-                        <span className="text-[10px] text-slate-400 ml-1">{article.unit}</span>
-                      </td>
-
-                      {/* Threshold */}
-                      <td className="py-3 px-3 text-right font-mono text-slate-500 tabular-nums whitespace-nowrap">
-                        {article.minStockThreshold}
-                      </td>
-
-                      {/* Purchase Price */}
-                      <td className="py-3 px-3 text-right font-mono text-slate-700 tabular-nums whitespace-nowrap">
-                        {formatPurchasePriceRange(article)}
-                      </td>
-
-                      {/* Sale Price */}
-                      <td className="py-3 px-3 text-right font-mono font-semibold text-emerald-700 tabular-nums whitespace-nowrap">
-                        {formatSalePriceRange(article)}
-                      </td>
-
-                      {/* Status */}
-                      <td className="py-3 px-3 text-center whitespace-nowrap">
-                        {isOutOfStock ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-100 text-rose-700">
-                            <AlertCircle className="w-3 h-3" />
-                            Rupture
-                          </span>
-                        ) : isLowStock ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800">
-                            <AlertTriangle className="w-3 h-3" />
-                            Sous seuil
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800">
-                            <CheckCircle2 className="w-3 h-3" />
-                            Normal
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Actions */}
-                      <td
-                        className="py-2.5 px-3 text-right whitespace-nowrap"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div className="relative inline-flex items-center justify-end gap-1">
+                        <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                           <button
                             type="button"
                             onClick={() => {
                               setEditingArticle(article);
                               setIsFormOpen(true);
                             }}
-                            className="px-2.5 py-1 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 hover:text-slate-900 rounded-md transition-colors"
-                            title="Modifier l'article"
+                            className="px-2.5 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md"
                           >
                             Modifier
                           </button>
-                          
                           <button
                             type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveActionMenuArticleId(
-                                activeActionMenuArticleId === article.id ? null : article.id
-                              );
-                            }}
-                            className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-md transition-colors"
-                            title="Plus d'actions"
-                            aria-label="Plus d'actions"
+                            onClick={() => onOpenStockIn(article.id)}
+                            className="p-1 text-emerald-700 hover:bg-emerald-50 rounded-md"
+                            title="Entrée en stock"
                           >
-                            <MoreHorizontal className="w-4 h-4" />
+                            <ArrowDownLeft className="w-4 h-4" />
                           </button>
-
-                          {/* Row Context Dropdown */}
-                          {activeActionMenuArticleId === article.id && (
-                            <div
-                              className="absolute right-0 top-full mt-1 w-48 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-30 text-xs text-left"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setActiveActionMenuArticleId(null);
-                                  setViewingArticle(article);
-                                }}
-                                className="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-slate-50 text-slate-700 transition-colors"
-                              >
-                                <Eye className="w-3.5 h-3.5 text-slate-400" />
-                                <span>Voir la fiche</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setActiveActionMenuArticleId(null);
-                                  onOpenStockIn(article.id);
-                                }}
-                                className="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-slate-50 text-emerald-700 transition-colors"
-                              >
-                                <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-600" />
-                                <span>Entrée de stock (+)</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setActiveActionMenuArticleId(null);
-                                  onOpenStockOut(article.id);
-                                }}
-                                className="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-slate-50 text-rose-700 transition-colors"
-                              >
-                                <ArrowUpRight className="w-3.5 h-3.5 text-rose-600" />
-                                <span>Sortie de stock (-)</span>
-                              </button>
-                              <div className="my-1 border-t border-slate-100" />
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setActiveActionMenuArticleId(null);
-                                  setArticleToDelete(article);
-                                }}
-                                className="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-rose-50 text-rose-600 transition-colors"
-                              >
-                                <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-                                <span>Archiver / Supprimer</span>
-                              </button>
-                            </div>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => onOpenStockOut(article.id)}
+                            className="p-1 text-rose-700 hover:bg-rose-50 rounded-md"
+                            title="Sortie de stock"
+                          >
+                            <ArrowUpRight className="w-4 h-4" />
+                          </button>
                         </div>
-                      </td>
-                    </tr>
+                      </div>
+                    </div>
                   );
                 })}
-              </tbody>
-            </table>
+              </div>
+            </>
           )}
         </div>
 
