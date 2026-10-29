@@ -54,6 +54,24 @@ import {
   saveUserToFirebase,
   deleteUserFromFirebase,
   downloadUsersFromFirebase,
+  subscribeToCollection,
+  saveArticleToFirebase,
+  deleteArticleFromFirebase,
+  saveStockToFirebase,
+  saveMultipleStocksToFirebase,
+  saveMovementToFirebase,
+  saveWarehouseToFirebase,
+  deleteWarehouseFromFirebase,
+  saveCustomerToFirebase,
+  deleteCustomerFromFirebase,
+  saveSaleToFirebase,
+  savePaymentToFirebase,
+  saveCashSessionToFirebase,
+  saveCashMovementToFirebase,
+  saveSupplierToFirebase,
+  saveSupplierOrderToFirebase,
+  saveQuoteToFirebase,
+  saveInventoryToFirebase,
 } from '../services/firebaseSync';
 import {
   onAuthChanged,
@@ -325,6 +343,9 @@ interface StockContextType {
   clearAllData: (options?: { keepWarehouses?: boolean }) => Promise<void>;
   exportDatabaseJson: () => void;
   loadDataFromCloud: (cloudData: any) => void;
+  refreshFromCloud: () => Promise<{ success: boolean; message: string }>;
+  isSyncing: boolean;
+  lastCloudSync: Date | null;
 }
 
 const StockContext = createContext<StockContextType | undefined>(undefined);
@@ -571,16 +592,97 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, []);
 
-  // Automatic startup hydration from Google Cloud Firestore
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [lastCloudSync, setLastCloudSync] = useState<Date | null>(null);
+
+  // Manual or on-demand full refresh from Google Cloud Firestore
+  const refreshFromCloud = async (): Promise<{ success: boolean; message: string }> => {
+    setIsSyncing(true);
+    try {
+      const cloudData = await downloadAllFromFirebase();
+      let importedCount = 0;
+
+      if (cloudData.articles && cloudData.articles.length > 0) {
+        setArticles(sanitizeUniqueList(cloudData.articles));
+        localStorage.setItem(STORAGE_KEY_PREFIX + 'articles', JSON.stringify(cloudData.articles));
+        importedCount += cloudData.articles.length;
+      }
+      if (cloudData.stocks && cloudData.stocks.length > 0) {
+        setStocks(cloudData.stocks);
+        localStorage.setItem(STORAGE_KEY_PREFIX + 'stocks', JSON.stringify(cloudData.stocks));
+      }
+      if (cloudData.movements && cloudData.movements.length > 0) {
+        const sorted = [...cloudData.movements].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        setMovements(sanitizeUniqueList(sorted));
+        localStorage.setItem(STORAGE_KEY_PREFIX + 'movements', JSON.stringify(sorted));
+      }
+      if (cloudData.warehouses && cloudData.warehouses.length > 0) {
+        setWarehouses(sanitizeUniqueList(cloudData.warehouses));
+        localStorage.setItem(STORAGE_KEY_PREFIX + 'warehouses', JSON.stringify(cloudData.warehouses));
+      }
+      if (cloudData.sales && cloudData.sales.length > 0) {
+        const sorted = [...cloudData.sales].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        setSales(sanitizeUniqueList(sorted));
+        localStorage.setItem(STORAGE_KEY_PREFIX + 'sales', JSON.stringify(sorted));
+      }
+      if (cloudData.payments && cloudData.payments.length > 0) {
+        setPayments(sanitizeUniqueList(cloudData.payments));
+        localStorage.setItem(STORAGE_KEY_PREFIX + 'payments', JSON.stringify(cloudData.payments));
+      }
+      if (cloudData.customers && cloudData.customers.length > 0) {
+        setCustomers(sanitizeUniqueList(cloudData.customers));
+        localStorage.setItem(STORAGE_KEY_PREFIX + 'customers', JSON.stringify(cloudData.customers));
+      }
+      if (cloudData.cashSessions && cloudData.cashSessions.length > 0) {
+        setCashSessions(sanitizeUniqueList(cloudData.cashSessions));
+        localStorage.setItem(STORAGE_KEY_PREFIX + 'cash_sessions', JSON.stringify(cloudData.cashSessions));
+      }
+      if (cloudData.cashMovements && cloudData.cashMovements.length > 0) {
+        setCashMovements(sanitizeUniqueList(cloudData.cashMovements));
+        localStorage.setItem(STORAGE_KEY_PREFIX + 'cash_movements', JSON.stringify(cloudData.cashMovements));
+      }
+      if (cloudData.suppliers && cloudData.suppliers.length > 0) {
+        setSuppliers(sanitizeUniqueList(cloudData.suppliers));
+        localStorage.setItem(STORAGE_KEY_PREFIX + 'suppliers', JSON.stringify(cloudData.suppliers));
+      }
+      if (cloudData.supplierOrders && cloudData.supplierOrders.length > 0) {
+        setSupplierOrders(sanitizeUniqueList(cloudData.supplierOrders));
+        localStorage.setItem(STORAGE_KEY_PREFIX + 'supplier_orders', JSON.stringify(cloudData.supplierOrders));
+      }
+      if (cloudData.quotes && cloudData.quotes.length > 0) {
+        setQuotes(sanitizeUniqueList(cloudData.quotes));
+        localStorage.setItem(STORAGE_KEY_PREFIX + 'quotes', JSON.stringify(cloudData.quotes));
+      }
+      if (cloudData.inventories && cloudData.inventories.length > 0) {
+        setInventories(sanitizeUniqueList(cloudData.inventories));
+        localStorage.setItem(STORAGE_KEY_PREFIX + 'inventories', JSON.stringify(cloudData.inventories));
+      }
+
+      setLastCloudSync(new Date());
+      setIsSyncing(false);
+      return {
+        success: true,
+        message: `Synchronisation Cloud terminée (${importedCount} pièce(s) au catalogue)`,
+      };
+    } catch (err: any) {
+      setIsSyncing(false);
+      return {
+        success: false,
+        message: `Échec de synchronisation Cloud : ${err?.message || 'Erreur réseau'}`,
+      };
+    }
+  };
+
+  // Real-time Firestore synchronization listeners (bi-directional sync between deployed app & AI Studio)
   useEffect(() => {
     let isCancelled = false;
 
+    // 1. Initial startup hydration
     const hydrateFromFirebase = async () => {
       try {
         const cloudData = await downloadAllFromFirebase();
         if (isCancelled) return;
 
-        // If Firestore contains articles, load them and sync to local storage
         if (cloudData.articles && cloudData.articles.length > 0) {
           setArticles(sanitizeUniqueList(cloudData.articles));
           localStorage.setItem(STORAGE_KEY_PREFIX + 'articles', JSON.stringify(cloudData.articles));
@@ -597,8 +699,9 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
 
         if (cloudData.movements && cloudData.movements.length > 0) {
-          setMovements(sanitizeUniqueList(cloudData.movements));
-          localStorage.setItem(STORAGE_KEY_PREFIX + 'movements', JSON.stringify(cloudData.movements));
+          const sorted = [...cloudData.movements].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          setMovements(sanitizeUniqueList(sorted));
+          localStorage.setItem(STORAGE_KEY_PREFIX + 'movements', JSON.stringify(sorted));
         }
 
         if (cloudData.customers && cloudData.customers.length > 0) {
@@ -607,8 +710,9 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
 
         if (cloudData.sales && cloudData.sales.length > 0) {
-          setSales(sanitizeUniqueList(cloudData.sales));
-          localStorage.setItem(STORAGE_KEY_PREFIX + 'sales', JSON.stringify(cloudData.sales));
+          const sorted = [...cloudData.sales].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          setSales(sanitizeUniqueList(sorted));
+          localStorage.setItem(STORAGE_KEY_PREFIX + 'sales', JSON.stringify(sorted));
         }
 
         if (cloudData.payments && cloudData.payments.length > 0) {
@@ -662,6 +766,8 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         } catch (uErr) {
           console.warn('Notice chargement utilisateurs cloud:', uErr);
         }
+
+        setLastCloudSync(new Date());
       } catch (err) {
         console.warn('Firebase Cloud auto-hydration notice (offline or first boot):', err);
       }
@@ -669,8 +775,157 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     hydrateFromFirebase();
 
+    // 2. Continuous real-time Firestore listeners
+    const unsubs: (() => void)[] = [];
+
+    // Live Articles listener
+    unsubs.push(
+      subscribeToCollection<Article>('articles', (remoteArticles) => {
+        if (!isCancelled && remoteArticles && remoteArticles.length > 0) {
+          setArticles(sanitizeUniqueList(remoteArticles));
+          localStorage.setItem(STORAGE_KEY_PREFIX + 'articles', JSON.stringify(remoteArticles));
+          setLastCloudSync(new Date());
+        }
+      })
+    );
+
+    // Live Stocks listener
+    unsubs.push(
+      subscribeToCollection<WarehouseStock>('stocks', (remoteStocks) => {
+        if (!isCancelled && remoteStocks && remoteStocks.length > 0) {
+          setStocks(remoteStocks);
+          localStorage.setItem(STORAGE_KEY_PREFIX + 'stocks', JSON.stringify(remoteStocks));
+          setLastCloudSync(new Date());
+        }
+      })
+    );
+
+    // Live Movements listener
+    unsubs.push(
+      subscribeToCollection<StockMovement>('movements', (remoteMovements) => {
+        if (!isCancelled && remoteMovements && remoteMovements.length > 0) {
+          const sorted = [...remoteMovements].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          setMovements(sanitizeUniqueList(sorted));
+          localStorage.setItem(STORAGE_KEY_PREFIX + 'movements', JSON.stringify(sorted));
+          setLastCloudSync(new Date());
+        }
+      })
+    );
+
+    // Live Warehouses listener
+    unsubs.push(
+      subscribeToCollection<Warehouse>('warehouses', (remoteWh) => {
+        if (!isCancelled && remoteWh && remoteWh.length > 0) {
+          setWarehouses(sanitizeUniqueList(remoteWh));
+          localStorage.setItem(STORAGE_KEY_PREFIX + 'warehouses', JSON.stringify(remoteWh));
+          setLastCloudSync(new Date());
+        }
+      })
+    );
+
+    // Live Customers listener
+    unsubs.push(
+      subscribeToCollection<Customer>('customers', (remoteCustomers) => {
+        if (!isCancelled && remoteCustomers && remoteCustomers.length > 0) {
+          setCustomers(sanitizeUniqueList(remoteCustomers));
+          localStorage.setItem(STORAGE_KEY_PREFIX + 'customers', JSON.stringify(remoteCustomers));
+          setLastCloudSync(new Date());
+        }
+      })
+    );
+
+    // Live Sales listener
+    unsubs.push(
+      subscribeToCollection<Sale>('sales', (remoteSales) => {
+        if (!isCancelled && remoteSales && remoteSales.length > 0) {
+          const sorted = [...remoteSales].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          setSales(sanitizeUniqueList(sorted));
+          localStorage.setItem(STORAGE_KEY_PREFIX + 'sales', JSON.stringify(sorted));
+          setLastCloudSync(new Date());
+        }
+      })
+    );
+
+    // Live Payments listener
+    unsubs.push(
+      subscribeToCollection<PaymentRecord>('payments', (remotePayments) => {
+        if (!isCancelled && remotePayments && remotePayments.length > 0) {
+          setPayments(sanitizeUniqueList(remotePayments));
+          localStorage.setItem(STORAGE_KEY_PREFIX + 'payments', JSON.stringify(remotePayments));
+          setLastCloudSync(new Date());
+        }
+      })
+    );
+
+    // Live Cash Sessions listener
+    unsubs.push(
+      subscribeToCollection<CashSession>('cashSessions', (remoteSessions) => {
+        if (!isCancelled && remoteSessions && remoteSessions.length > 0) {
+          setCashSessions(sanitizeUniqueList(remoteSessions));
+          localStorage.setItem(STORAGE_KEY_PREFIX + 'cash_sessions', JSON.stringify(remoteSessions));
+          setLastCloudSync(new Date());
+        }
+      })
+    );
+
+    // Live Cash Movements listener
+    unsubs.push(
+      subscribeToCollection<CashMovement>('cashMovements', (remoteCashMovements) => {
+        if (!isCancelled && remoteCashMovements && remoteCashMovements.length > 0) {
+          setCashMovements(sanitizeUniqueList(remoteCashMovements));
+          localStorage.setItem(STORAGE_KEY_PREFIX + 'cash_movements', JSON.stringify(remoteCashMovements));
+          setLastCloudSync(new Date());
+        }
+      })
+    );
+
+    // Live Suppliers listener
+    unsubs.push(
+      subscribeToCollection<Supplier>('suppliers', (remoteSuppliers) => {
+        if (!isCancelled && remoteSuppliers && remoteSuppliers.length > 0) {
+          setSuppliers(sanitizeUniqueList(remoteSuppliers));
+          localStorage.setItem(STORAGE_KEY_PREFIX + 'suppliers', JSON.stringify(remoteSuppliers));
+          setLastCloudSync(new Date());
+        }
+      })
+    );
+
+    // Live Supplier Orders listener
+    unsubs.push(
+      subscribeToCollection<SupplierOrder>('supplierOrders', (remoteOrders) => {
+        if (!isCancelled && remoteOrders && remoteOrders.length > 0) {
+          setSupplierOrders(sanitizeUniqueList(remoteOrders));
+          localStorage.setItem(STORAGE_KEY_PREFIX + 'supplier_orders', JSON.stringify(remoteOrders));
+          setLastCloudSync(new Date());
+        }
+      })
+    );
+
+    // Live Quotes listener
+    unsubs.push(
+      subscribeToCollection<Quote>('quotes', (remoteQuotes) => {
+        if (!isCancelled && remoteQuotes && remoteQuotes.length > 0) {
+          setQuotes(sanitizeUniqueList(remoteQuotes));
+          localStorage.setItem(STORAGE_KEY_PREFIX + 'quotes', JSON.stringify(remoteQuotes));
+          setLastCloudSync(new Date());
+        }
+      })
+    );
+
+    // Live Inventories listener
+    unsubs.push(
+      subscribeToCollection<InventorySession>('inventories', (remoteInventories) => {
+        if (!isCancelled && remoteInventories && remoteInventories.length > 0) {
+          setInventories(sanitizeUniqueList(remoteInventories));
+          localStorage.setItem(STORAGE_KEY_PREFIX + 'inventories', JSON.stringify(remoteInventories));
+          setLastCloudSync(new Date());
+        }
+      })
+    );
+
     return () => {
       isCancelled = true;
+      unsubs.forEach((unsub) => unsub());
     };
   }, []);
 
@@ -1646,8 +1901,14 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       notes: params.notes?.trim(),
     };
 
-    setStocks((prev) => applyStockDelta(prev, params.articleId, params.warehouseId, params.quantity));
+    setStocks((prev) => {
+      const next = applyStockDelta(prev, params.articleId, params.warehouseId, params.quantity);
+      const updatedStock = next.find((s) => s.articleId === params.articleId && s.warehouseId === params.warehouseId);
+      if (updatedStock) saveStockToFirebase(updatedStock).catch(console.warn);
+      return next;
+    });
     setMovements((prev) => [newMovement, ...prev]);
+    saveMovementToFirebase(newMovement).catch(console.warn);
 
     return { success: true };
   };
@@ -1711,8 +1972,14 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       notes: params.notes?.trim(),
     };
 
-    setStocks((prev) => applyStockDelta(prev, params.articleId, params.warehouseId, -params.quantity));
+    setStocks((prev) => {
+      const next = applyStockDelta(prev, params.articleId, params.warehouseId, -params.quantity);
+      const updatedStock = next.find((s) => s.articleId === params.articleId && s.warehouseId === params.warehouseId);
+      if (updatedStock) saveStockToFirebase(updatedStock).catch(console.warn);
+      return next;
+    });
     setMovements((prev) => [newMovement, ...prev]);
+    saveMovementToFirebase(newMovement).catch(console.warn);
 
     return { success: true };
   };
@@ -1782,10 +2049,15 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setStocks((prev) => {
       let next = applyStockDelta(prev, params.articleId, params.sourceWarehouseId, -params.quantity);
       next = applyStockDelta(next, params.articleId, params.targetWarehouseId, params.quantity);
+      const sStock = next.find((s) => s.articleId === params.articleId && s.warehouseId === params.sourceWarehouseId);
+      const tStock = next.find((s) => s.articleId === params.articleId && s.warehouseId === params.targetWarehouseId);
+      if (sStock) saveStockToFirebase(sStock).catch(console.warn);
+      if (tStock) saveStockToFirebase(tStock).catch(console.warn);
       return next;
     });
 
     setMovements((prev) => [newMovement, ...prev]);
+    saveMovementToFirebase(newMovement).catch(console.warn);
 
     return { success: true };
   };
@@ -3548,6 +3820,9 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         clearAllData,
         exportDatabaseJson,
         loadDataFromCloud,
+        refreshFromCloud,
+        isSyncing,
+        lastCloudSync,
       }}
     >
       {children}

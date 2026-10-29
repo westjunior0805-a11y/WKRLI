@@ -31,6 +31,7 @@ import {
   Printer,
   FileCheck,
   Image as ImageIcon,
+  MapPin,
 } from 'lucide-react';
 import { ReceiptModal } from './ReceiptModal';
 
@@ -56,6 +57,7 @@ interface TenderEntry {
 export const NewSaleView: React.FC = () => {
   const {
     articles,
+    stocks,
     warehouses,
     customers,
     selectedWarehouseId,
@@ -107,6 +109,26 @@ export const NewSaleView: React.FC = () => {
 
   const activeWarehouse = warehouses.find((w) => w.id === warehouseId);
   const activeCashSession = getActiveCashSession(warehouseId);
+
+  // Helper to resolve warehouse location (shelfLocation for warehouse or default location)
+  const getItemLocation = (article: Article, whId: string): string => {
+    const stockRecord = stocks.find((s) => s.articleId === article.id && s.warehouseId === whId);
+    if (stockRecord?.shelfLocation && stockRecord.shelfLocation.trim()) {
+      return stockRecord.shelfLocation.trim();
+    }
+    if (article.defaultLocation && article.defaultLocation.trim()) {
+      return article.defaultLocation.trim();
+    }
+    const detailed = [
+      article.rack ? `Rayon ${article.rack}` : '',
+      article.shelf ? `Étagère ${article.shelf}` : '',
+      article.bin ? `Case ${article.bin}` : '',
+    ]
+      .filter(Boolean)
+      .join(' · ');
+
+    return detailed || 'Non assigné';
+  };
 
   // Filtered articles for fast picker
   const filteredArticles = useMemo(() => {
@@ -474,23 +496,29 @@ export const NewSaleView: React.FC = () => {
         </div>
 
         {/* Warehouse selector + Cash Session Indicator */}
-        <div className="flex items-center gap-2.5 shrink-0">
-          <div className="flex items-center gap-1.5 text-xs">
-            <Building2 className="w-4 h-4 text-slate-400" />
-            <select
-              value={warehouseId}
-              onChange={(e) => {
-                setWarehouseId(e.target.value);
-                setCart([]); // Reset cart if changing warehouse to prevent stock discrepancies
-              }}
-              className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-semibold text-slate-800 focus:outline-none"
-            >
-              {warehouses.map((wh) => (
-                <option key={wh.id} value={wh.id}>
-                  {wh.code} - {wh.name}
-                </option>
-              ))}
-            </select>
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs hover:border-slate-400 transition-colors">
+            <Building2 className="w-4 h-4 text-amber-600 shrink-0" />
+            <div>
+              <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block leading-none">
+                Magasin de vente actif
+              </span>
+              <select
+                value={warehouseId}
+                onChange={(e) => {
+                  setWarehouseId(e.target.value);
+                  setCart([]); // Reset cart if changing warehouse to prevent stock discrepancies
+                }}
+                className="bg-transparent font-bold text-slate-900 focus:outline-none cursor-pointer text-xs mt-0.5"
+                title="Sélectionner le magasin de départ pour la vente comptoir"
+              >
+                {warehouses.map((wh) => (
+                  <option key={wh.id} value={wh.id}>
+                    {wh.code} — {wh.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div
@@ -647,8 +675,24 @@ export const NewSaleView: React.FC = () => {
                           </div>
                         </div>
 
+                        {/* Emplacement physique en rayon pour le magasin de vente actif */}
+                        <div className="mt-2.5 flex items-center justify-between gap-1.5 px-2.5 py-1.5 bg-amber-50/70 border border-amber-200/90 rounded-lg text-xs">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <MapPin className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                            <span className="text-slate-500 text-[10px] font-semibold uppercase tracking-wider">
+                              Emplacement :
+                            </span>
+                            <span className="font-mono font-bold text-slate-900 truncate">
+                              {getItemLocation(art, warehouseId)}
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-bold text-amber-800 bg-amber-100/90 px-1.5 py-0.5 rounded font-mono shrink-0">
+                            {activeWarehouse?.code}
+                          </span>
+                        </div>
+
                         {/* Multi-Warehouse Stock Availability Bar */}
-                        <div className="mt-2.5 pt-2 border-t border-slate-100">
+                        <div className="mt-2 pt-2 border-t border-slate-100">
                           <div className="flex items-center justify-between text-[11px] mb-1.5">
                             <span className="text-slate-500 font-medium">Stock par magasin :</span>
                             <span
@@ -683,19 +727,19 @@ export const NewSaleView: React.FC = () => {
                                   }}
                                   title={
                                     hasStock
-                                      ? `Ajouter 1 ${art.unit} depuis ${wh.name} (${whStock} dispo)`
+                                      ? `${wh.name} (${wh.code}) : ${whStock} ${art.unit} disponible(s) · Emplacement : ${getItemLocation(art, wh.id)}`
                                       : `Rupture dans ${wh.name}`
                                   }
                                   className={`px-2 py-0.5 rounded text-[10px] font-mono flex items-center gap-1 transition-all ${
                                     hasStock
                                       ? isCurrentWh
-                                        ? 'bg-slate-900 text-white font-bold shadow-xs hover:bg-slate-800'
+                                        ? 'bg-slate-900 text-white font-bold shadow-xs hover:bg-slate-800 ring-1 ring-amber-400/40'
                                         : 'bg-emerald-50 text-emerald-800 font-semibold border border-emerald-300 hover:bg-emerald-100'
                                       : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60'
                                   }`}
                                 >
                                   <span>{wh.code}:</span>
-                                  <span>{whStock}</span>
+                                  <span className="font-bold">{whStock}</span>
                                   {hasStock && <Plus className="w-2.5 h-2.5 opacity-75" />}
                                 </button>
                               );
