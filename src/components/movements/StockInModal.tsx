@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useStock } from '../../context/StockContext';
+import { Article } from '../../types';
 import { formatFCFA } from '../../utils/formatters';
 import { X, ArrowDownLeft, Building2, Package } from 'lucide-react';
+import { ArticleSearchSelect } from '../common/ArticleSearchSelect';
 
 interface StockInModalProps {
   isOpen: boolean;
@@ -158,24 +160,23 @@ export const StockInModal: React.FC<StockInModalProps> = ({
             </select>
           </div>
 
-          {/* Article Selection */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-              Article / Pièce Détachée *
-            </label>
-            <select
-              value={articleId}
-              onChange={(e) => handleArticleChange(e.target.value)}
-              required
-              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 font-medium"
-            >
-              {articles.map((art) => (
-                <option key={art.id} value={art.id}>
-                  {art.mainReference} - {art.designation} ({art.brand})
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Article Selection with searchable combobox */}
+          <ArticleSearchSelect
+            articles={articles}
+            selectedArticleId={articleId}
+            onSelectArticle={(art) => {
+              setArticleId(art.id);
+              setUnitPrice(art.purchasePrice);
+              if (art.preferredSupplier) {
+                setSupplier(art.preferredSupplier);
+              }
+            }}
+            warehouseId={warehouseId}
+            getStockForWarehouse={getStockForArticleAndWarehouse}
+            label="Article / Pièce Détachée"
+            helperText="Recherche instantanée par texte"
+            placeholder="Tapez réf (ex: 1R-0716), désignation, marque..."
+          />
 
           {/* Stock Simulation Preview */}
           {selectedArticle && (

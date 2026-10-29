@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useStock } from '../../context/StockContext';
+import { Article } from '../../types';
 import { X, ArrowLeftRight, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { ArticleSearchSelect } from '../common/ArticleSearchSelect';
 
 interface StockTransferModalProps {
   isOpen: boolean;
@@ -190,29 +192,17 @@ export const StockTransferModal: React.FC<StockTransferModalProps> = ({
               </div>
             )}
 
-            {/* Article Selection */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                3. Pièce à transférer *
-              </label>
-              <select
-                value={articleId}
-                onChange={(e) => setArticleId(e.target.value)}
-                required
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-medium"
-              >
-                {articles.map((art) => {
-                  const stockAtSource = sourceWhId
-                    ? getStockForArticleAndWarehouse(art.id, sourceWhId)
-                    : 0;
-                  return (
-                    <option key={art.id} value={art.id}>
-                      [{art.brand}] {art.mainReference} - {art.designation} (Dispo au départ : {stockAtSource})
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
+            {/* Article Selection with searchable combobox */}
+            <ArticleSearchSelect
+              articles={articles}
+              selectedArticleId={articleId}
+              onSelectArticle={(art) => setArticleId(art.id)}
+              warehouseId={sourceWhId}
+              getStockForWarehouse={getStockForArticleAndWarehouse}
+              label="3. Pièce à transférer"
+              helperText="Recherche instantanée par texte"
+              placeholder="Tapez réf (ex: 1R-0716), désignation, marque..."
+            />
 
             {/* Visual Transfer preview box */}
             {selectedArticle && sourceWh && targetWh && (

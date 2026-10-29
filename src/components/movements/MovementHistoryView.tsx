@@ -16,6 +16,7 @@ import {
   User,
   Info,
   X,
+  RotateCcw,
 } from 'lucide-react';
 
 export const MovementHistoryView: React.FC = () => {
@@ -38,6 +39,21 @@ export const MovementHistoryView: React.FC = () => {
   const [dateFilter, setDateFilter] = useState<'ALL' | 'TODAY' | 'WEEK' | 'MONTH'>('ALL');
   const [selectedMovementDetail, setSelectedMovementDetail] = useState<StockMovement | null>(null);
 
+  // Search normalization helpers
+  const normalizeSearchText = (str: string | undefined | null): string => {
+    if (!str) return '';
+    return str
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim();
+  };
+
+  const toAlphanumeric = (str: string | undefined | null): string => {
+    if (!str) return '';
+    return str.toLowerCase().replace(/[^a-z0-9]/g, '');
+  };
+
   // Filtered movements
   const filteredMovements = useMemo(() => {
     return movements.filter((mvt) => {
@@ -54,44 +70,81 @@ export const MovementHistoryView: React.FC = () => {
       // User filter
       if (selectedUserFilter !== 'ALL' && mvt.userId !== selectedUserFilter) return false;
 
-      // Search query (strictly matches product code, OEM ref, designation, brand, equivalent, documentRef, reason, thirdParty)
+      // Search query: multi-token, accent-insensitive, alphanumeric-tolerant (e.g. 1R-0716 matches 1R0716)
       if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const art = getArticleById(mvt.articleId);
-        const matchArtId = mvt.articleId.toLowerCase().includes(q) || art?.id.toLowerCase().includes(q);
-        const matchArtRef = art?.mainReference.toLowerCase().includes(q);
-        const matchArtDesig = art?.designation.toLowerCase().includes(q);
-        const matchArtBrand = art?.brand?.toLowerCase().includes(q);
-        const matchCategory = art?.category?.toLowerCase().includes(q);
-        const matchBarcode = art?.barcode?.toLowerCase().includes(q);
-        const matchEquiv = art?.equivalentReferences?.some((eq) => eq.toLowerCase().includes(q));
-        const matchBrandOffer = art?.brandOffers?.some(
-          (bo) =>
-            bo.brand.toLowerCase().includes(q) ||
-            bo.brandReference?.toLowerCase().includes(q) ||
-            bo.barcode?.toLowerCase().includes(q)
-        );
-        const matchDoc = mvt.documentRef.toLowerCase().includes(q);
-        const matchReason = mvt.reason.toLowerCase().includes(q);
-        const matchThird = mvt.thirdParty?.toLowerCase().includes(q);
-        const matchUser = mvt.userName.toLowerCase().includes(q);
-        const matchNotes = mvt.notes?.toLowerCase().includes(q);
+        const rawTerms = searchQuery.trim().split(/\s+/).filter(Boolean);
+        const terms = rawTerms.map((t) => ({
+          norm: normalizeSearchText(t),
+          alnum: toAlphanumeric(t),
+        }));
 
-        if (
-          !matchArtId &&
-          !matchArtRef &&
-          !matchArtDesig &&
-          !matchArtBrand &&
-          !matchCategory &&
-          !matchBarcode &&
-          !matchEquiv &&
-          !matchBrandOffer &&
-          !matchDoc &&
-          !matchReason &&
-          !matchThird &&
-          !matchUser &&
-          !matchNotes
-        ) {
+        const art = getArticleById(mvt.articleId);
+        const srcWh = mvt.sourceWarehouseId ? getWarehouseById(mvt.sourceWarehouseId) : null;
+        const tgtWh = mvt.targetWarehouseId ? getWarehouseById(mvt.targetWarehouseId) : null;
+
+        // Build comprehensive searchable corpus for this movement
+        const searchableParts: string[] = [
+          mvt.id,
+          mvt.type,
+          mvt.type === 'ENTREE' ? 'entrée entree entrant approvisionnement' : '',
+          mvt.type === 'SORTIE' ? 'sortie sortant vente consommation' : '',
+          mvt.type === 'TRANSFERT' ? 'transfert inter-magasin deplacement' : '',
+          mvt.type === 'AJUSTEMENT' ? 'ajustement inventaire regularisation' : '',
+          mvt.documentRef,
+          mvt.reason,
+          mvt.thirdParty || '',
+          mvt.userName,
+          mvt.notes || '',
+          String(mvt.quantity),
+          String(mvt.unitPrice || ''),
+          String(mvt.totalPrice || ''),
+          srcWh ? `${srcWh.name} ${srcWh.code} ${srcWh.location}` : '',
+          tgtWh ? `${tgtWh.name} ${tgtWh.code} ${tgtWh.location}` : '',
+        ];
+
+        if (art) {
+          searchableParts.push(
+            art.id,
+            art.mainReference,
+            art.designation,
+            art.brand || '',
+            art.category || '',
+            art.barcode || '',
+            art.unit || '',
+            art.defaultLocation || '',
+            art.rack || '',
+            art.shelf || '',
+            art.bin || '',
+            ...(art.equivalentReferences || []),
+            ...(art.compatibleMachines || [])
+          );
+          if (art.brandOffers && art.brandOffers.length > 0) {
+            art.brandOffers.forEach((bo) => {
+              searchableParts.push(
+                bo.brand,
+                bo.brandReference || '',
+                bo.preferredSupplier || '',
+                bo.barcode || '',
+                String(bo.purchasePrice || ''),
+                String(bo.salePrice || '')
+              );
+            });
+          }
+        }
+
+        const combinedText = searchableParts.join(' ');
+        const normCorpus = normalizeSearchText(combinedText);
+        const alnumCorpus = toAlphanumeric(combinedText);
+
+        // Every term entered by the user must match within the movement's data
+        const matchesAllTerms = terms.every((term) => {
+          if (!term.norm && !term.alnum) return true;
+          const matchNorm = term.norm ? normCorpus.includes(term.norm) : false;
+          const matchAlnum = term.alnum ? alnumCorpus.includes(term.alnum) : false;
+          return matchNorm || matchAlnum;
+        });
+
+        if (!matchesAllTerms) {
           return false;
         }
       }
@@ -121,6 +174,7 @@ export const MovementHistoryView: React.FC = () => {
     searchQuery,
     dateFilter,
     getArticleById,
+    getWarehouseById,
   ]);
 
   const handleExportCSV = () => {
@@ -176,7 +230,7 @@ export const MovementHistoryView: React.FC = () => {
   return (
     <div className="space-y-4">
       {/* Top Controls & Search Bar */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-4">
+      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3.5">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           <div className="flex-1 relative">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -184,7 +238,7 @@ export const MovementHistoryView: React.FC = () => {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Recherche par code pièce (ex: 1R-0716, ART-001), désignation (ex: Filtre), marque, document (BL/Facture) ou tiers..."
+              placeholder="Recherche multi-critères : référence (1R-0716, 1R0716), désignation, marque, magasin, N° document, tiers, motif..."
               className="w-full pl-9 pr-9 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
             />
             {searchQuery && (
@@ -205,6 +259,28 @@ export const MovementHistoryView: React.FC = () => {
             <Download className="w-3.5 h-3.5" />
             Exporter l'historique CSV
           </button>
+        </div>
+
+        {/* Quick Suggestion Chips */}
+        <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+          <span className="text-[11px] font-medium text-slate-400 mr-1">Recherches fréquentes :</span>
+          {['Filtre', 'Injecteur', 'Pompe', 'Caterpillar', 'Komatsu', 'Donaldson', 'Dakar Port', 'Thiès', 'BL', 'Import'].map((tag) => {
+            const isActive = searchQuery.toLowerCase().trim() === tag.toLowerCase();
+            return (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => setSearchQuery(isActive ? '' : tag)}
+                className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors border ${
+                  isActive
+                    ? 'bg-amber-500 text-slate-950 border-amber-500 font-bold shadow-2xs'
+                    : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'
+                }`}
+              >
+                {tag}
+              </button>
+            );
+          })}
         </div>
 
         {/* Filter Bar */}
@@ -303,18 +379,78 @@ export const MovementHistoryView: React.FC = () => {
             <option value="MONTH">30 derniers jours</option>
           </select>
         </div>
+
+        {/* Active Search & Filter Banner */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-slate-100 text-xs text-slate-600">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-slate-900">
+              {filteredMovements.length} mouvement{filteredMovements.length > 1 ? 's' : ''} affiché{filteredMovements.length > 1 ? 's' : ''}
+            </span>
+            {searchQuery.trim() && (
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-100 text-amber-950 font-medium text-[11px]">
+                Mot-clé : « <strong className="font-mono">{searchQuery}</strong> »
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="text-amber-700 hover:text-amber-950 p-0.5"
+                  title="Effacer ce mot-clé"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+          </div>
+
+          {(searchQuery.trim() || selectedType !== 'ALL' || selectedWarehouseFilter !== 'ALL' || selectedUserFilter !== 'ALL' || dateFilter !== 'ALL') && (
+            <button
+              onClick={() => {
+                setSearchQuery('');
+                setSelectedType('ALL');
+                setSelectedWarehouseFilter('ALL');
+                setSelectedUserFilter('ALL');
+                setDateFilter('ALL');
+              }}
+              className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 hover:text-amber-900 transition-colors"
+            >
+              <RotateCcw className="w-3 h-3" />
+              Réinitialiser tous les critères
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Movements Table */}
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
           {filteredMovements.length === 0 ? (
-            <div className="text-center py-12 px-4">
-              <History className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-              <h3 className="text-sm font-semibold text-slate-800">Aucun mouvement trouvé</h3>
-              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                Aucune opération ne correspond aux filtres sélectionnés.
-              </p>
+            <div className="text-center py-14 px-4 space-y-3">
+              <History className="w-10 h-10 text-slate-300 mx-auto" />
+              <div>
+                <h3 className="text-sm font-semibold text-slate-800">
+                  {searchQuery.trim()
+                    ? `Aucun mouvement ne correspond à « ${searchQuery} »`
+                    : 'Aucun mouvement trouvé'}
+                </h3>
+                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                  {searchQuery.trim()
+                    ? "Essayez une partie de la référence (ex: 0716, 1R0716), un nom de pièce, une marque, ou réinitialisez les critères."
+                    : "Aucune opération ne correspond aux filtres sélectionnés."}
+                </p>
+              </div>
+              {(searchQuery.trim() || selectedType !== 'ALL' || selectedWarehouseFilter !== 'ALL' || selectedUserFilter !== 'ALL' || dateFilter !== 'ALL') && (
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    setSelectedType('ALL');
+                    setSelectedWarehouseFilter('ALL');
+                    setSelectedUserFilter('ALL');
+                    setDateFilter('ALL');
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg shadow-xs transition-colors"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  Afficher tout l'historique
+                </button>
+              )}
             </div>
           ) : (
             <>

@@ -203,6 +203,13 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
     getTotalStockForArticle,
   ]);
 
+  const totalBrandOffersCount = useMemo(() => {
+    return articles.reduce((sum, art) => {
+      const offers = getArticleBrandOffers(art);
+      return sum + Math.max(1, offers.length);
+    }, 0);
+  }, [articles]);
+
   const handleExportCSV = () => {
     const headers = [
       'ID Interne',
@@ -575,26 +582,31 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
             ))}
           </select>
 
-          {/* Sort selector */}
-          <div className="ml-auto flex items-center gap-1.5">
-            <span className="text-slate-400">Trier par :</span>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="px-2 py-1 bg-white border border-slate-200 rounded text-slate-700 font-medium focus:outline-none"
-            >
-              <option value="ref">Réf. Constructeur</option>
-              <option value="designation">Désignation</option>
-              <option value="stock">Quantité en stock</option>
-              <option value="price">Prix d'achat</option>
-            </select>
-            <button
-              onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')}
-              className="px-2 py-1 border border-slate-200 rounded bg-white font-mono hover:bg-slate-50"
-              title="Inverser l'ordre de tri"
-            >
-              {sortDirection === 'asc' ? '↑' : '↓'}
-            </button>
+          {/* Sort selector & stats */}
+          <div className="ml-auto flex items-center gap-2">
+            <span className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 text-amber-900 border border-amber-200/80 rounded-lg font-mono text-[11px]">
+              <span className="font-bold">{articles.length}</span> réf. unique{articles.length > 1 ? 's' : ''} • <span className="font-bold">{totalBrandOffersCount}</span> offres marques
+            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-400">Trier par :</span>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+                className="px-2 py-1 bg-white border border-slate-200 rounded text-slate-700 font-medium focus:outline-none"
+              >
+                <option value="ref">Réf. Constructeur</option>
+                <option value="designation">Désignation</option>
+                <option value="stock">Quantité en stock</option>
+                <option value="price">Prix d'achat</option>
+              </select>
+              <button
+                onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')}
+                className="px-2 py-1 border border-slate-200 rounded bg-white font-mono hover:bg-slate-50"
+                title="Inverser l'ordre de tri"
+              >
+                {sortDirection === 'asc' ? '↑' : '↓'}
+              </button>
+            </div>
           </div>
         </div>
       </div>

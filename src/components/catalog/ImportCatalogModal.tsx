@@ -186,11 +186,18 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
     );
   }, [rawRows, mapping, articles, warehouses, mode, targetWarehouseId]);
 
-  // Statistics
-  const validRowsCount = useMemo(
-    () => parsedRows.filter((r) => r.status === 'VALID' || r.status === 'WARNING').length,
+  // Statistics with precise unique reference calculation
+  const validRows = useMemo(
+    () => parsedRows.filter((r) => r.status === 'VALID' || r.status === 'WARNING'),
     [parsedRows]
   );
+  const validRowsCount = validRows.length;
+
+  const uniqueReferencesCount = useMemo(() => {
+    const set = new Set(validRows.map((r) => r.mainReference.toLowerCase().trim()).filter(Boolean));
+    return set.size;
+  }, [validRows]);
+
   const errorRowsCount = useMemo(
     () => parsedRows.filter((r) => r.status === 'ERROR').length,
     [parsedRows]
@@ -200,15 +207,12 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
     [parsedRows]
   );
   const positiveQtyRowsCount = useMemo(
-    () => parsedRows.filter((r) => (r.status === 'VALID' || r.status === 'WARNING') && r.initialQuantity > 0).length,
-    [parsedRows]
+    () => validRows.filter((r) => r.initialQuantity > 0).length,
+    [validRows]
   );
   const totalQtySum = useMemo(
-    () =>
-      parsedRows
-        .filter((r) => r.status === 'VALID' || r.status === 'WARNING')
-        .reduce((sum, r) => sum + (r.initialQuantity || 0), 0),
-    [parsedRows]
+    () => validRows.reduce((sum, r) => sum + (r.initialQuantity || 0), 0),
+    [validRows]
   );
 
   // Filtered rows for grid display
@@ -807,7 +811,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
                 </div>
               </div>
 
-              {/* Validation Summary Cards */}
+              {/* Validation Summary Cards with Anti-Saturation Metrics */}
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                 <div className="p-3 bg-slate-100 rounded-lg border border-slate-200">
                   <span className="text-[11px] text-slate-500 font-medium block">Total analysé</span>
@@ -815,30 +819,46 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
                   <span className="text-[10px] text-slate-500 block">lignes du fichier</span>
                 </div>
 
+                <div className="p-3 bg-amber-50 rounded-lg border border-amber-300 shadow-2xs">
+                  <span className="text-[11px] text-amber-800 font-bold block">Références uniques</span>
+                  <span className="text-xl font-bold text-amber-950 font-mono">{uniqueReferencesCount}</span>
+                  <span className="text-[10px] text-amber-700 font-medium block">comptées 1 seule fois</span>
+                </div>
+
                 <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200">
-                  <span className="text-[11px] text-emerald-700 font-medium block">Lignes valides</span>
+                  <span className="text-[11px] text-emerald-700 font-medium block">Déclinaisons marques</span>
                   <span className="text-xl font-bold text-emerald-800 font-mono">{validRowsCount}</span>
-                  <span className="text-[10px] text-emerald-600 block">prêtes à être importées</span>
+                  <span className="text-[10px] text-emerald-600 block">variables constructeurs</span>
                 </div>
 
                 <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                  <span className="text-[11px] text-blue-700 font-medium block">Avec stock &gt; 0</span>
-                  <span className="text-xl font-bold text-blue-800 font-mono">{positiveQtyRowsCount}</span>
-                  <span className="text-[10px] text-blue-600 block">{totalQtySum} pièce(s) au total</span>
-                </div>
-
-                <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
-                  <span className="text-[11px] text-amber-800 font-medium block">Déjà au catalogue</span>
-                  <span className="text-xl font-bold text-amber-900 font-mono">{duplicatesCount}</span>
-                  <span className="text-[10px] text-amber-700 block">
-                    {mode === 'INITIAL_IMPORT' ? 'ignorés (sécurité)' : 'seront mis à jour'}
-                  </span>
+                  <span className="text-[11px] text-blue-700 font-medium block">Stock physique total</span>
+                  <span className="text-xl font-bold text-blue-800 font-mono">{totalQtySum}</span>
+                  <span className="text-[10px] text-blue-600 block">sur {positiveQtyRowsCount} ligne(s)</span>
                 </div>
 
                 <div className="p-3 bg-rose-50 rounded-lg border border-rose-200">
-                  <span className="text-[11px] text-rose-700 font-medium block">Erreurs bloquantes</span>
+                  <span className="text-[11px] text-rose-700 font-medium block">Lignes rejetées</span>
                   <span className="text-xl font-bold text-rose-800 font-mono">{errorRowsCount}</span>
-                  <span className="text-[10px] text-rose-600 block">lignes rejetées</span>
+                  <span className="text-[10px] text-rose-600 block">erreurs bloquantes</span>
+                </div>
+              </div>
+
+              {/* Anti-Saturation Guarantee Notice */}
+              <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-xl flex items-start sm:items-center justify-between gap-3 text-xs text-amber-950">
+                <div className="flex items-center gap-2.5">
+                  <ShieldCheck className="w-5 h-5 text-amber-600 shrink-0" />
+                  <div>
+                    <strong className="font-bold text-amber-900 block">Architecture Anti-Saturation du Catalogue :</strong>
+                    <span className="text-[11px] text-amber-800">
+                      Chaque référence technique (<span className="font-mono font-semibold">{uniqueReferencesCount}</span> au total) est créée en un seul exemplaire maître. Les différentes marques ({validRowsCount} offres) y sont associées en variables de prix sans dupliquer les fiches de stock.
+                    </span>
+                  </div>
+                </div>
+                <div className="hidden sm:block text-right shrink-0">
+                  <span className="text-xs font-mono font-bold text-amber-800 bg-amber-200/60 px-2.5 py-1 rounded-full border border-amber-300">
+                    {uniqueReferencesCount} réf. = {uniqueReferencesCount} article(s)
+                  </span>
                 </div>
               </div>
 
@@ -1018,12 +1038,13 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
               </div>
 
               {/* Statistics Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                <div className="p-3 bg-white border border-slate-200 rounded-xl text-center">
-                  <span className="text-[11px] text-slate-500 font-medium block">Total traité</span>
-                  <span className="text-xl font-bold text-slate-900 font-mono">
-                    {resultReport.totalRows}
+              <div className="grid grid-cols-2 sm:grid-cols-6 gap-2.5">
+                <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl text-center shadow-2xs">
+                  <span className="text-[11px] text-amber-900 font-bold block">Références uniques</span>
+                  <span className="text-xl font-bold text-amber-950 font-mono">
+                    {resultReport.uniqueReferencesCount ?? (resultReport.createdArticles + resultReport.updatedArticles)}
                   </span>
+                  <span className="text-[10px] text-amber-700 block font-medium">comptées 1 fois</span>
                 </div>
 
                 <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-center">
@@ -1031,22 +1052,32 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
                   <span className="text-xl font-bold text-emerald-800 font-mono">
                     {resultReport.createdArticles}
                   </span>
+                  <span className="text-[10px] text-emerald-600 block">nouvelles fiches</span>
+                </div>
+
+                <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl text-center">
+                  <span className="text-[11px] text-purple-700 font-medium block">Articles enrichis</span>
+                  <span className="text-xl font-bold text-purple-800 font-mono">
+                    {resultReport.updatedArticles}
+                  </span>
+                  <span className="text-[10px] text-purple-600 block">fiches complétées</span>
+                </div>
+
+                <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-center">
+                  <span className="text-[11px] text-indigo-700 font-medium block">Variables marques</span>
+                  <span className="text-xl font-bold text-indigo-800 font-mono">
+                    {resultReport.brandOffersCreatedCount ?? resultReport.totalRows}
+                  </span>
+                  <span className="text-[10px] text-indigo-600 block">offres constructeurs</span>
                 </div>
 
                 <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-center">
-                  <span className="text-[11px] text-blue-700 font-medium block">Quantités &gt; 0 enregistrées</span>
+                  <span className="text-[11px] text-blue-700 font-medium block">Stock physique</span>
                   <span className="text-xl font-bold text-blue-800 font-mono">
-                    {resultReport.positiveStockEntriesCount ?? resultReport.createdMovements}
+                    {resultReport.totalQuantityImported ?? 0}
                   </span>
                   <span className="text-[10px] text-blue-600 block">
-                    {resultReport.totalQuantityImported ?? 0} unités au total
-                  </span>
-                </div>
-
-                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-center">
-                  <span className="text-[11px] text-amber-800 font-medium block">Lignes ignorées</span>
-                  <span className="text-xl font-bold text-amber-900 font-mono">
-                    {resultReport.skippedArticles}
+                    {resultReport.positiveStockEntriesCount ?? resultReport.createdMovements} entrée(s)
                   </span>
                 </div>
 
@@ -1054,6 +1085,19 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
                   <span className="text-[11px] text-rose-700 font-medium block">Lignes rejetées</span>
                   <span className="text-xl font-bold text-rose-800 font-mono">
                     {resultReport.rejectedRows}
+                  </span>
+                  <span className="text-[10px] text-rose-600 block">anomalies</span>
+                </div>
+              </div>
+
+              {/* Anti-Saturation confirmation badge */}
+              <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl flex items-center gap-3 text-xs text-emerald-950">
+                <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
+                <div className="flex-1">
+                  <strong className="font-bold text-emerald-900 block">Catalogue optimisé sans saturation :</strong>
+                  <span className="text-[11px] text-emerald-800">
+                    Les {resultReport.totalRows} lignes importées ont été consolidées avec précision en{' '}
+                    <strong className="font-mono">{resultReport.uniqueReferencesCount}</strong> fiche(s) article(s) maître(s). Les déclinaisons multi-marques ({resultReport.brandOffersCreatedCount} marques) sont accessibles directement au sein de chaque fiche sans alourdir le catalogue.
                   </span>
                 </div>
               </div>

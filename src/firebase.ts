@@ -1,4 +1,4 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import {
   getAuth,
   GoogleAuthProvider,
@@ -12,11 +12,17 @@ import {
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 
-const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 export type { FirebaseUser };
+
+// Dedicated app for rock-solid Cloud Firestore connectivity without being blocked by Auth token service
+const firestoreApp = getApps().some((a) => a.name === 'firestoreApp')
+  ? getApp('firestoreApp')
+  : initializeApp(firebaseConfig, 'firestoreApp');
+
+export const db = getFirestore(firestoreApp, firebaseConfig.firestoreDatabaseId);
 
 export function onAuthChanged(callback: (user: FirebaseUser | null) => void) {
   return onAuthStateChanged(

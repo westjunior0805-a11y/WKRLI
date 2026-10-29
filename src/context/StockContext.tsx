@@ -2055,7 +2055,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   };
 
-  // Execute Catalog & Stock Import with full audit and validations
+  // Execute Catalog & Stock Import with full audit, strict single reference counting, and saturation protection
   const executeImport = (params: {
     mode: ImportMode;
     fileName: string;
@@ -2073,6 +2073,8 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           mode: params.mode,
           fileName: params.fileName,
           totalRows: params.rows.length,
+          uniqueReferencesCount: 0,
+          brandOffersCreatedCount: 0,
           createdArticles: 0,
           updatedArticles: 0,
           skippedArticles: 0,
@@ -2091,6 +2093,8 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       mode: params.mode,
       fileName: params.fileName,
       totalRows: params.rows.length,
+      uniqueReferencesCount: 0,
+      brandOffersCreatedCount: 0,
       createdArticles: 0,
       updatedArticles: 0,
       skippedArticles: 0,
@@ -2107,6 +2111,8 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     let nextMovements = [...movements];
     const nowIso = new Date().toISOString();
 
+    // 1. Separate rejected errors from valid/warning rows
+    const validRows: ParsedImportRow[] = [];
     for (const row of params.rows) {
       if (row.status === 'ERROR') {
         report.rejectedRows += 1;
@@ -2117,38 +2123,123 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           reference: row.mainReference || 'Sans référence',
           reason: row.errors.join(', '),
         });
-        continue;
+      } else {
+        validRows.push(row);
       }
+    }
 
-      const rowRef = row.mainReference.toLowerCase().trim();
-      const rowBrand = (row.brand || 'Générique').trim();
+    // 2. Normalize and pre-group rows by pivot reference
+    const normalizeRef = (ref: string) => ref.trim().toLowerCase();
+    const groupsByRef = new Map<string, ParsedImportRow[]>();
 
-      // Look for master article by mainReference or cross-references
-      const existingIndex = nextArticles.findIndex(
-        (a) =>
-          a.mainReference.toLowerCase().trim() === rowRef ||
-          a.equivalentReferences?.some((eq) => eq.toLowerCase().trim() === rowRef)
-      );
-      const existing = existingIndex !== -1 ? nextArticles[existingIndex] : null;
+    for (const row of validRows) {
+      const refKey = normalizeRef(row.mainReference);
+      if (!refKey) continue;
+      if (!groupsByRef.has(refKey)) {
+        groupsByRef.set(refKey, []);
+      }
+      groupsByRef.get(refKey)!.push(row);
+    }
 
-      // Determine the warehouse for this row (either explicit warehouse in row or selected target warehouse)
-      let rowWhId = params.targetWarehouseId;
+    // Count strictly unique references
+    report.uniqueReferencesCount = groupsByRef.size;
+
+    // Helper: determine target warehouse for a given row
+    const getRowWarehouseId = (row: ParsedImportRow): string => {
       if (row.warehouseId && warehouses.some((w) => w.id === row.warehouseId)) {
-        rowWhId = row.warehouseId;
-      } else if (row.warehouseName) {
-        const foundWh = warehouses.find(
+        return row.warehouseId;
+      }
+      if (row.warehouseName) {
+        const found = warehouses.find(
           (w) =>
             w.name.toLowerCase().trim() === row.warehouseName!.toLowerCase().trim() ||
             w.code.toLowerCase().trim() === row.warehouseName!.toLowerCase().trim()
         );
-        if (foundWh) rowWhId = foundWh.id;
+        if (found) return found.id;
       }
-      const activeWh = warehouses.find((w) => w.id === rowWhId) || targetWh;
-      const targetQty = Math.max(0, Math.floor(row.initialQuantity ?? 0));
+      return targetWh.id;
+    };
+
+    // 3. Process each unique reference strictly ONCE
+    for (const [normRef, rowsForRef] of groupsByRef.entries()) {
+      // Find if master article already exists in catalog (by mainReference or equivalent cross-references)
+      const existingIndex = nextArticles.findIndex(
+        (a) =>
+          normalizeRef(a.mainReference) === normRef ||
+          a.equivalentReferences?.some((eq) => normalizeRef(eq) === normRef)
+      );
+      const existing = existingIndex !== -1 ? nextArticles[existingIndex] : null;
+
+      // Extract consolidated metadata for this reference from the group
+      const masterRow = rowsForRef[0];
+      const masterReference = masterRow.mainReference.trim();
+      const bestDesignation = rowsForRef.find((r) => r.designation?.trim())?.designation?.trim() || masterRow.designation.trim();
+      const bestCategory = rowsForRef.find((r) => r.category)?.category || masterRow.category || 'Filtration';
+      const bestLocation = rowsForRef.find((r) => r.physicalLocation && r.physicalLocation !== 'Non renseigné')?.physicalLocation || masterRow.physicalLocation || 'Non renseigné';
+      const bestMinThreshold = rowsForRef.find((r) => r.minStockThreshold !== undefined && r.minStockThreshold >= 0)?.minStockThreshold ?? 2;
+      const bestRack = rowsForRef.find((r) => r.rack?.trim())?.rack?.trim();
+      const bestShelf = rowsForRef.find((r) => r.shelf?.trim())?.shelf?.trim();
+      const bestBin = rowsForRef.find((r) => r.bin?.trim())?.bin?.trim();
+      const bestSupplier = rowsForRef.find((r) => r.preferredSupplier?.trim())?.preferredSupplier?.trim();
+      const bestBarcode = rowsForRef.find((r) => r.barcode?.trim())?.barcode?.trim();
+      const bestImageUrl = rowsForRef.find((r) => r.imageUrl?.trim())?.imageUrl?.trim();
+
+      // Collect all unique cross-references
+      const mergedEquivalentsSet = new Set<string>();
+      if (existing?.equivalentReferences) {
+        existing.equivalentReferences.forEach((eq) => mergedEquivalentsSet.add(eq.trim()));
+      }
+      for (const r of rowsForRef) {
+        if (r.equivalentReferences) {
+          r.equivalentReferences.forEach((eq) => mergedEquivalentsSet.add(eq.trim()));
+        }
+      }
+      const allEquivalents = Array.from(mergedEquivalentsSet).filter(Boolean);
+
+      // Consolidate brand variables & quantities for this reference
+      interface BrandAccumulator {
+        brandName: string;
+        purchasePrice: number;
+        salePrice: number;
+        preferredSupplier?: string;
+        barcode?: string;
+        // Quantities aggregated by warehouseId
+        warehouseQtys: Record<string, number>;
+      }
+
+      const brandMap = new Map<string, BrandAccumulator>();
+
+      for (const r of rowsForRef) {
+        const brandName = (r.brand || 'Générique').trim();
+        const brandKey = brandName.toLowerCase();
+        const whId = getRowWarehouseId(r);
+        const qty = Math.max(0, Math.floor(r.initialQuantity ?? 0));
+
+        if (!brandMap.has(brandKey)) {
+          brandMap.set(brandKey, {
+            brandName,
+            purchasePrice: Math.max(0, r.purchasePrice || 0),
+            salePrice: Math.max(0, r.salePrice || 0),
+            preferredSupplier: r.preferredSupplier?.trim() || undefined,
+            barcode: r.barcode?.trim() || undefined,
+            warehouseQtys: { [whId]: qty },
+          });
+        } else {
+          const acc = brandMap.get(brandKey)!;
+          if (r.purchasePrice && r.purchasePrice > 0) acc.purchasePrice = r.purchasePrice;
+          if (r.salePrice && r.salePrice > 0) acc.salePrice = r.salePrice;
+          if (r.preferredSupplier?.trim()) acc.preferredSupplier = r.preferredSupplier.trim();
+          if (r.barcode?.trim()) acc.barcode = r.barcode.trim();
+          acc.warehouseQtys[whId] = (acc.warehouseQtys[whId] || 0) + qty;
+        }
+      }
+
+      let activeArticle: Article;
+      let hasNewBrandsForExisting = false;
 
       if (existing) {
-        // Article already exists in catalog: enrich with this brand offer or update metadata
-        const existingOffers = existing.brandOffers && existing.brandOffers.length > 0
+        // --- CASE 1: EXISTING ARTICLE IN CATALOG ---
+        const existingOffers: ArticleBrandOffer[] = existing.brandOffers && existing.brandOffers.length > 0
           ? [...existing.brandOffers]
           : [
               {
@@ -2163,177 +2254,228 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               },
             ];
 
-        const offerIdx = existingOffers.findIndex(
-          (o) => o.brand.toLowerCase().trim() === rowBrand.toLowerCase()
-        );
-        const isNewBrandForArticle = offerIdx === -1;
+        for (const [bKey, acc] of brandMap.entries()) {
+          const offerIdx = existingOffers.findIndex(
+            (o) => o.brand.toLowerCase().trim() === bKey
+          );
 
-        if (isNewBrandForArticle) {
-          existingOffers.push({
-            id: `bo_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-            brand: rowBrand,
-            brandReference: row.mainReference.trim(),
-            purchasePrice: Math.max(0, row.purchasePrice || 0),
-            salePrice: Math.max(0, row.salePrice || 0),
-            isDefault: false,
-            ...((row.preferredSupplier?.trim() || existing.preferredSupplier) ? { preferredSupplier: row.preferredSupplier?.trim() || existing.preferredSupplier } : {}),
-            ...(row.barcode?.trim() ? { barcode: row.barcode.trim() } : {}),
-          });
-          report.updatedArticles += 1;
-        } else if (params.mode === 'CATALOG_UPDATE' || params.mode === 'PRICING_UPDATE') {
-          existingOffers[offerIdx] = {
-            ...existingOffers[offerIdx],
-            purchasePrice: row.purchasePrice !== undefined && row.purchasePrice >= 0 ? row.purchasePrice : existingOffers[offerIdx].purchasePrice,
-            salePrice: row.salePrice !== undefined && row.salePrice >= 0 ? row.salePrice : existingOffers[offerIdx].salePrice,
-            ...((row.preferredSupplier?.trim() || existingOffers[offerIdx].preferredSupplier) ? { preferredSupplier: row.preferredSupplier?.trim() || existingOffers[offerIdx].preferredSupplier } : {}),
-            ...((row.barcode?.trim() || existingOffers[offerIdx].barcode) ? { barcode: row.barcode?.trim() || existingOffers[offerIdx].barcode } : {}),
-          };
-          report.updatedArticles += 1;
-        }
-
-        // Merge any new equivalent references
-        let mergedEquivalents = existing.equivalentReferences || [];
-        if (row.equivalentReferences && row.equivalentReferences.length > 0) {
-          mergedEquivalents = Array.from(new Set([...mergedEquivalents, ...row.equivalentReferences]));
+          if (offerIdx === -1) {
+            // New brand variable to attach to this existing article
+            existingOffers.push({
+              id: `bo_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+              brand: acc.brandName,
+              brandReference: existing.mainReference,
+              purchasePrice: acc.purchasePrice > 0 ? acc.purchasePrice : existing.purchasePrice,
+              salePrice: acc.salePrice > 0 ? acc.salePrice : existing.salePrice,
+              isDefault: false,
+              ...(acc.preferredSupplier ? { preferredSupplier: acc.preferredSupplier } : {}),
+              ...(acc.barcode ? { barcode: acc.barcode } : {}),
+            });
+            report.brandOffersCreatedCount += 1;
+            hasNewBrandsForExisting = true;
+          } else if (params.mode === 'CATALOG_UPDATE' || params.mode === 'PRICING_UPDATE') {
+            // Update pricing and details on existing offer
+            existingOffers[offerIdx] = {
+              ...existingOffers[offerIdx],
+              purchasePrice: acc.purchasePrice > 0 ? acc.purchasePrice : existingOffers[offerIdx].purchasePrice,
+              salePrice: acc.salePrice > 0 ? acc.salePrice : existingOffers[offerIdx].salePrice,
+              ...(acc.preferredSupplier ? { preferredSupplier: acc.preferredSupplier } : {}),
+              ...(acc.barcode ? { barcode: acc.barcode } : {}),
+            };
+          }
         }
 
         const updatedArt: Article = {
           ...existing,
-          designation: (params.mode === 'CATALOG_UPDATE' && row.designation) ? row.designation.trim() : existing.designation,
-          category: (params.mode === 'CATALOG_UPDATE' && row.category) ? row.category : existing.category,
-          minStockThreshold: (params.mode === 'CATALOG_UPDATE' && row.minStockThreshold !== undefined && row.minStockThreshold >= 0)
-            ? row.minStockThreshold
-            : existing.minStockThreshold,
-          equivalentReferences: mergedEquivalents,
+          designation: params.mode === 'CATALOG_UPDATE' && bestDesignation ? bestDesignation : existing.designation,
+          category: params.mode === 'CATALOG_UPDATE' && bestCategory ? bestCategory : existing.category,
+          minStockThreshold: params.mode === 'CATALOG_UPDATE' && bestMinThreshold !== undefined ? bestMinThreshold : existing.minStockThreshold,
+          equivalentReferences: allEquivalents,
           brandOffers: existingOffers,
           purchasePrice: existingOffers[0]?.purchasePrice ?? existing.purchasePrice,
           salePrice: existingOffers[0]?.salePrice ?? existing.salePrice,
           updatedAt: nowIso,
         };
+
         nextArticles[existingIndex] = updatedArt;
-
-        // Apply physical stock addition if new brand offer or explicit overwrite confirmed
-        if (targetQty > 0 && (isNewBrandForArticle || params.overwriteExistingStock)) {
-          const currentStock = getStockForArticleAndWarehouse(existing.id, activeWh.id);
-          const newTotal = currentStock + targetQty;
-
-          nextStocks = nextStocks.map((st) => {
-            if (st.articleId === existing.id && st.warehouseId === activeWh.id) {
-              const bd = { ...(st.brandBreakdown || {}) };
-              bd[rowBrand] = (bd[rowBrand] || 0) + targetQty;
-              return { ...st, quantity: newTotal, brandBreakdown: bd };
-            }
-            return st;
-          });
-
-          const newMvtId = generateMovementId();
-          const initMovement: StockMovement = {
-            id: newMvtId,
-            date: nowIso,
-            type: 'ENTREE',
-            articleId: existing.id,
-            quantity: targetQty,
-            targetWarehouseId: activeWh.id,
-            userId: currentUser.id,
-            userName: currentUser.name,
-            documentRef: `IMPORT-MARQUE-${new Date().getFullYear()}-${existing.id.slice(-4).toUpperCase()}`,
-            reason: `Importation offre marque "${rowBrand}"`,
-            thirdParty: row.preferredSupplier?.trim() || `Constructeur ${rowBrand}`,
-            unitPrice: row.purchasePrice || existing.purchasePrice,
-            totalPrice: (row.purchasePrice || existing.purchasePrice) * targetQty,
-            stockBefore: currentStock,
-            stockAfter: newTotal,
-            notes: `Ajout initial de ${targetQty} unité(s) marque "${rowBrand}" dans le magasin ${activeWh.name}`,
-          };
-          nextMovements = [initMovement, ...nextMovements];
-          report.createdMovements += 1;
-          report.positiveStockEntriesCount += 1;
-          report.totalQuantityImported += targetQty;
-        } else if (!isNewBrandForArticle && params.mode === 'INITIAL_IMPORT') {
-          report.skippedArticles += 1;
-        }
+        activeArticle = updatedArt;
+        report.updatedArticles += 1; // Strict single increment for this piece
       } else {
-        // Create new master article with its primary brand offer
+        // --- CASE 2: BRAND NEW ARTICLE IN CATALOG ---
         const newArtId = generateArticleId(nextArticles.length);
-        const primaryOffer: ArticleBrandOffer = {
-          id: `bo_${Date.now()}_init`,
-          brand: rowBrand,
-          brandReference: row.mainReference.trim(),
-          purchasePrice: Math.max(0, row.purchasePrice || 0),
-          salePrice: Math.max(0, row.salePrice || 0),
+        const builtOffers: ArticleBrandOffer[] = Array.from(brandMap.values()).map((acc, idx) => ({
+          id: `bo_${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 6)}`,
+          brand: acc.brandName,
+          brandReference: masterReference,
+          purchasePrice: acc.purchasePrice,
+          salePrice: acc.salePrice,
+          isDefault: idx === 0,
+          ...(acc.preferredSupplier ? { preferredSupplier: acc.preferredSupplier } : {}),
+          ...(acc.barcode ? { barcode: acc.barcode } : {}),
+        }));
+
+        report.brandOffersCreatedCount += builtOffers.length;
+
+        const primaryOffer = builtOffers[0] || {
+          id: `bo_${newArtId}_init`,
+          brand: 'Générique',
+          brandReference: masterReference,
+          purchasePrice: 0,
+          salePrice: 0,
           isDefault: true,
-          ...(row.preferredSupplier?.trim() ? { preferredSupplier: row.preferredSupplier.trim() } : {}),
-          ...(row.barcode?.trim() ? { barcode: row.barcode.trim() } : {}),
         };
 
         const newArt: Article = {
           id: newArtId,
-          mainReference: row.mainReference.trim(),
-          designation: row.designation.trim(),
-          brand: rowBrand,
-          category: row.category || 'Filtration',
+          mainReference: masterReference,
+          designation: bestDesignation,
+          brand: primaryOffer.brand,
+          category: bestCategory,
           compatibleMachines: [],
-          equivalentReferences: row.equivalentReferences || [],
-          purchasePrice: Math.max(0, row.purchasePrice || 0),
-          salePrice: Math.max(0, row.salePrice || 0),
-          minStockThreshold: Math.max(0, row.minStockThreshold ?? 2),
-          brandOffers: [primaryOffer],
-          defaultLocation: row.physicalLocation || 'Non renseigné',
-          warehouseLocation: activeWh.name,
+          equivalentReferences: allEquivalents,
+          purchasePrice: primaryOffer.purchasePrice,
+          salePrice: primaryOffer.salePrice,
+          minStockThreshold: bestMinThreshold,
+          brandOffers: builtOffers,
+          defaultLocation: bestLocation,
+          warehouseLocation: targetWh.name,
           unit: 'Unité',
           status: 'active',
           createdAt: nowIso,
           updatedAt: nowIso,
-          ...(row.rack?.trim() ? { rack: row.rack.trim() } : {}),
-          ...(row.shelf?.trim() ? { shelf: row.shelf.trim() } : {}),
-          ...(row.bin?.trim() ? { bin: row.bin.trim() } : {}),
-          ...(row.preferredSupplier?.trim() ? { preferredSupplier: row.preferredSupplier.trim() } : {}),
-          ...(row.barcode?.trim() ? { barcode: row.barcode.trim() } : {}),
-          ...(row.imageUrl?.trim() ? { imageUrl: row.imageUrl.trim(), imageType: 'SUPPLIER_IMAGE' as const } : {}),
+          ...(bestRack ? { rack: bestRack } : {}),
+          ...(bestShelf ? { shelf: bestShelf } : {}),
+          ...(bestBin ? { bin: bestBin } : {}),
+          ...(bestSupplier ? { preferredSupplier: bestSupplier } : {}),
+          ...(bestBarcode ? { barcode: bestBarcode } : {}),
+          ...(bestImageUrl ? { imageUrl: bestImageUrl, imageType: 'SUPPLIER_IMAGE' as const } : {}),
         };
 
         nextArticles = [newArt, ...nextArticles];
-        report.createdArticles += 1;
+        activeArticle = newArt;
+        report.createdArticles += 1; // Strict single increment for this piece
+      }
 
-        // Initialize warehouse stocks
-        warehouses.forEach((w) => {
-          const isTargetWh = w.id === activeWh.id;
-          const initialQty = isTargetWh ? targetQty : 0;
+      // 4. Consolidate warehouse stocks & single movements per warehouse for this article
+      // Group total quantities and brand breakdowns for each warehouse
+      const allWarehouseIds = Array.from(new Set(warehouses.map((w) => w.id)));
+
+      for (const whId of allWarehouseIds) {
+        const whObj = warehouses.find((w) => w.id === whId) || targetWh;
+        const brandQtysForWh: Record<string, number> = {};
+        let totalQtyInThisWh = 0;
+
+        for (const acc of brandMap.values()) {
+          const q = acc.warehouseQtys[whId] || 0;
+          if (q > 0) {
+            brandQtysForWh[acc.brandName] = (brandQtysForWh[acc.brandName] || 0) + q;
+            totalQtyInThisWh += q;
+          }
+        }
+
+        const existingStockIdx = nextStocks.findIndex(
+          (s) => s.articleId === activeArticle.id && s.warehouseId === whId
+        );
+        const currentStockQty = existingStockIdx !== -1 ? nextStocks[existingStockIdx].quantity : 0;
+
+        if (existing) {
+          // If existing article, only update stock if we have new brands or overwrite confirmed
+          if (totalQtyInThisWh > 0 && (hasNewBrandsForExisting || params.overwriteExistingStock)) {
+            const newTotalQty = currentStockQty + totalQtyInThisWh;
+
+            if (existingStockIdx !== -1) {
+              const mergedBreakdown = { ...(nextStocks[existingStockIdx].brandBreakdown || {}) };
+              for (const [b, q] of Object.entries(brandQtysForWh)) {
+                mergedBreakdown[b] = (mergedBreakdown[b] || 0) + q;
+              }
+              nextStocks[existingStockIdx] = {
+                ...nextStocks[existingStockIdx],
+                quantity: newTotalQty,
+                brandBreakdown: mergedBreakdown,
+              };
+            } else {
+              nextStocks.push({
+                articleId: activeArticle.id,
+                warehouseId: whId,
+                quantity: totalQtyInThisWh,
+                brandBreakdown: brandQtysForWh,
+                shelfLocation: bestLocation || activeArticle.defaultLocation,
+              });
+            }
+
+            // Create ONE consolidated movement for this warehouse
+            const brandSummary = Object.entries(brandQtysForWh)
+              .map(([b, q]) => `${b} (x${q})`)
+              .join(', ');
+
+            const newMvtId = generateMovementId();
+            const initMovement: StockMovement = {
+              id: newMvtId,
+              date: nowIso,
+              type: 'ENTREE',
+              articleId: activeArticle.id,
+              quantity: totalQtyInThisWh,
+              targetWarehouseId: whId,
+              userId: currentUser.id,
+              userName: currentUser.name,
+              documentRef: `IMPORT-${new Date().getFullYear()}-${activeArticle.id.slice(-4).toUpperCase()}`,
+              reason: `Entrée stock importation : ${brandSummary}`,
+              thirdParty: bestSupplier || 'Import Fichier Excel/CSV',
+              unitPrice: activeArticle.purchasePrice,
+              totalPrice: activeArticle.purchasePrice * totalQtyInThisWh,
+              stockBefore: currentStockQty,
+              stockAfter: newTotalQty,
+              notes: `Ajout groupé de ${totalQtyInThisWh} unité(s) pour la référence ${activeArticle.mainReference} (${brandSummary}) dans le magasin ${whObj.name}`,
+            };
+
+            nextMovements = [initMovement, ...nextMovements];
+            report.createdMovements += 1;
+            report.positiveStockEntriesCount += 1;
+            report.totalQuantityImported += totalQtyInThisWh;
+          } else if (!hasNewBrandsForExisting && totalQtyInThisWh === 0 && params.mode === 'INITIAL_IMPORT') {
+            report.skippedArticles += 1;
+          }
+        } else {
+          // Brand new article: initialize stock record
           nextStocks.push({
-            articleId: newArtId,
-            warehouseId: w.id,
-            quantity: initialQty,
-            brandBreakdown: isTargetWh && targetQty > 0 ? { [rowBrand]: targetQty } : {},
-            shelfLocation: row.physicalLocation || newArt.defaultLocation,
+            articleId: activeArticle.id,
+            warehouseId: whId,
+            quantity: totalQtyInThisWh,
+            brandBreakdown: brandQtysForWh,
+            shelfLocation: bestLocation || activeArticle.defaultLocation,
           });
-        });
 
-        // Audit movement for positive initial quantity
-        if (targetQty > 0) {
-          report.positiveStockEntriesCount += 1;
-          report.totalQuantityImported += targetQty;
+          if (totalQtyInThisWh > 0) {
+            report.positiveStockEntriesCount += 1;
+            report.totalQuantityImported += totalQtyInThisWh;
 
-          const newMvtId = generateMovementId();
-          const initMovement: StockMovement = {
-            id: newMvtId,
-            date: nowIso,
-            type: 'ENTREE',
-            articleId: newArtId,
-            quantity: targetQty,
-            targetWarehouseId: activeWh.id,
-            userId: currentUser.id,
-            userName: currentUser.name,
-            documentRef: `IMPORT-INIT-${new Date().getFullYear()}-${newArtId.slice(-4).toUpperCase()}`,
-            reason: `Importation catalogue et stock initial (${rowBrand})`,
-            thirdParty: row.preferredSupplier?.trim() || 'Import Fichier Excel/CSV',
-            unitPrice: newArt.purchasePrice,
-            totalPrice: newArt.purchasePrice * targetQty,
-            stockBefore: 0,
-            stockAfter: targetQty,
-            notes: `Créé automatiquement lors de l'importation initiale ${params.fileName} dans le magasin ${activeWh.name}`,
-          };
-          nextMovements = [initMovement, ...nextMovements];
-          report.createdMovements += 1;
+            const brandSummary = Object.entries(brandQtysForWh)
+              .map(([b, q]) => `${b} (x${q})`)
+              .join(', ');
+
+            const newMvtId = generateMovementId();
+            const initMovement: StockMovement = {
+              id: newMvtId,
+              date: nowIso,
+              type: 'ENTREE',
+              articleId: activeArticle.id,
+              quantity: totalQtyInThisWh,
+              targetWarehouseId: whId,
+              userId: currentUser.id,
+              userName: currentUser.name,
+              documentRef: `IMPORT-INIT-${new Date().getFullYear()}-${activeArticle.id.slice(-4).toUpperCase()}`,
+              reason: `Stock initial importé : ${brandSummary}`,
+              thirdParty: bestSupplier || 'Import Fichier Excel/CSV',
+              unitPrice: activeArticle.purchasePrice,
+              totalPrice: activeArticle.purchasePrice * totalQtyInThisWh,
+              stockBefore: 0,
+              stockAfter: totalQtyInThisWh,
+              notes: `Création initiale de ${totalQtyInThisWh} unité(s) (${brandSummary}) pour la référence ${activeArticle.mainReference} dans le magasin ${whObj.name}`,
+            };
+
+            nextMovements = [initMovement, ...nextMovements];
+            report.createdMovements += 1;
+          }
         }
       }
     }

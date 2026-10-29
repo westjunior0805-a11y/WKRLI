@@ -249,9 +249,9 @@ export function parseAndValidateImportRows(
       const refKey = mainReference.toLowerCase();
       const compositeKey = `${refKey}:::${brand.toLowerCase()}`;
       if (seenCompositeKeysInFile.has(compositeKey)) {
-        errors.push(`Doublon dans ce fichier : la référence "${mainReference}" pour la marque "${brand}" est déjà présente`);
+        warnings.push(`Ligne complémentaire pour la marque "${brand}" sur la référence "${mainReference}" : les quantités seront cumulées sur la même pièce sans doublon`);
       } else if (seenRefsInFile.has(refKey)) {
-        warnings.push(`Marque complémentaire "${brand}" rattachée à la référence pivot "${mainReference}"`);
+        warnings.push(`Variable marque "${brand}" rattachée à la référence unique "${mainReference}"`);
       }
       seenCompositeKeysInFile.add(compositeKey);
       seenRefsInFile.add(refKey);

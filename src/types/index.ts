@@ -350,6 +350,8 @@ export interface ImportResultReport {
   mode: ImportMode;
   fileName: string;
   totalRows: number;
+  uniqueReferencesCount: number; // Références uniques traitées (comptées 1 seule fois)
+  brandOffersCreatedCount: number; // Déclinaisons de marques / constructeurs associées
   createdArticles: number;
   updatedArticles: number;
   skippedArticles: number;
