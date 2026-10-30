@@ -153,6 +153,122 @@ export function normalizeHeader(s: string): string {
     .replace(/[^a-z0-9]/g, '');
 }
 
+export function parseRawSis2Text(rawText: string): Record<string, any>[] {
+  const lines = rawText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const results: Record<string, any>[] = [];
+
+  // Regex pattern matching Caterpillar Part Numbers
+  const catPartRegex = /\b([0-9][A-Z0-9]{1,2}-?[0-9]{4}|[0-9]{3}-?[0-9]{4}|[0-9][A-Z]-[0-9]{4}|[0-9]{7})\b/gi;
+
+  for (const line of lines) {
+    const matches = line.match(catPartRegex);
+    if (!matches || matches.length === 0) continue;
+
+    const rawPartNum = matches[0].toUpperCase();
+    let formattedPartNum = rawPartNum;
+    if (!rawPartNum.includes('-') && rawPartNum.length === 7) {
+      formattedPartNum = `${rawPartNum.substring(0, 3)}-${rawPartNum.substring(3)}`;
+    }
+
+    let desc = line.replace(catPartRegex, '').replace(/[\t;,]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!desc || desc.length < 2) {
+      desc = `Pièce d'Origine Caterpillar SIS 2.0 Ref ${formattedPartNum}`;
+    }
+
+    let qty = 1;
+    const qtyMatch = line.match(/(?:qty|qte|x|\b)\s*:?\s*(\d+)\b/i);
+    if (qtyMatch && parseInt(qtyMatch[1], 10) > 0 && parseInt(qtyMatch[1], 10) <= 1000) {
+      qty = parseInt(qtyMatch[1], 10);
+    }
+
+    let category: ArticleCategory = 'Moteur & Refroidissement';
+    const lowerLine = line.toLowerCase();
+    if (
+      lowerLine.includes('filter') ||
+      lowerLine.includes('filtre') ||
+      formattedPartNum.startsWith('1R') ||
+      lowerLine.includes('element') ||
+      lowerLine.includes('separator')
+    ) {
+      category = 'Filtration';
+    } else if (
+      lowerLine.includes('injector') ||
+      lowerLine.includes('injecteur') ||
+      lowerLine.includes('pump') ||
+      lowerLine.includes('fuel') ||
+      lowerLine.includes('carburant')
+    ) {
+      category = 'Système Injection & Carburant';
+    } else if (
+      lowerLine.includes('hydraul') ||
+      lowerLine.includes('cylinder') ||
+      lowerLine.includes('vérin') ||
+      lowerLine.includes('seal') ||
+      lowerLine.includes('joint')
+    ) {
+      category = 'Hydraulique & Vérins';
+    } else if (
+      lowerLine.includes('tooth') ||
+      lowerLine.includes('dent') ||
+      lowerLine.includes('blade') ||
+      lowerLine.includes('lame') ||
+      lowerLine.includes('cutting') ||
+      formattedPartNum.startsWith('1U') ||
+      formattedPartNum.startsWith('9W')
+    ) {
+      category = 'Outils d’Attaque au Sol (Dents/Lames)';
+    } else if (
+      lowerLine.includes('roller') ||
+      lowerLine.includes('galet') ||
+      lowerLine.includes('idler') ||
+      lowerLine.includes('sprocket') ||
+      lowerLine.includes('barbotin') ||
+      lowerLine.includes('track') ||
+      lowerLine.includes('chenille')
+    ) {
+      category = 'Train de Roulement & Chenilles';
+    } else if (
+      lowerLine.includes('starter') ||
+      lowerLine.includes('démarreur') ||
+      lowerLine.includes('alt') ||
+      lowerLine.includes('lamp') ||
+      lowerLine.includes('switch') ||
+      lowerLine.includes('sensor')
+    ) {
+      category = 'Électricité & Démarreurs';
+    } else if (
+      lowerLine.includes('disc') ||
+      lowerLine.includes('brake') ||
+      lowerLine.includes('frein') ||
+      lowerLine.includes('transmission')
+    ) {
+      category = 'Transmission & Ponts';
+    }
+
+    results.push({
+      'Référence': formattedPartNum,
+      'Désignation': desc,
+      'Équivalences': `Extraction SIS 2.0 (OEM CAT ${formattedPartNum})`,
+      'Marque': 'Caterpillar',
+      'Catégorie': category,
+      'Quantité initiale': qty,
+      'Prix d\'achat': 28000,
+      'Prix de vente': 42000,
+      'Fournisseur habituel': 'Sodimate BTP Dakar (CAT Dealer)',
+      'Magasin': 'Entrepôt Central Dakar Port',
+      'Emplacement physique': 'Section Caterpillar SIS 2.0',
+      'Rayonnage': 'CAT',
+      'Étagère': '01',
+      'Case': '01',
+      'Seuil minimum': 2,
+      'Code-barres': `CAT${formattedPartNum.replace(/[^A-Z0-9]/gi, '')}`,
+      'URL Image': '',
+    });
+  }
+
+  return results;
+}
+
 export function autoDetectMapping(cols: string[]): ImportFieldMapping {
   const findMatch = (exactList: string[], partialList: string[] = []): string => {
     // 1. Try exact match first
