@@ -13,6 +13,7 @@ import {
   parseAndValidateImportRows,
   TEMPLATE_HEADERS,
   SAMPLE_ROWS,
+  CATERPILLAR_SIS2_CATALOG_ROWS,
 } from '../../utils/importParser';
 import {
   Upload,
@@ -156,6 +157,56 @@ export const ImportCatalogView: React.FC<ImportCatalogViewProps> = ({
 
   const handleDownloadCsvTemplate = () => {
     exportToCSV('modele_import_catalogue_equipstock', TEMPLATE_HEADERS, SAMPLE_ROWS);
+  };
+
+  const handleDownloadCaterpillarSis2Excel = () => {
+    const wb = XLSX.utils.book_new();
+    const wsData = [TEMPLATE_HEADERS, ...CATERPILLAR_SIS2_CATALOG_ROWS];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    ws['!cols'] = [
+      { wch: 18 },
+      { wch: 48 },
+      { wch: 45 },
+      { wch: 18 },
+      { wch: 30 },
+      { wch: 14 },
+      { wch: 14 },
+      { wch: 14 },
+      { wch: 25 },
+      { wch: 30 },
+      { wch: 30 },
+      { wch: 10 },
+      { wch: 10 },
+      { wch: 10 },
+      { wch: 14 },
+      { wch: 16 },
+      { wch: 20 },
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws, 'SIS2_Caterpillar');
+    XLSX.writeFile(wb, 'catalogue_caterpillar_sis2_pack.xlsx');
+  };
+
+  const handleLoadCaterpillarSIS2Pack = () => {
+    setErrorMessage(null);
+    const headers = TEMPLATE_HEADERS;
+    const rowsAsObjects = CATERPILLAR_SIS2_CATALOG_ROWS.map((rowArr) => {
+      const obj: Record<string, any> = {};
+      headers.forEach((h, idx) => {
+        obj[h] = rowArr[idx] !== undefined ? rowArr[idx] : '';
+      });
+      return obj;
+    });
+
+    setFileName('Catalogue_Caterpillar_SIS_2.0_Pack.xlsx');
+    setFileSizeStr('38 Références CAT Authentiques');
+    setAvailableColumns(headers);
+    setRawRows(rowsAsObjects);
+
+    const detected = autoDetectMapping(headers);
+    setMapping(detected);
+    setStep(2);
   };
 
   const parsedRows: ParsedImportRow[] = useMemo(() => {
@@ -501,6 +552,48 @@ export const ImportCatalogView: React.FC<ImportCatalogViewProps> = ({
                 </label>
               </div>
             )}
+
+            {/* Caterpillar SIS 2.0 Pack Quick Generator Card */}
+            <div className="p-5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-amber-500/10 border-2 border-amber-500/30 space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500 text-slate-950 font-bold flex items-center justify-center shadow-xs">
+                    <Sparkles className="w-5 h-5 fill-slate-950 text-slate-950" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
+                      Catalogue Spécial Caterpillar SIS 2.0
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-slate-950 font-mono">
+                        38 Références CAT
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-600">
+                      Pack pré-configuré d'engins lourds (Pelles 320D/330D/336D, Bouteurs D6R/D8T, Niveleuses 140K/140M, Moteurs C7/C9/C13/C15).
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={handleDownloadCaterpillarSis2Excel}
+                    className="px-3 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 text-xs font-bold rounded-lg inline-flex items-center gap-1.5 transition-colors shadow-2xs"
+                  >
+                    <Download className="w-3.5 h-3.5 text-emerald-600" />
+                    Télécharger Excel SIS 2.0 (.xlsx)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleLoadCaterpillarSIS2Pack}
+                    className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-lg inline-flex items-center gap-2 transition-colors shadow-xs"
+                  >
+                    <Sparkles className="w-4 h-4 fill-slate-950" />
+                    Injecter le Pack SIS 2.0 en 1 Clic
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
 
             <div
               onClick={() => fileInputRef.current?.click()}

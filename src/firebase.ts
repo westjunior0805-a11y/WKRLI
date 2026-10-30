@@ -9,7 +9,7 @@ import {
   onAuthStateChanged,
   User as FirebaseUser,
 } from 'firebase/auth';
-import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { getFirestore, doc, getDocFromServer, disableNetwork, enableNetwork } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
@@ -23,6 +23,40 @@ const firestoreApp = getApps().some((a) => a.name === 'firestoreApp')
   : initializeApp(firebaseConfig, 'firestoreApp');
 
 export const db = getFirestore(firestoreApp, firebaseConfig.firestoreDatabaseId);
+
+// Default to Local Mode unless explicitly re-enabled
+let quotaExceededFlag = localStorage.getItem('equipstock_force_local') !== 'false';
+
+if (quotaExceededFlag) {
+  try {
+    disableNetwork(db).catch(() => {});
+  } catch (e) {
+    // ignore
+  }
+}
+
+export function setQuotaExceededFlag(val: boolean = true) {
+  quotaExceededFlag = val;
+  if (val) {
+    localStorage.setItem('equipstock_force_local', 'true');
+    try {
+      disableNetwork(db).catch(() => {});
+    } catch (e) {
+      // ignore
+    }
+  } else {
+    localStorage.setItem('equipstock_force_local', 'false');
+    try {
+      enableNetwork(db).catch(() => {});
+    } catch (e) {
+      // ignore
+    }
+  }
+}
+
+export function isQuotaExceeded(): boolean {
+  return quotaExceededFlag;
+}
 
 export function onAuthChanged(callback: (user: FirebaseUser | null) => void) {
   return onAuthStateChanged(
@@ -90,25 +124,47 @@ export interface FirestoreErrorInfo {
   };
 }
 
-export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): never {
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): FirestoreErrorInfo {
+  const message = error instanceof Error ? error.message : String(error);
+  const isQuotaExceeded =
+    message.includes('resource-exhausted') ||
+    message.includes('Quota limit exceeded') ||
+    message.includes('quota');
+  const isOffline =
+    message.includes('offline') ||
+    message.includes('backend') ||
+    message.includes('unavailable');
+
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: message,
     authInfo: {
       userId: auth.currentUser?.uid,
       email: auth.currentUser?.email,
       emailVerified: auth.currentUser?.emailVerified,
       isAnonymous: auth.currentUser?.isAnonymous,
       tenantId: auth.currentUser?.tenantId,
-      providerInfo: auth.currentUser?.providerData?.map(provider => ({
-        providerId: provider.providerId,
-        email: provider.email,
-      })) || []
+      providerInfo:
+        auth.currentUser?.providerData?.map((provider) => ({
+          providerId: provider.providerId,
+          email: provider.email,
+        })) || [],
     },
     operationType,
-    path
+    path,
   };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+
+  if (isQuotaExceeded) {
+    setQuotaExceededFlag(true);
+    console.warn(
+      '⚡ Quota Cloud Firestore journalier atteint (Free tier). Mode hors-ligne / Cache local activé sans interruption.'
+    );
+  } else if (isOffline) {
+    console.warn('📶 Mode hors-ligne Cloud Firestore actif:', message);
+  } else {
+    console.warn('Firestore Notice:', JSON.stringify(errInfo));
+  }
+
+  return errInfo;
 }
 
 export async function testFirestoreConnection(): Promise<boolean> {
@@ -133,9 +189,13 @@ export async function testFirestoreConnection(): Promise<boolean> {
     }
     await getDocFromServer(doc(db, 'test', 'connection'));
     return true;
-  } catch (error) {
-    if (error instanceof Error && (error.message.includes('the client is offline') || error.message.includes('backend'))) {
-      console.warn('Firebase client is offline or cannot connect:', error.message);
+  } catch (error: any) {
+    const msg = error instanceof Error ? error.message : String(error);
+    if (msg.includes('resource-exhausted') || msg.includes('Quota limit exceeded') || msg.includes('quota')) {
+      setQuotaExceededFlag(true);
+      console.warn('⚡ Quota Cloud Firestore dépassé (test de connexion). Mode local basculé.');
+    } else if (msg.includes('the client is offline') || msg.includes('backend')) {
+      console.warn('📶 Client Firebase hors-ligne ou indisponible:', msg);
     }
     return false;
   }

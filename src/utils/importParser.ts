@@ -92,6 +92,59 @@ export const SAMPLE_ROWS = [
   ],
 ];
 
+export const CATERPILLAR_SIS2_CATALOG_ROWS = [
+  // FILTRATION
+  ['1R-0716', 'Filtre à Carburant Secondary High Efficiency', 'Donaldson P551313, Fleetguard FF5320, Baldwin BF7587', 'Caterpillar', 'Filtration', 20, 14500, 22500, 'Sodimate BTP Dakar', 'Entrepôt Central Dakar Port', 'Allée A - Travée 01', 'A', '01', '01', 5, '731234001', ''],
+  ['1R-0750', 'Filtre à Carburant High Efficiency Spin-On', 'Donaldson P551315, Fleetguard FF5319, Baldwin BF7633', 'Caterpillar', 'Filtration', 18, 16000, 24500, 'Sodimate BTP Dakar', 'Entrepôt Central Dakar Port', 'Allée A - Travée 01', 'A', '01', '02', 5, '731234002', ''],
+  ['1R-1808', 'Filtre à Huile Moteur C13 / C15 / C18', 'Donaldson P551808, Fleetguard LF16015, Baldwin B7299', 'Caterpillar', 'Filtration', 15, 22000, 33000, 'Sodimate BTP Dakar', 'Entrepôt Central Dakar Port', 'Allée A - Travée 02', 'A', '02', '01', 4, '731234003', ''],
+  ['1R-0739', 'Filtre à Huile Moteur C7 / C9 / 3306', 'Donaldson P550739, Fleetguard LF3376, Baldwin B7002', 'Caterpillar', 'Filtration', 12, 19500, 29000, 'Sodimate BTP Dakar', 'Entrepôt Central Dakar Port', 'Allée A - Travée 02', 'A', '02', '02', 3, '731234004', ''],
+  ['1R-0722', 'Filtre Hydraulique Cartouche Haute Pression', 'Donaldson P550388, Fleetguard HF6202', 'Caterpillar', 'Filtration', 8, 38000, 56000, 'Sodimate BTP Dakar', 'Entrepôt Central Dakar Port', 'Allée A - Travée 03', 'A', '03', '01', 2, '731234005', ''],
+  ['326-1644', 'Filtre Séparateur d’Eau et Carburant avec Bol', 'Donaldson P551425, Fleetguard FS19820', 'Caterpillar', 'Filtration', 10, 28500, 42000, 'Sodimate BTP Dakar', 'Entrepôt Central Dakar Port', 'Allée A - Travée 03', 'A', '03', '02', 3, '731234006', ''],
+  ['142-1339', 'Filtre à Air Primaire Radial Seal', 'Donaldson P532509, Fleetguard AF25557', 'Caterpillar', 'Filtration', 8, 45000, 68000, 'Sodimate BTP Dakar', 'Dépôt Régional Thiès Carrières', 'Allée B - Travée 01', 'B', '01', '01', 2, '731234007', ''],
+  ['142-1340', 'Filtre à Air Secondaire Radial Seal', 'Donaldson P532510, Fleetguard AF25558', 'Caterpillar', 'Filtration', 8, 32000, 48000, 'Sodimate BTP Dakar', 'Dépôt Régional Thiès Carrières', 'Allée B - Travée 01', 'B', '01', '02', 2, '731234008', ''],
+  ['4I-2013', 'Filtre Hydraulique de Retour Pelle 320D/330D', 'Donaldson P550698, Fleetguard HF35150', 'Caterpillar', 'Filtration', 6, 42000, 62000, 'Sodimate BTP Dakar', 'Entrepôt Central Dakar Port', 'Allée A - Travée 04', 'A', '04', '01', 2, '731234009', ''],
+
+  // MOTEUR & INJECTION
+  ['320-0680', 'Injecteur Common Rail Moteur C6.6 / C7.1', 'Perkins 2645A747, Bosch 0445120224', 'Caterpillar', 'Système Injection & Carburant', 6, 185000, 260000, 'Africaine d’Équipements', 'Entrepôt Central Dakar Port', 'Section Injection B-02', 'B', '02', '01', 2, '731234010', ''],
+  ['268-1835', 'Injecteur Moteur EUI C9 CAT 330D / 336D', 'Reman 20R-1263, Perkins 10R-7222', 'Caterpillar', 'Système Injection & Carburant', 4, 210000, 295000, 'Africaine d’Équipements', 'Entrepôt Central Dakar Port', 'Section Injection B-02', 'B', '02', '02', 2, '731234011', ''],
+  ['20R-8064', 'Injecteur Moteur C15 ACERT D8T / 345D', 'CAT 10R-1273, Reman 20R-8064', 'Caterpillar', 'Système Injection & Carburant', 4, 245000, 340000, 'Africaine d’Équipements', 'Antenne Minière Kédougou', 'Coffre Fort Pièces Sensibles', 'K', '01', '01', 1, '731234012', ''],
+  ['235-9620', 'Turbocompresseur Moteur C9 CAT 330D / 336D', 'Garrett GTA4294BS, CAT 20R-0130', 'Caterpillar', 'Moteur & Refroidissement', 2, 680000, 920000, 'Africaine d’Équipements', 'Entrepôt Central Dakar Port', 'Rayonnage Lourd Moteurs C-01', 'C', '01', '01', 1, '731234013', ''],
+  ['386-3439', 'Pompe à Eau Moteur C13 / C15 D8T / 345D', 'CAT 20R-0125, Reman 10R-3286', 'Caterpillar', 'Moteur & Refroidissement', 3, 290000, 410000, 'Matforce Sénégal', 'Entrepôt Central Dakar Port', 'Rayonnage Moteurs C-02', 'C', '02', '01', 1, '731234014', ''],
+  ['248-5513', 'Thermostat d’Eau Moteur C9 / C13 / C15 (82°C)', 'CAT 248-5513, Perkins 10000-00342', 'Caterpillar', 'Moteur & Refroidissement', 10, 18000, 27000, 'Matforce Sénégal', 'Entrepôt Central Dakar Port', 'Rayonnage C-03', 'C', '03', '01', 3, '731234015', ''],
+  ['320-2512', 'Pompe d’Amorçage Carburant Manuelle CAT', 'Bosch 1457010007, CAT 320-2512', 'Caterpillar', 'Système Injection & Carburant', 8, 32000, 48000, 'Africaine d’Équipements', 'Entrepôt Central Dakar Port', 'Section B-03', 'B', '03', '01', 2, '731234016', ''],
+  ['223-7468', 'Joint de Culasse Moteur C13 ACERT', 'Elring 322.110, Payen HG1200', 'Caterpillar', 'Moteur & Refroidissement', 5, 85000, 125000, 'Matforce Sénégal', 'Entrepôt Central Dakar Port', 'Rayonnage C-04', 'C', '04', '01', 2, '731234017', ''],
+
+  // HYDRAULIQUE
+  ['295-9677', 'Pompe Hydraulique Principale Double CAT 320D', 'Kawasaki K3V112DT, Handok K3V112', 'Caterpillar', 'Hydraulique & Vérins', 1, 1450000, 1950000, 'Matforce Sénégal', 'Entrepôt Central Dakar Port', 'Zone Matériel Lourd H-01', 'H', '01', '01', 1, '731234018', ''],
+  ['200-2929', 'Kit de Joints Vérin Flèche Pelle CAT 330D / 336D', 'SKF NOK Seal Kit 200-2929', 'Caterpillar', 'Hydraulique & Vérins', 8, 48000, 72000, 'Matforce Sénégal', 'Entrepôt Central Dakar Port', 'Section Joints H-02', 'H', '02', '01', 3, '731234019', ''],
+  ['200-2930', 'Kit de Joints Vérin Balancier Pelle CAT 320D', 'SKF NOK Seal Kit 200-2930', 'Caterpillar', 'Hydraulique & Vérins', 10, 42000, 64000, 'Matforce Sénégal', 'Entrepôt Central Dakar Port', 'Section Joints H-02', 'H', '02', '02', 3, '731234020', ''],
+  ['200-2931', 'Kit de Joints Vérin Godet Pelle CAT 320D / 323D', 'SKF NOK Seal Kit 200-2931', 'Caterpillar', 'Hydraulique & Vérins', 10, 38000, 58000, 'Matforce Sénégal', 'Entrepôt Central Dakar Port', 'Section Joints H-02', 'H', '02', '03', 3, '731234021', ''],
+  ['244-3114', 'Distributeur Hydraulique Principal CAT 320D', 'Mottrol CAT 244-3114', 'Caterpillar', 'Hydraulique & Vérins', 1, 1850000, 2450000, 'Matforce Sénégal', 'Entrepôt Central Dakar Port', 'Zone Matériel Lourd H-03', 'H', '03', '01', 1, '731234022', ''],
+
+  // TRAIN DE ROULEMENT & CHENILLES
+  ['173-0946', 'Galet Inférieur de Chenille CAT 320D / 323D', 'Berco CR5511, ITM A2002000M00', 'Caterpillar', 'Train de Roulement & Chenilles', 12, 85000, 125000, 'Sodimate BTP Dakar', 'Dépôt Régional Thiès Carrières', 'Allée Chenilles T-01', 'T', '01', '01', 4, '731234023', ''],
+  ['173-0950', 'Galet Supérieur de Chenille CAT 330D / 336D', 'Berco CR5520, ITM A2003000M00', 'Caterpillar', 'Train de Roulement & Chenilles', 10, 68000, 98000, 'Sodimate BTP Dakar', 'Dépôt Régional Thiès Carrières', 'Allée Chenilles T-01', 'T', '01', '02', 4, '731234024', ''],
+  ['114-5009', 'Roue Folle (Idler Assembly) CAT 320D / 323D', 'Berco CR5500, ITM A2001000M00', 'Caterpillar', 'Train de Roulement & Chenilles', 2, 280000, 390000, 'Sodimate BTP Dakar', 'Dépôt Régional Thiès Carrières', 'Allée Chenilles T-02', 'T', '02', '01', 1, '731234025', ''],
+  ['8E-4512', 'Barbotin / Segment de Barbotin Bouteur CAT D6R', 'Berco CR4812, ITM A3005000M00', 'Caterpillar', 'Train de Roulement & Chenilles', 15, 32000, 48000, 'Sodimate BTP Dakar', 'Dépôt Régional Thiès Carrières', 'Allée Chenilles T-03', 'T', '03', '01', 5, '731234026', ''],
+
+  // OUTILS D'ATTAQUE AU SOL (GET - TEETH/BLADES)
+  ['1U-3352', 'Dent de Godet Pénétration Système J350', 'Eteo J350, Black Cat 1U-3352', 'Caterpillar', 'Outils d’Attaque au Sol (Dents/Lames)', 40, 18500, 28000, 'Sodimate BTP Dakar', 'Entrepôt Central Dakar Port', 'Bac Dents G-01', 'G', '01', '01', 10, '731234027', ''],
+  ['1U-3302', 'Dent de Godet Usage Général Système J300', 'Eteo J300, Black Cat 1U-3302', 'Caterpillar', 'Outils d’Attaque au Sol (Dents/Lames)', 50, 14000, 21000, 'Sodimate BTP Dakar', 'Entrepôt Central Dakar Port', 'Bac Dents G-01', 'G', '01', '02', 15, '731234028', ''],
+  ['8E-6358', 'Axe et Bague de Blocage Dent Godet J350', 'CAT 8E-6358 + 8E-6359', 'Caterpillar', 'Outils d’Attaque au Sol (Dents/Lames)', 100, 2500, 4500, 'Sodimate BTP Dakar', 'Entrepôt Central Dakar Port', 'Bac Dents G-02', 'G', '02', '01', 25, '731234029', ''],
+  ['9W-8452', 'Lame de Bouteur D8T Biseau Double (7 trous)', 'Black Cat Blades 9W-8452', 'Caterpillar', 'Outils d’Attaque au Sol (Dents/Lames)', 6, 120000, 175000, 'Sodimate BTP Dakar', 'Antenne Minière Kédougou', 'Stock Lames Extérieur', 'G', '03', '01', 2, '731234030', ''],
+  ['4T-6659', 'Lame de Niveleuse 140K / 140M (7 Pieds 3/4")', 'Black Cat Blades 4T-6659', 'Caterpillar', 'Outils d’Attaque au Sol (Dents/Lames)', 12, 65000, 95000, 'Sodimate BTP Dakar', 'Entrepôt Central Dakar Port', 'Stock Lames Extérieur', 'G', '03', '02', 4, '731234031', ''],
+
+  // ÉLECTRICITÉ & DÉMARREURS
+  ['338-3454', 'Démarreur Heavy Duty 24V 7.5kW Moteur C9 / C13', 'Denso 428000-3450, Delco Remy 39MT', 'Caterpillar', 'Électricité & Démarreurs', 3, 240000, 340000, 'Africaine d’Équipements', 'Entrepôt Central Dakar Port', 'Rayonnage Électrique E-01', 'E', '01', '01', 1, '731234032', ''],
+  ['185-5294', 'Alternateur 24V 80A Moteur C7 / C9 / C13', 'Denso 101211-8520, Delco Remy 24SI', 'Caterpillar', 'Électricité & Démarreurs', 4, 165000, 235000, 'Africaine d’Équipements', 'Entrepôt Central Dakar Port', 'Rayonnage Électrique E-01', 'E', '01', '02', 2, '731234033', ''],
+  ['263-5090', 'Projecteur LED de Travail Cabine 24V 2500 Lumens', 'CAT 263-5090 LED Worklamp', 'Caterpillar', 'Électricité & Démarreurs', 15, 28000, 42000, 'Africaine d’Équipements', 'Entrepôt Central Dakar Port', 'Rayonnage Électrique E-02', 'E', '02', '01', 5, '731234034', ''],
+  ['115-1615', 'Contacteur à Clé de Démarrage 4 Positions avec Clés', 'CAT Key Switch 115-1615', 'Caterpillar', 'Électricité & Démarreurs', 10, 18500, 28000, 'Africaine d’Équipements', 'Entrepôt Central Dakar Port', 'Rayonnage Électrique E-02', 'E', '02', '02', 3, '731234035', ''],
+
+  // TRANSMISSION & FREINAGE
+  ['198-4687', 'Disque de Friction Frein Chargeuse CAT 966H / 980H', 'Friction Disc CAT 198-4687', 'Caterpillar', 'Freinage & Friction', 12, 35000, 52000, 'Matforce Sénégal', 'Entrepôt Central Dakar Port', 'Section Freins F-01', 'F', '01', '01', 4, '731234036', ''],
+  ['6Y-5678', 'Joint d’Étanchéité Duo-Cone Réducteur Final 330D', 'CAT Duo-Cone Seal 6Y-5678', 'Caterpillar', 'Transmission & Ponts', 8, 62000, 92000, 'Matforce Sénégal', 'Entrepôt Central Dakar Port', 'Section Joints F-02', 'F', '02', '01', 2, '731234037', ''],
+];
+
 export function normalizeHeader(s: string): string {
   return s
     .toLowerCase()

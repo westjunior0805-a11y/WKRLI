@@ -92,19 +92,27 @@ function AppContent() {
   const handleConfirmWipe = async () => {
     setIsWiping(true);
     try {
-      await clearAllData({ keepWarehouses: wipeKeepWarehouses });
+      const res = await clearAllData({ keepWarehouses: wipeKeepWarehouses });
       setIsWipeConfirmOpen(false);
-      addToast(
-        'success',
-        'Table rase effectuée avec succès',
-        'Base de données locale et Cloud Firestore entièrement remises à zéro.'
-      );
+      if (res && res.error) {
+        addToast(
+          'info',
+          'Table rase locale réussie',
+          res.error
+        );
+      } else {
+        addToast(
+          'success',
+          'Table rase effectuée avec succès',
+          'Base de données locale et Cloud Firestore entièrement remises à zéro.'
+        );
+      }
     } catch (err) {
       console.error(err);
       setIsWipeConfirmOpen(false);
       addToast(
         'info',
-        'Table rase effectuée',
+        'Table rase effectuée en local',
         'Les données locales ont été remises à zéro.'
       );
     } finally {

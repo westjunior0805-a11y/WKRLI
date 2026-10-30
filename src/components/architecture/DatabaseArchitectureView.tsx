@@ -142,7 +142,14 @@ export const DatabaseArchitectureView: React.FC = () => {
       });
       setSyncStats(stats);
     } catch (e) {
-      setSyncError('Échec de la sauvegarde Cloud : ' + (e instanceof Error ? e.message : String(e)));
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes('Quota exceeded') || msg.includes('RESOURCE_EXHAUSTED')) {
+        setSyncError(
+          "Limite de quota quotidien Firebase atteinte ! Vos données restent 100% enregistrées en local. Le quota se réinitialisera automatiquement demain (à minuit PST)."
+        );
+      } else {
+        setSyncError('Échec de la sauvegarde Cloud : ' + msg);
+      }
     } finally {
       setIsSyncing(false);
     }
@@ -157,7 +164,14 @@ export const DatabaseArchitectureView: React.FC = () => {
       const totalItems = (data.articles?.length || 0) + (data.sales?.length || 0) + (data.customers?.length || 0);
       setPullMessage(`Données Cloud chargées avec succès (${data.articles?.length || 0} articles, ${data.sales?.length || 0} ventes, ${data.warehouses?.length || 0} dépôts).`);
     } catch (e) {
-      setPullMessage('Erreur lors du téléchargement : ' + (e instanceof Error ? e.message : String(e)));
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes('Quota exceeded') || msg.includes('RESOURCE_EXHAUSTED')) {
+        setPullMessage(
+          "Impossible de lire le Cloud : le quota gratuit quotidien Firebase Firestore est temporairement dépassé. Vos données locales (LocalStorage) restent actives."
+        );
+      } else {
+        setPullMessage('Erreur lors du téléchargement : ' + msg);
+      }
     } finally {
       setIsPulling(false);
     }
@@ -438,6 +452,37 @@ CREATE TABLE public.stock_movements (
             <span className="font-mono text-xs text-sky-300 font-bold block mt-0.5">
               firestore.rules (Sécurisé & Opérationnel)
             </span>
+          </div>
+        </div>
+
+        {/* Firebase Firestore Quota & Limit Notice */}
+        <div className="mt-4 p-4 rounded-xl bg-slate-950/80 border border-amber-500/30 text-xs">
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div className="space-y-1.5 flex-1">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <h4 className="font-bold text-amber-300 text-sm">Gestion des Quotas Firebase Firestore (Spark Plan)</h4>
+                <a
+                  href="https://console.firebase.google.com/project/fair-ability-gc70r/firestore/databases/ai-studio-equipstockproges-6211f078-a78f-40f3-8840-45df6c3520e5/data?openUpgradeDialog=true"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs transition-colors shadow-xs"
+                >
+                  <Server className="w-3.5 h-3.5" />
+                  Ouvrir la console Firebase / Mettre à niveau
+                </a>
+              </div>
+              <p className="text-slate-300 leading-relaxed">
+                Google Cloud Firestore applique un quota quotidien gratuit (Plan Spark / Enterprise Edition). Si vous recevez l'erreur <code className="bg-slate-900 px-1 py-0.5 rounded text-amber-300 font-mono">Quota exceeded</code> ou <code className="bg-slate-900 px-1 py-0.5 rounded text-amber-300 font-mono">RESOURCE_EXHAUSTED</code>, la limite de requêtes quotidiennes gratuites a été atteinte pour la journée.
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-slate-400 text-[11px] pt-1">
+                <li><strong>Réinitialisation automatique :</strong> Le quota se réinitialise automatiquement chaque jour à minuit PST (le lendemain matin).</li>
+                <li><strong>Fonctionnement hors-ligne :</strong> L'application continue de fonctionner à 100% via la mémoire locale (<code className="font-mono text-slate-300">LocalStorage</code>). Aucune donnée n'est perdue.</li>
+                <li><strong>En savoir plus :</strong> Consultez la grille tarifaire et les détails des quotas sur la <a href="https://firebase.google.com/pricing#cloud-firestore" target="_blank" rel="noreferrer" className="text-amber-400 underline hover:text-amber-300">doc officielle Firebase Pricing</a>.</li>
+              </ul>
+            </div>
           </div>
         </div>
 

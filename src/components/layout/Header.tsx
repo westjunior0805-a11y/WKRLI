@@ -15,6 +15,8 @@ import {
   Sun,
   Moon,
   KeyRound,
+  RefreshCw,
+  Check,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -51,10 +53,22 @@ export const Header: React.FC<HeaderProps> = ({
     setSelectedWarehouseId,
     getAlerts,
     logout,
+    refreshFromCloud,
+    isSyncing,
+    lastCloudSync,
   } = useStock();
 
   const [isStockMenuOpen, setIsStockMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [syncSuccess, setSyncSuccess] = useState(false);
+
+  const handleManualSync = async () => {
+    const res = await refreshFromCloud();
+    if (res.success) {
+      setSyncSuccess(true);
+      setTimeout(() => setSyncSuccess(false), 2500);
+    }
+  };
 
   const stockMenuRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -149,6 +163,11 @@ export const Header: React.FC<HeaderProps> = ({
               <span>Sénégal (Dakar · Thiès · Kédougou)</span>
               <span>·</span>
               <span className="font-mono">FCFA</span>
+              <span>·</span>
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200/80 font-semibold text-[11px]">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                Mode Local Actif (LocalStorage)
+              </span>
             </div>
           </div>
         </div>
@@ -239,6 +258,32 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             )}
           </div>
+
+          {/* Cloud Synchronisation Button */}
+          <button
+            type="button"
+            onClick={handleManualSync}
+            disabled={isSyncing}
+            className={`inline-flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
+              syncSuccess
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                : 'text-slate-700 bg-slate-50 hover:bg-slate-100 border-slate-200'
+            } disabled:opacity-60`}
+            title={
+              lastCloudSync
+                ? `Synchronisé avec le Cloud Firestore à ${lastCloudSync.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}. Cliquez pour forcer la mise à jour.`
+                : 'Actualiser depuis le Cloud Firestore (temps réel actif)'
+            }
+          >
+            {syncSuccess ? (
+              <Check className="w-3.5 h-3.5 text-emerald-600" />
+            ) : (
+              <RefreshCw className={`w-3.5 h-3.5 text-amber-600 ${isSyncing ? 'animate-spin' : ''}`} />
+            )}
+            <span className="hidden sm:inline">
+              {isSyncing ? 'Mise à jour...' : syncSuccess ? 'À jour' : 'Actualiser'}
+            </span>
+          </button>
 
           {/* Theme Selection Button */}
           {onToggleTheme && (
