@@ -6,8 +6,6 @@ import {
   getDocs,
   writeBatch,
   serverTimestamp,
-  onSnapshot,
-  Unsubscribe,
 } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType, testFirestoreConnection } from '../firebase';
 import {
@@ -86,23 +84,6 @@ function cleanPayload<T extends Record<string, any>>(obj: T): Record<string, any
 }
 
 
-// High-performance batch committer (groups up to 450 writes per network round-trip)
-async function commitBatchChunks(entries: { collection: string; id: string; data: any }[]): Promise<number> {
-  if (entries.length === 0) return 0;
-  const BATCH_SIZE = 400;
-  let count = 0;
-  for (let i = 0; i < entries.length; i += BATCH_SIZE) {
-    const chunk = entries.slice(i, i + BATCH_SIZE);
-    const batch = writeBatch(db);
-    for (const item of chunk) {
-      batch.set(doc(db, item.collection, item.id), item.data);
-    }
-    await batch.commit();
-    count += chunk.length;
-  }
-  return count;
-}
-
 export async function uploadAllToFirebase(data: {
   articles: Article[];
   warehouses: Warehouse[];
@@ -134,411 +115,193 @@ export async function uploadAllToFirebase(data: {
   };
 
   try {
-    const allEntries: { collection: string; id: string; data: any }[] = [];
-
-    // 1. Articles with image compression
+    // 1. Articles
     for (const art of data.articles) {
-      let finalArticle = { ...art };
-      if (finalArticle.imageUrl && finalArticle.imageUrl.startsWith('data:image/')) {
-        finalArticle.imageUrl = await compressBase64Image(finalArticle.imageUrl, 480, 480, 0.7);
-        if (finalArticle.imageUrl.length > 400000) {
-          finalArticle.imageUrl = await compressBase64Image(finalArticle.imageUrl, 320, 320, 0.5);
+      const path = `articles/${art.id}`;
+      try {
+        let finalArticle = { ...art };
+        if (finalArticle.imageUrl && finalArticle.imageUrl.startsWith('data:image/')) {
+          finalArticle.imageUrl = await compressBase64Image(finalArticle.imageUrl, 480, 480, 0.7);
+          // If still over 400KB, apply more aggressive compression
+          if (finalArticle.imageUrl.length > 400000) {
+            finalArticle.imageUrl = await compressBase64Image(finalArticle.imageUrl, 320, 320, 0.5);
+          }
+          // If still over 700KB, omit image to strictly respect Firestore's 1MB limit
+          if (finalArticle.imageUrl.length > 700000) {
+            console.warn(`Article image for ${art.id} too large, omitted from cloud payload.`);
+            delete (finalArticle as any).imageUrl;
+          }
         }
-        if (finalArticle.imageUrl.length > 700000) {
-          delete (finalArticle as any).imageUrl;
-        }
-      }
-      allEntries.push({
-        collection: 'articles',
-        id: art.id,
-        data: {
+        await setDoc(doc(db, 'articles', art.id), {
           ...cleanPayload(finalArticle),
           syncedAt: serverTimestamp(),
-        },
-      });
-      stats.articles++;
+        });
+        stats.articles++;
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, path);
+      }
     }
 
     // 2. Warehouses
     for (const wh of data.warehouses) {
-      allEntries.push({
-        collection: 'warehouses',
-        id: wh.id,
-        data: {
+      const path = `warehouses/${wh.id}`;
+      try {
+        await setDoc(doc(db, 'warehouses', wh.id), {
           ...cleanPayload(wh),
           syncedAt: serverTimestamp(),
-        },
-      });
-      stats.warehouses++;
+        });
+        stats.warehouses++;
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, path);
+      }
     }
 
     // 3. Stocks
     for (const st of data.stocks) {
       const stockKey = `${st.articleId}_${st.warehouseId}`;
-      allEntries.push({
-        collection: 'stocks',
-        id: stockKey,
-        data: {
+      const path = `stocks/${stockKey}`;
+      try {
+        await setDoc(doc(db, 'stocks', stockKey), {
           ...cleanPayload(st),
           syncedAt: serverTimestamp(),
-        },
-      });
-      stats.stocks++;
+        });
+        stats.stocks++;
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, path);
+      }
     }
 
     // 4. Movements
     for (const mvt of data.movements) {
-      allEntries.push({
-        collection: 'movements',
-        id: mvt.id,
-        data: {
+      const path = `movements/${mvt.id}`;
+      try {
+        await setDoc(doc(db, 'movements', mvt.id), {
           ...cleanPayload(mvt),
           syncedAt: serverTimestamp(),
-        },
-      });
-      stats.movements++;
+        });
+        stats.movements++;
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, path);
+      }
     }
 
     // 5. Customers
     for (const cust of data.customers) {
-      allEntries.push({
-        collection: 'customers',
-        id: cust.id,
-        data: {
+      const path = `customers/${cust.id}`;
+      try {
+        await setDoc(doc(db, 'customers', cust.id), {
           ...cleanPayload(cust),
           syncedAt: serverTimestamp(),
-        },
-      });
-      stats.customers++;
+        });
+        stats.customers++;
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, path);
+      }
     }
 
     // 6. Sales
     for (const sale of data.sales) {
-      allEntries.push({
-        collection: 'sales',
-        id: sale.id,
-        data: {
+      const path = `sales/${sale.id}`;
+      try {
+        await setDoc(doc(db, 'sales', sale.id), {
           ...cleanPayload(sale),
           syncedAt: serverTimestamp(),
-        },
-      });
-      stats.sales++;
+        });
+        stats.sales++;
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, path);
+      }
     }
 
     // 7. Payments
     for (const pay of data.payments) {
-      allEntries.push({
-        collection: 'payments',
-        id: pay.id,
-        data: {
+      const path = `payments/${pay.id}`;
+      try {
+        await setDoc(doc(db, 'payments', pay.id), {
           ...cleanPayload(pay),
           syncedAt: serverTimestamp(),
-        },
-      });
-      stats.payments++;
+        });
+        stats.payments++;
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, path);
+      }
     }
 
     // 8. Cash Sessions
     for (const cs of data.cashSessions) {
-      allEntries.push({
-        collection: 'cashSessions',
-        id: cs.id,
-        data: {
+      const path = `cashSessions/${cs.id}`;
+      try {
+        await setDoc(doc(db, 'cashSessions', cs.id), {
           ...cleanPayload(cs),
           syncedAt: serverTimestamp(),
-        },
-      });
-      stats.cashSessions++;
+        });
+        stats.cashSessions++;
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, path);
+      }
     }
 
     // 9. Cash Movements
     for (const cm of data.cashMovements) {
-      allEntries.push({
-        collection: 'cashMovements',
-        id: cm.id,
-        data: {
+      const path = `cashMovements/${cm.id}`;
+      try {
+        await setDoc(doc(db, 'cashMovements', cm.id), {
           ...cleanPayload(cm),
           syncedAt: serverTimestamp(),
-        },
-      });
-      stats.cashMovements++;
+        });
+        stats.cashMovements++;
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, path);
+      }
     }
 
     // 10. Suppliers
     for (const supp of data.suppliers) {
-      allEntries.push({
-        collection: 'suppliers',
-        id: supp.id,
-        data: {
+      const path = `suppliers/${supp.id}`;
+      try {
+        await setDoc(doc(db, 'suppliers', supp.id), {
           ...cleanPayload(supp),
           syncedAt: serverTimestamp(),
-        },
-      });
-      stats.suppliers++;
+        });
+        stats.suppliers++;
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, path);
+      }
     }
 
     // 11. Supplier Orders
     for (const po of data.supplierOrders) {
-      allEntries.push({
-        collection: 'supplierOrders',
-        id: po.id,
-        data: {
+      const path = `supplierOrders/${po.id}`;
+      try {
+        await setDoc(doc(db, 'supplierOrders', po.id), {
           ...cleanPayload(po),
           syncedAt: serverTimestamp(),
-        },
-      });
-      stats.supplierOrders++;
+        });
+        stats.supplierOrders++;
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, path);
+      }
     }
 
     // 12. Quotes
     for (const quote of data.quotes) {
-      allEntries.push({
-        collection: 'quotes',
-        id: quote.id,
-        data: {
+      const path = `quotes/${quote.id}`;
+      try {
+        await setDoc(doc(db, 'quotes', quote.id), {
           ...cleanPayload(quote),
           syncedAt: serverTimestamp(),
-        },
-      });
-      stats.quotes++;
+        });
+        stats.quotes++;
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, path);
+      }
     }
-
-    // Commit all records in rapid atomic batches
-    await commitBatchChunks(allEntries);
 
     return stats;
   } catch (err) {
     console.error('Erreur globale de synchronisation vers Firebase:', err);
     throw err;
   }
-}
-
-// --- Granular Real-Time Firebase Persistence Functions ---
-
-export async function saveArticleToFirebase(art: Article): Promise<void> {
-  const path = `articles/${art.id}`;
-  try {
-    let finalArticle = { ...art };
-    if (finalArticle.imageUrl && finalArticle.imageUrl.startsWith('data:image/')) {
-      finalArticle.imageUrl = await compressBase64Image(finalArticle.imageUrl, 480, 480, 0.7);
-      if (finalArticle.imageUrl.length > 500000) {
-        delete (finalArticle as any).imageUrl;
-      }
-    }
-    await setDoc(doc(db, 'articles', art.id), {
-      ...cleanPayload(finalArticle),
-      syncedAt: serverTimestamp(),
-    });
-  } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, path);
-  }
-}
-
-export async function deleteArticleFromFirebase(articleId: string): Promise<void> {
-  const path = `articles/${articleId}`;
-  try {
-    await deleteDoc(doc(db, 'articles', articleId));
-  } catch (err) {
-    handleFirestoreError(err, OperationType.DELETE, path);
-  }
-}
-
-export async function saveStockToFirebase(st: WarehouseStock): Promise<void> {
-  const stockKey = `${st.articleId}_${st.warehouseId}`;
-  const path = `stocks/${stockKey}`;
-  try {
-    await setDoc(doc(db, 'stocks', stockKey), {
-      ...cleanPayload(st),
-      syncedAt: serverTimestamp(),
-    });
-  } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, path);
-  }
-}
-
-export async function saveMultipleStocksToFirebase(stocksList: WarehouseStock[]): Promise<void> {
-  try {
-    const entries = stocksList.map((st) => ({
-      collection: 'stocks',
-      id: `${st.articleId}_${st.warehouseId}`,
-      data: {
-        ...cleanPayload(st),
-        syncedAt: serverTimestamp(),
-      },
-    }));
-    await commitBatchChunks(entries);
-  } catch (err) {
-    console.warn('Erreur sauvegarde stocks multiple vers Firebase:', err);
-  }
-}
-
-export async function saveMovementToFirebase(mvt: StockMovement): Promise<void> {
-  const path = `movements/${mvt.id}`;
-  try {
-    await setDoc(doc(db, 'movements', mvt.id), {
-      ...cleanPayload(mvt),
-      syncedAt: serverTimestamp(),
-    });
-  } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, path);
-  }
-}
-
-export async function saveWarehouseToFirebase(wh: Warehouse): Promise<void> {
-  const path = `warehouses/${wh.id}`;
-  try {
-    await setDoc(doc(db, 'warehouses', wh.id), {
-      ...cleanPayload(wh),
-      syncedAt: serverTimestamp(),
-    });
-  } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, path);
-  }
-}
-
-export async function deleteWarehouseFromFirebase(warehouseId: string): Promise<void> {
-  const path = `warehouses/${warehouseId}`;
-  try {
-    await deleteDoc(doc(db, 'warehouses', warehouseId));
-  } catch (err) {
-    handleFirestoreError(err, OperationType.DELETE, path);
-  }
-}
-
-export async function saveCustomerToFirebase(cust: Customer): Promise<void> {
-  const path = `customers/${cust.id}`;
-  try {
-    await setDoc(doc(db, 'customers', cust.id), {
-      ...cleanPayload(cust),
-      syncedAt: serverTimestamp(),
-    });
-  } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, path);
-  }
-}
-
-export async function deleteCustomerFromFirebase(customerId: string): Promise<void> {
-  const path = `customers/${customerId}`;
-  try {
-    await deleteDoc(doc(db, 'customers', customerId));
-  } catch (err) {
-    handleFirestoreError(err, OperationType.DELETE, path);
-  }
-}
-
-export async function saveSaleToFirebase(sale: Sale): Promise<void> {
-  const path = `sales/${sale.id}`;
-  try {
-    await setDoc(doc(db, 'sales', sale.id), {
-      ...cleanPayload(sale),
-      syncedAt: serverTimestamp(),
-    });
-  } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, path);
-  }
-}
-
-export async function savePaymentToFirebase(pay: PaymentRecord): Promise<void> {
-  const path = `payments/${pay.id}`;
-  try {
-    await setDoc(doc(db, 'payments', pay.id), {
-      ...cleanPayload(pay),
-      syncedAt: serverTimestamp(),
-    });
-  } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, path);
-  }
-}
-
-export async function saveCashSessionToFirebase(cs: CashSession): Promise<void> {
-  const path = `cashSessions/${cs.id}`;
-  try {
-    await setDoc(doc(db, 'cashSessions', cs.id), {
-      ...cleanPayload(cs),
-      syncedAt: serverTimestamp(),
-    });
-  } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, path);
-  }
-}
-
-export async function saveCashMovementToFirebase(cm: CashMovement): Promise<void> {
-  const path = `cashMovements/${cm.id}`;
-  try {
-    await setDoc(doc(db, 'cashMovements', cm.id), {
-      ...cleanPayload(cm),
-      syncedAt: serverTimestamp(),
-    });
-  } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, path);
-  }
-}
-
-export async function saveSupplierToFirebase(supp: Supplier): Promise<void> {
-  const path = `suppliers/${supp.id}`;
-  try {
-    await setDoc(doc(db, 'suppliers', supp.id), {
-      ...cleanPayload(supp),
-      syncedAt: serverTimestamp(),
-    });
-  } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, path);
-  }
-}
-
-export async function saveSupplierOrderToFirebase(po: SupplierOrder): Promise<void> {
-  const path = `supplierOrders/${po.id}`;
-  try {
-    await setDoc(doc(db, 'supplierOrders', po.id), {
-      ...cleanPayload(po),
-      syncedAt: serverTimestamp(),
-    });
-  } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, path);
-  }
-}
-
-export async function saveQuoteToFirebase(quote: Quote): Promise<void> {
-  const path = `quotes/${quote.id}`;
-  try {
-    await setDoc(doc(db, 'quotes', quote.id), {
-      ...cleanPayload(quote),
-      syncedAt: serverTimestamp(),
-    });
-  } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, path);
-  }
-}
-
-export async function saveInventoryToFirebase(inv: InventorySession): Promise<void> {
-  const path = `inventories/${inv.id}`;
-  try {
-    await setDoc(doc(db, 'inventories', inv.id), {
-      ...cleanPayload(inv),
-      syncedAt: serverTimestamp(),
-    });
-  } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, path);
-  }
-}
-
-// Real-Time collection listener subscription helper
-export function subscribeToCollection<T>(
-  collectionName: string,
-  onData: (items: T[]) => void,
-  onError?: (err: any) => void
-): Unsubscribe {
-  return onSnapshot(
-    collection(db, collectionName),
-    (snapshot) => {
-      const items = snapshot.docs.map((d) => d.data() as T);
-      onData(items);
-    },
-    (err) => {
-      console.warn(`Avis écoute temps-réel ${collectionName}:`, err);
-      if (onError) onError(err);
-    }
-  );
 }
 
 export async function downloadAllFromFirebase() {
