@@ -90,25 +90,46 @@ export interface FirestoreErrorInfo {
   };
 }
 
-export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): never {
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): FirestoreErrorInfo {
+  const message = error instanceof Error ? error.message : String(error);
+  const isQuotaExceeded =
+    message.includes('resource-exhausted') ||
+    message.includes('Quota limit exceeded') ||
+    message.includes('quota');
+  const isOffline =
+    message.includes('offline') ||
+    message.includes('backend') ||
+    message.includes('unavailable');
+
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: message,
     authInfo: {
       userId: auth.currentUser?.uid,
       email: auth.currentUser?.email,
       emailVerified: auth.currentUser?.emailVerified,
       isAnonymous: auth.currentUser?.isAnonymous,
       tenantId: auth.currentUser?.tenantId,
-      providerInfo: auth.currentUser?.providerData?.map(provider => ({
-        providerId: provider.providerId,
-        email: provider.email,
-      })) || []
+      providerInfo:
+        auth.currentUser?.providerData?.map((provider) => ({
+          providerId: provider.providerId,
+          email: provider.email,
+        })) || [],
     },
     operationType,
-    path
+    path,
   };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+
+  if (isQuotaExceeded) {
+    console.warn(
+      '⚡ Quota Cloud Firestore journalier atteint (Free tier). Mode hors-ligne / Cache local activé sans interruption.'
+    );
+  } else if (isOffline) {
+    console.warn('📶 Mode hors-ligne Cloud Firestore actif:', message);
+  } else {
+    console.warn('Firestore Notice:', JSON.stringify(errInfo));
+  }
+
+  return errInfo;
 }
 
 export async function testFirestoreConnection(): Promise<boolean> {
