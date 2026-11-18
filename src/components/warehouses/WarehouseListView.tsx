@@ -33,18 +33,18 @@ import {
   ShoppingBag,
   ExternalLink,
   CheckCircle2,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 import { WarehouseFormModal } from './WarehouseFormModal';
 import { ArticleDetailModal } from '../catalog/ArticleDetailModal';
 import { ArticleFormModal } from '../catalog/ArticleFormModal';
 import { QuickStockEditModal } from '../catalog/QuickStockEditModal';
 import { ImportCatalogModal } from '../catalog/ImportCatalogModal';
+import { scoreArticleByScope } from '../../utils/fuzzySearch';
 import {
-  scoreArticleByScope,
-  SearchTargetScope,
-  SEARCH_SCOPE_OPTIONS,
-} from '../../utils/fuzzySearch';
-import {
+  cleanBrandName,
   getArticleBrandOffers,
   getBrandStockAcrossWarehouses,
   getBrandLocation,
@@ -104,10 +104,22 @@ export const WarehouseListView: React.FC<WarehouseListViewProps> = ({
   const [isStockImportOpen, setIsStockImportOpen] = useState(false);
 
   const [stockSearchQuery, setStockSearchQuery] = useState('');
-  const [stockSearchScope, setStockSearchScope] = useState<SearchTargetScope>('ALL');
   const deferredStockSearchQuery = useDeferredValue(stockSearchQuery);
   const [selectedBrand, setSelectedBrand] = useState<string>('ALL');
   const [stockStatusFilter, setStockStatusFilter] = useState<'ALL' | 'IN_STOCK' | 'LOW' | 'OUT'>('ALL');
+  const [sortField, setSortField] = useState<
+    | 'reference'
+    | 'designation'
+    | 'brand'
+    | 'quantity'
+    | 'location'
+    | 'invoiceNumber'
+    | 'purchasePrice'
+    | 'salePrice'
+    | 'minStockThreshold'
+    | null
+  >(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const [warehouseToDelete, setWarehouseToDelete] = useState<Warehouse | null>(null);
   const [articleToDelete, setArticleToDelete] = useState<Article | null>(null);
@@ -157,7 +169,7 @@ export const WarehouseListView: React.FC<WarehouseListViewProps> = ({
   useEffect(() => {
     setCurrentPage(1);
     setInfiniteVisibleCount(pageSize);
-  }, [deferredStockSearchQuery, stockSearchScope, inspectedWarehouseId, selectedBrand, stockStatusFilter, pageSize]);
+  }, [deferredStockSearchQuery, inspectedWarehouseId, selectedBrand, stockStatusFilter, sortField, sortDirection, pageSize]);
 
   const inspectedWarehouse =
     inspectedWarehouseId === 'ALL'
@@ -183,9 +195,11 @@ export const WarehouseListView: React.FC<WarehouseListViewProps> = ({
   const uniqueBrands = useMemo(() => {
     const set = new Set<string>();
     articles.forEach((a) => {
-      if (a.brand && a.brand.trim() && a.brand !== 'Non spécifié') set.add(a.brand.trim());
+      const primary = cleanBrandName(a.brand);
+      if (primary) set.add(primary);
       a.brandOffers?.forEach((bo) => {
-        if (bo.brand && bo.brand.trim() && bo.brand !== 'Non spécifié') set.add(bo.brand.trim());
+        const b = cleanBrandName(bo.brand);
+        if (b) set.add(b);
       });
     });
     return Array.from(set).sort();
@@ -206,6 +220,48 @@ export const WarehouseListView: React.FC<WarehouseListViewProps> = ({
     }
     return map;
   }, [stocks, getArticleById]);
+
+  const handleToggleSort = (
+    field:
+      | 'reference'
+      | 'designation'
+      | 'brand'
+      | 'quantity'
+      | 'location'
+      | 'invoiceNumber'
+      | 'purchasePrice'
+      | 'salePrice'
+      | 'minStockThreshold'
+  ) => {
+    if (sortField === field) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const renderSortIcon = (
+    field:
+      | 'reference'
+      | 'designation'
+      | 'brand'
+      | 'quantity'
+      | 'location'
+      | 'invoiceNumber'
+      | 'purchasePrice'
+      | 'salePrice'
+      | 'minStockThreshold'
+  ) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="w-3 h-3 text-slate-400 shrink-0 opacity-70" />;
+    }
+    return sortDirection === 'asc' ? (
+      <ArrowUp className="w-3 h-3 text-amber-600 shrink-0" />
+    ) : (
+      <ArrowDown className="w-3 h-3 text-amber-600 shrink-0" />
+    );
+  };
 
   const filteredStockArticles = useMemo(() => {
     const baseFiltered = articles.filter((art) => {
@@ -229,33 +285,140 @@ export const WarehouseListView: React.FC<WarehouseListViewProps> = ({
     });
 
     const trimmedQuery = deferredStockSearchQuery.trim();
-    if (!trimmedQuery) return baseFiltered;
+    let resultList: Article[];
 
-    const scored: Array<{ art: Article; score: number }> = [];
-    for (const art of baseFiltered) {
-      const artStocks = stocksByArticleId.get(art.id) || [];
-      const score = scoreArticleByScope(art, trimmedQuery, stockSearchScope, artStocks);
-      if (score > 0) {
-        scored.push({ art, score });
+    if (!trimmedQuery) {
+      resultList = [...baseFiltered];
+    } else {
+      const scored: Array<{ art: Article; score: number }> = [];
+      for (const art of baseFiltered) {
+        const artStocks = stocksByArticleId.get(art.id) || [];
+        const score = scoreArticleByScope(art, trimmedQuery, 'ALL', artStocks);
+        if (score > 0) {
+          scored.push({ art, score });
+        }
       }
+
+      scored.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return a.art.mainReference.localeCompare(b.art.mainReference);
+      });
+
+      resultList = scored.map((s) => s.art);
     }
 
-    scored.sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      return a.art.mainReference.localeCompare(b.art.mainReference);
-    });
+    if (sortField) {
+      const whFilter = inspectedWarehouseId === 'ALL' ? undefined : inspectedWarehouseId;
+      const getPrimaryOffer = (art: Article) => {
+        const allOffers = getArticleBrandOffers(art);
+        const matching =
+          selectedBrand !== 'ALL'
+            ? allOffers.filter((o) => o.brand === selectedBrand)
+            : allOffers;
+        return (matching.length > 0 ? matching : allOffers)[0];
+      };
 
-    return scored.map((s) => s.art);
+      const compareStrings = (aStr: string, bStr: string) => {
+        const aEmpty = !aStr || aStr === '-' || aStr === 'Non renseigné';
+        const bEmpty = !bStr || bStr === '-' || bStr === 'Non renseigné';
+        if (aEmpty && bEmpty) return 0;
+        if (aEmpty) return 1;
+        if (bEmpty) return -1;
+        return aStr.localeCompare(bStr, 'fr', { numeric: true, sensitivity: 'base' });
+      };
+
+      resultList.sort((a, b) => {
+        let cmp = 0;
+        if (sortField === 'reference') {
+          cmp = compareStrings(a.mainReference || '', b.mainReference || '');
+        } else if (sortField === 'designation') {
+          cmp = compareStrings(a.designation || '', b.designation || '');
+        } else if (sortField === 'brand') {
+          const offerA = getPrimaryOffer(a);
+          const offerB = getPrimaryOffer(b);
+          cmp = compareStrings(
+            cleanBrandName(offerA?.brand || a.brand),
+            cleanBrandName(offerB?.brand || b.brand)
+          );
+        } else if (sortField === 'quantity') {
+          const qtyA =
+            inspectedWarehouseId === 'ALL'
+              ? getTotalStockForArticle(a.id)
+              : getStockForArticleAndWarehouse(a.id, inspectedWarehouseId);
+          const qtyB =
+            inspectedWarehouseId === 'ALL'
+              ? getTotalStockForArticle(b.id)
+              : getStockForArticleAndWarehouse(b.id, inspectedWarehouseId);
+          cmp = qtyA - qtyB;
+        } else if (sortField === 'location') {
+          const offerA = getPrimaryOffer(a);
+          const offerB = getPrimaryOffer(b);
+          const locA = getBrandLocation(
+            stocksByArticleId.get(a.id) || [],
+            a,
+            offerA?.brand || a.brand,
+            whFilter,
+            warehouses
+          );
+          const locB = getBrandLocation(
+            stocksByArticleId.get(b.id) || [],
+            b,
+            offerB?.brand || b.brand,
+            whFilter,
+            warehouses
+          );
+          cmp = compareStrings(locA, locB);
+        } else if (sortField === 'invoiceNumber') {
+          const offerA = getPrimaryOffer(a);
+          const offerB = getPrimaryOffer(b);
+          const invA = getBrandInvoiceNumber(
+            stocksByArticleId.get(a.id) || [],
+            a,
+            offerA?.brand || a.brand,
+            whFilter
+          );
+          const invB = getBrandInvoiceNumber(
+            stocksByArticleId.get(b.id) || [],
+            b,
+            offerB?.brand || b.brand,
+            whFilter
+          );
+          cmp = compareStrings(invA, invB);
+        } else if (sortField === 'purchasePrice') {
+          const paA = getPrimaryOffer(a)?.purchasePrice ?? a.purchasePrice ?? 0;
+          const paB = getPrimaryOffer(b)?.purchasePrice ?? b.purchasePrice ?? 0;
+          cmp = paA - paB;
+        } else if (sortField === 'salePrice') {
+          const pvA = getPrimaryOffer(a)?.salePrice ?? a.salePrice ?? 0;
+          const pvB = getPrimaryOffer(b)?.salePrice ?? b.salePrice ?? 0;
+          cmp = pvA - pvB;
+        } else if (sortField === 'minStockThreshold') {
+          cmp = (a.minStockThreshold || 0) - (b.minStockThreshold || 0);
+        }
+
+        if (cmp !== 0) {
+          return sortDirection === 'asc' ? cmp : -cmp;
+        }
+        return a.mainReference.localeCompare(b.mainReference, 'fr', {
+          numeric: true,
+          sensitivity: 'base',
+        });
+      });
+    }
+
+    return resultList;
   }, [
     articles,
     stocksByArticleId,
+    warehouses,
     selectedBrand,
     stockStatusFilter,
     inspectedWarehouseId,
     getTotalStockForArticle,
     getStockForArticleAndWarehouse,
     deferredStockSearchQuery,
-    stockSearchScope,
+    sortField,
+    sortDirection,
   ]);
 
   const totalPages = Math.max(1, Math.ceil(filteredStockArticles.length / pageSize));
@@ -551,99 +714,31 @@ export const WarehouseListView: React.FC<WarehouseListViewProps> = ({
       {viewMode === 'stock' && (
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
         <div className="px-5 py-4 border-b border-slate-200 bg-slate-50 flex flex-col gap-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            {/* Warehouse selector pills (no warehouse selected by default) */}
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-xs font-semibold text-slate-500 mr-1">Filtrer par dépôt :</span>
-              {warehouses.map((wh) => (
-                <button
-                  key={wh.id}
-                  type="button"
-                  onClick={() => {
-                    const nextId = inspectedWarehouseId === wh.id ? 'ALL' : wh.id;
-                    setInspectedWarehouseId(nextId);
-                    setSelectedWarehouseId(nextId === 'ALL' ? null : nextId);
-                  }}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                    inspectedWarehouseId === wh.id
-                      ? 'bg-slate-900 text-amber-400 shadow-2xs'
-                      : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  {wh.name}
-                </button>
-              ))}
-              {inspectedWarehouseId !== 'ALL' && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setInspectedWarehouseId('ALL');
-                    setSelectedWarehouseId(null);
-                  }}
-                  className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100 transition-colors cursor-pointer inline-flex items-center gap-1"
-                >
-                  <X className="w-3 h-3" />
-                  <span>Tout afficher</span>
-                </button>
-              )}
-            </div>
+          {/* Full-width Search Bar */}
+          <div className="relative w-full">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={stockSearchQuery}
+              onChange={(e) => setStockSearchQuery(e.target.value)}
+              placeholder="Rechercher par référence, désignation, marque, emplacement, numéro de facture..."
+              className="w-full pl-10 pr-9 py-2.5 bg-white border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 shadow-2xs"
+            />
+            {stockSearchQuery && (
+              <button
+                type="button"
+                onClick={() => setStockSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                aria-label="Effacer la recherche"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
 
-          {/* Search Scope Selector (Option 2) */}
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-            <div className="flex flex-wrap items-center gap-1">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mr-1">
-                Cibler :
-              </span>
-              {SEARCH_SCOPE_OPTIONS.map((opt) => {
-                const isActive = stockSearchScope === opt.id;
-                return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => setStockSearchScope(opt.id)}
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer border ${
-                      isActive
-                        ? 'bg-slate-900 text-amber-400 border-slate-900 shadow-2xs'
-                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
-                    }`}
-                    title={opt.label}
-                  >
-                    {opt.shortLabel}
-                  </button>
-                );
-              })}
-            </div>
-            <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
-              Mode Exact SIS 2.0
-            </span>
-          </div>
-
-          {/* Search & Filters row */}
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-            <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[260px]">
-              <div className="relative flex-1 min-w-[220px] max-w-md">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={stockSearchQuery}
-                  onChange={(e) => setStockSearchQuery(e.target.value)}
-                  placeholder={
-                    SEARCH_SCOPE_OPTIONS.find((o) => o.id === stockSearchScope)?.placeholder ||
-                    'Recherche exacte (réf, désignation, marque, emplacement, facture)...'
-                  }
-                  className="w-full pl-8 pr-7 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-                />
-                {stockSearchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setStockSearchQuery('')}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
+          {/* Filters & View options row */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2">
 
               <div className="flex items-center gap-1.5">
                 <Filter className="w-3.5 h-3.5 text-slate-400" />
@@ -1001,15 +1096,96 @@ export const WarehouseListView: React.FC<WarehouseListViewProps> = ({
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50/70 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold text-[11px]">
               <tr>
-                <th className="py-2.5 px-3">Référence</th>
-                <th className="py-2.5 px-3">Désignation</th>
-                <th className="py-2.5 px-3">Marque</th>
-                <th className="py-2.5 px-3 text-right">Quantité disponible</th>
-                <th className="py-2.5 px-3">Emplacement</th>
-                <th className="py-2.5 px-3">Numéro de facture</th>
-                <th className="py-2.5 px-3 text-right">Prix d'achat unitaire</th>
-                <th className="py-2.5 px-3 text-right">Prix de vente unitaire</th>
-                <th className="py-2.5 px-3 text-center">Seuil minimum</th>
+                <th className="py-2.5 px-3">
+                  <button
+                    type="button"
+                    onClick={() => handleToggleSort('reference')}
+                    className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors cursor-pointer uppercase tracking-wider font-semibold"
+                  >
+                    <span>Référence</span>
+                    {renderSortIcon('reference')}
+                  </button>
+                </th>
+                <th className="py-2.5 px-3">
+                  <button
+                    type="button"
+                    onClick={() => handleToggleSort('designation')}
+                    className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors cursor-pointer uppercase tracking-wider font-semibold"
+                  >
+                    <span>Désignation</span>
+                    {renderSortIcon('designation')}
+                  </button>
+                </th>
+                <th className="py-2.5 px-3">
+                  <button
+                    type="button"
+                    onClick={() => handleToggleSort('brand')}
+                    className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors cursor-pointer uppercase tracking-wider font-semibold"
+                  >
+                    <span>Marque</span>
+                    {renderSortIcon('brand')}
+                  </button>
+                </th>
+                <th className="py-2.5 px-3 text-right">
+                  <button
+                    type="button"
+                    onClick={() => handleToggleSort('quantity')}
+                    className="inline-flex items-center justify-end gap-1 ml-auto hover:text-slate-900 transition-colors cursor-pointer uppercase tracking-wider font-semibold"
+                  >
+                    <span>Quantité disponible</span>
+                    {renderSortIcon('quantity')}
+                  </button>
+                </th>
+                <th className="py-2.5 px-3">
+                  <button
+                    type="button"
+                    onClick={() => handleToggleSort('location')}
+                    className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors cursor-pointer uppercase tracking-wider font-semibold"
+                  >
+                    <span>Emplacement</span>
+                    {renderSortIcon('location')}
+                  </button>
+                </th>
+                <th className="py-2.5 px-3">
+                  <button
+                    type="button"
+                    onClick={() => handleToggleSort('invoiceNumber')}
+                    className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors cursor-pointer uppercase tracking-wider font-semibold"
+                  >
+                    <span>Numéro de facture</span>
+                    {renderSortIcon('invoiceNumber')}
+                  </button>
+                </th>
+                <th className="py-2.5 px-3 text-right">
+                  <button
+                    type="button"
+                    onClick={() => handleToggleSort('purchasePrice')}
+                    className="inline-flex items-center justify-end gap-1 ml-auto hover:text-slate-900 transition-colors cursor-pointer uppercase tracking-wider font-semibold"
+                  >
+                    <span>Prix d'achat unitaire</span>
+                    {renderSortIcon('purchasePrice')}
+                  </button>
+                </th>
+                <th className="py-2.5 px-3 text-right">
+                  <button
+                    type="button"
+                    onClick={() => handleToggleSort('salePrice')}
+                    className="inline-flex items-center justify-end gap-1 ml-auto hover:text-slate-900 transition-colors cursor-pointer uppercase tracking-wider font-semibold"
+                  >
+                    <span>Prix de vente unitaire</span>
+                    {renderSortIcon('salePrice')}
+                  </button>
+                </th>
+                <th className="py-2.5 px-3 text-center">
+                  <button
+                    type="button"
+                    onClick={() => handleToggleSort('minStockThreshold')}
+                    className="inline-flex items-center justify-center gap-1 mx-auto hover:text-slate-900 transition-colors cursor-pointer uppercase tracking-wider font-semibold"
+                  >
+                    <span>Seuil minimum</span>
+                    {renderSortIcon('minStockThreshold')}
+                  </button>
+                </th>
                 <th className="py-2.5 px-3 text-right">Actions Stock / Prix</th>
               </tr>
             </thead>

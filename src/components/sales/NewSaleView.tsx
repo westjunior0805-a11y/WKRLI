@@ -435,7 +435,7 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
       });
 
       offers.forEach((offer, offerIdx) => {
-        const brandLabel = cleanBrandName(offer.brand) || cleanBrandName(article.brand) || 'Standard';
+        const brandLabel = cleanBrandName(offer.brand) || cleanBrandName(article.brand);
         let addedPositiveForOffer = false;
 
         whList.forEach((wh) => {
@@ -494,7 +494,7 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
       if (options.length === 0) {
         const defaultOffer = offers[0];
         const brandLabel =
-          cleanBrandName(defaultOffer?.brand) || cleanBrandName(article.brand) || 'Standard';
+          cleanBrandName(defaultOffer?.brand) || cleanBrandName(article.brand);
         const positiveWhStocks = articleStocks.filter((s) => (Number(s.quantity) || 0) > 0);
         if (positiveWhStocks.length > 0) {
           positiveWhStocks.forEach((st, idx) => {
@@ -698,7 +698,10 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
       preferredOption || options.find((o) => o.stockQty > 0) || options[0];
 
     const chosenOffer = chosenOption?.brandOffer || getArticleBrandOffers(article)[0];
-    const chosenBrand = chosenOption?.brand || chosenOffer?.brand || article.brand || 'Standard';
+    const chosenBrand =
+      cleanBrandName(chosenOption?.brand) ||
+      cleanBrandName(chosenOffer?.brand) ||
+      cleanBrandName(article.brand);
     const chosenWhId = chosenOption?.warehouseId || warehouseId;
     const chosenWhName =
       chosenOption?.warehouseName ||
@@ -2224,14 +2227,14 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                             >
                               {brandOffers.map((bo) => (
                                 <option key={bo.id} value={bo.id}>
-                                  {cleanBrandName(bo.brand) || 'Standard'}
+                                  {cleanBrandName(bo.brand) || '—'}
                                 </option>
                               ))}
                             </select>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#1B1B1B] text-white font-semibold text-xs">
                               <Tag className="w-3 h-3 text-[#E35E2D]" />
-                              {cleanBrandName(activeBrand) || 'Standard'}
+                              {cleanBrandName(activeBrand) || '—'}
                             </span>
                           )}
                         </td>

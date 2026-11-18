@@ -7032,7 +7032,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       >();
 
       for (const o of offers) {
-        const cleanB = (o.brand || art.brand || 'Origine').trim() || 'Origine';
+        const cleanB = cleanBrandName(o.brand) || cleanBrandName(art.brand);
         const normB = cleanB.toLowerCase();
         if (!brandMap.has(normB)) {
           brandMap.set(normB, {
@@ -7213,10 +7213,10 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     brand?: string
   ): boolean => {
     if (item.articleId !== articleId) return false;
-    if (!brand) return true;
+    if (brand === undefined) return true;
     const art = articles.find((a) => a.id === articleId);
-    const resolvedItemBrand = (item.brand || art?.brand || 'Origine').toLowerCase().trim();
-    const targetBrand = brand.toLowerCase().trim();
+    const resolvedItemBrand = cleanBrandName(item.brand || art?.brand).toLowerCase();
+    const targetBrand = cleanBrandName(brand).toLowerCase();
     return resolvedItemBrand === targetBrand;
   };
 
@@ -7333,15 +7333,14 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     for (const fresh of freshItems) {
       const art = articles.find((a) => a.id === fresh.articleId);
-      const freshBrandNorm = (fresh.brand || art?.brand || 'Origine').toLowerCase().trim();
+      const freshBrandNorm = cleanBrandName(fresh.brand || art?.brand).toLowerCase();
 
       // Find exact (articleId + brand) match first, or legacy (articleId with no brand) if primary brand
       let oldIdx = session.items.findIndex(
         (old, idx) =>
           !matchedOldIndices.has(idx) &&
           old.articleId === fresh.articleId &&
-          old.brand &&
-          old.brand.toLowerCase().trim() === freshBrandNorm
+          cleanBrandName(old.brand).toLowerCase() === freshBrandNorm
       );
 
       if (oldIdx === -1) {
@@ -7350,7 +7349,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             !matchedOldIndices.has(idx) &&
             old.articleId === fresh.articleId &&
             !old.brand &&
-            (art?.brand || 'Origine').toLowerCase().trim() === freshBrandNorm
+            cleanBrandName(art?.brand).toLowerCase() === freshBrandNorm
         );
       }
 
@@ -7383,7 +7382,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (art) {
           mergedItems.push({
             ...old,
-            brand: old.brand || art.brand || 'Origine',
+            brand: cleanBrandName(old.brand) || cleanBrandName(art.brand),
           });
         }
       }
@@ -7419,7 +7418,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // Si rien n'est renseigné pour une pièce/marque (non comptée), elle conserve automatiquement sa quantité théorique (écart = 0)
     const normalizedItems: InventoryItemCount[] = session.items.map((it) => {
       const art = articles.find((a) => a.id === it.articleId);
-      const resolvedBrand = (it.brand || art?.brand || 'Origine').trim() || 'Origine';
+      const resolvedBrand = cleanBrandName(it.brand) || cleanBrandName(art?.brand);
       if (it.countedQty === null) {
         return {
           ...it,
@@ -7468,14 +7467,14 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         existingStock.quantity > 0 &&
         Object.keys(nextBrandBreakdown).length === 0
       ) {
-        const defaultB = (art.brand || 'Origine').trim() || 'Origine';
+        const defaultB = cleanBrandName(art.brand);
         nextBrandBreakdown[defaultB] = existingStock.quantity;
       }
 
       let hasAnyChangeForArticle = false;
 
       for (const item of artItems) {
-        const itemBrand = (item.brand || art.brand || 'Origine').trim() || 'Origine';
+        const itemBrand = cleanBrandName(item.brand) || cleanBrandName(art.brand);
         const countedVal = Math.max(0, item.countedQty ?? item.theoreticalQty);
 
         // Find matching case-insensitive key in nextBrandBreakdown
@@ -7603,7 +7602,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!wh) return { success: false, error: 'Magasin introuvable.' };
 
     const cleanLoc = newLocation.trim() || 'Non renseigné';
-    const targetBrand = (brand || art.brand || 'Origine').trim();
+    const targetBrand = cleanBrandName(brand ?? art.brand);
 
     // 1. Update stocks
     const updatedStocks = [...stocks];
@@ -7706,7 +7705,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     const refUpper = articleData.mainReference.trim().toUpperCase();
-    const targetBrand = (articleData.brand || 'Origine').trim() || 'Origine';
+    const targetBrand = cleanBrandName(articleData.brand);
     const cleanLoc = location?.trim() || articleData.defaultLocation || 'Non renseigné';
     const existing = articles.find((a) => a.mainReference.trim().toUpperCase() === refUpper);
 
@@ -7784,7 +7783,9 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         unitCost,
         salePrice: articleData.salePrice > 0 ? articleData.salePrice : existing.salePrice,
         varianceValue: variance * unitCost,
-        notes: `Marque ${targetBrand} ajoutée en cours d’inventaire`,
+        notes: targetBrand
+          ? `Marque ${targetBrand} ajoutée en cours d’inventaire`
+          : 'Ligne ajoutée en cours d’inventaire',
         countedAt: new Date().toISOString(),
         countedBy: currentUser.name,
       };

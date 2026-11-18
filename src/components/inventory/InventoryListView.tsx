@@ -3,6 +3,7 @@ import { useStock } from '../../context/StockContext';
 import { ArticleCategory, InventoryScope } from '../../types';
 import { formatDate, formatFCFA } from '../../utils/formatters';
 import {
+  cleanBrandName,
   getArticleBrandOffers,
   getBrandLocation,
   getBrandStockAcrossWarehouses,
@@ -83,7 +84,7 @@ export const InventoryListView: React.FC<InventoryListViewProps> = ({ onSuccess 
       const distinctBrands = new Set<string>();
 
       offers.forEach((o) => {
-        const b = (o.brand || art.brand || 'Origine').trim() || 'Origine';
+        const b = cleanBrandName(o.brand) || cleanBrandName(art.brand);
         distinctBrands.add(b);
       });
       if (whStock?.brandBreakdown) {
@@ -113,7 +114,9 @@ export const InventoryListView: React.FC<InventoryListViewProps> = ({ onSuccess 
 
         totalLinesCount++;
         locMap.set(pureLoc, (locMap.get(pureLoc) || 0) + 1);
-        brandMap.set(bName, (brandMap.get(bName) || 0) + 1);
+        if (bName) {
+          brandMap.set(bName, (brandMap.get(bName) || 0) + 1);
+        }
         catMap.set(art.category, (catMap.get(art.category) || 0) + 1);
       }
     }

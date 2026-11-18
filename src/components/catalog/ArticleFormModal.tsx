@@ -3,6 +3,7 @@ import { Article, ArticleCategory, MachineApplication } from '../../types';
 import { X, Plus, Trash2, Image as ImageIcon, Upload, Link as LinkIcon, Camera, Tractor } from 'lucide-react';
 import { compressImageFile } from '../../utils/imageCompressor';
 import { NumericInput } from '../common/NumericInput';
+import { cleanBrandName } from '../../utils/articleHelpers';
 
 interface ArticleFormModalProps {
   isOpen: boolean;
@@ -121,7 +122,7 @@ export const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
         setBrandOffers(
           articleToEdit.brandOffers.map((bo) => ({
             id: bo.id || `bo_${Math.random()}`,
-            brand: bo.brand || 'Caterpillar',
+            brand: cleanBrandName(bo.brand),
             brandReference: bo.brandReference || articleToEdit.mainReference,
             purchasePrice: bo.purchasePrice || 0,
             salePrice: bo.salePrice || 0,
@@ -138,7 +139,7 @@ export const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
         setBrandOffers([
           {
             id: 'bo_default',
-            brand: articleToEdit.brand || 'Caterpillar',
+            brand: cleanBrandName(articleToEdit.brand),
             brandReference: articleToEdit.mainReference,
             purchasePrice: articleToEdit.purchasePrice || 0,
             salePrice: articleToEdit.salePrice || 0,
@@ -173,7 +174,7 @@ export const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
       setBrandOffers([
         {
           id: 'bo_1',
-          brand: 'Caterpillar',
+          brand: '',
           brandReference: '',
           purchasePrice: 0,
           salePrice: 0,
@@ -262,7 +263,7 @@ export const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
   const handleAddBrandOffer = () => {
     const newOffer: FormBrandOffer = {
       id: `bo_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-      brand: 'Donaldson',
+      brand: '',
       brandReference: '',
       purchasePrice: 0,
       salePrice: 0,
@@ -361,7 +362,10 @@ export const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
       mainReference: mainReference.trim().toUpperCase(),
       designation: designation.trim(),
       description: description.trim() || notes.trim() || undefined,
-      brand: articleToEdit?.brand || defaultOffer.brand.trim() || '',
+      brand:
+        catalogOnlyMode && articleToEdit
+          ? cleanBrandName(articleToEdit.brand)
+          : cleanBrandName(defaultOffer.brand),
       category,
       machineApplications: finalMachineApplications,
       compatibleMachines: Array.from(
@@ -384,7 +388,7 @@ export const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
           ? articleToEdit.brandOffers
           : brandOffers.map((bo) => ({
               id: bo.id,
-              brand: bo.brand.trim() || '',
+              brand: cleanBrandName(bo.brand),
               brandReference: bo.brandReference.trim() || mainReference.trim().toUpperCase(),
               purchasePrice: Number(bo.purchasePrice) || 0,
               salePrice: Number(bo.salePrice) || 0,

@@ -31,7 +31,7 @@ import {
   FolderKanban,
 } from 'lucide-react';
 import { ConfirmModal } from '../common/ConfirmModal';
-import { getBrandLocation, stripWarehousePrefix } from '../../utils/articleHelpers';
+import { cleanBrandName, getBrandLocation, stripWarehousePrefix } from '../../utils/articleHelpers';
 import { NumericInput } from '../common/NumericInput';
 
 interface InventorySessionViewProps {
@@ -179,7 +179,7 @@ export const InventorySessionView: React.FC<InventorySessionViewProps> = ({
   const [isAddingBrandForExistingRef, setIsAddingBrandForExistingRef] = useState(false);
   const [newRef, setNewRef] = useState('');
   const [newDesignation, setNewDesignation] = useState('');
-  const [newBrand, setNewBrand] = useState('Caterpillar');
+  const [newBrand, setNewBrand] = useState('');
   const [customBrandInput, setCustomBrandInput] = useState('');
   const [newCategory, setNewCategory] = useState<ArticleCategory>('Filtration');
   const [newCountedQty, setNewCountedQty] = useState<number>(1);
@@ -211,7 +211,7 @@ export const InventorySessionView: React.FC<InventorySessionViewProps> = ({
       const art = getArticleById(item.articleId);
       if (!art) continue;
 
-      const resolvedBrand = (item.brand || art.brand || 'Origine').trim() || 'Origine';
+      const resolvedBrand = cleanBrandName(item.brand) || cleanBrandName(art.brand);
       const lineKey = `${item.articleId}::${resolvedBrand.toLowerCase()}`;
 
       const fullLoc = getBrandLocation(
@@ -683,9 +683,7 @@ export const InventorySessionView: React.FC<InventorySessionViewProps> = ({
     setIsAddingBrandForExistingRef(true);
     setNewRef(row.mainReference);
     setNewDesignation(row.designation);
-    const otherBrand =
-      DEFAULT_BRANDS.find((b) => b.toLowerCase() !== row.brand.toLowerCase()) || 'Donaldson';
-    setNewBrand(otherBrand);
+    setNewBrand('');
     setCustomBrandInput('');
     setNewCategory((art?.category as ArticleCategory) || 'Filtration');
     setNewLocation(row.pureLocation !== 'Non renseigné' ? row.pureLocation : '');
@@ -709,12 +707,9 @@ export const InventorySessionView: React.FC<InventorySessionViewProps> = ({
       setAddProductError('Veuillez renseigner la désignation de la pièce.');
       return;
     }
-    const effectiveBrand =
-      newBrand === '__CUSTOM__' ? customBrandInput.trim() : newBrand.trim();
-    if (!effectiveBrand) {
-      setAddProductError('Veuillez préciser le nom de la marque constructeur.');
-      return;
-    }
+    const effectiveBrand = cleanBrandName(
+      newBrand === '__CUSTOM__' ? customBrandInput : newBrand
+    );
     if (newCountedQty < 0) {
       setAddProductError('La quantité comptée doit être supérieure ou égale à 0.');
       return;
@@ -750,11 +745,12 @@ export const InventorySessionView: React.FC<InventorySessionViewProps> = ({
       setIsAddingBrandForExistingRef(false);
       setNewRef('');
       setNewDesignation('');
+      setNewBrand('');
       setNewLocation('');
       setCustomBrandInput('');
       setNewCountedQty(1);
       setSuccessBanner(
-        `La pièce « ${cleanRef} » en marque « ${effectiveBrand} » (${newCountedQty} unité(s), emplacement : ${locClean}) a été intégrée à l'inventaire.`
+        `La pièce « ${cleanRef} »${effectiveBrand ? ` en marque « ${effectiveBrand} »` : ''} (${newCountedQty} unité(s), emplacement : ${locClean}) a été intégrée à l'inventaire.`
       );
       setTimeout(() => setSuccessBanner(null), 5000);
     }
@@ -926,6 +922,8 @@ export const InventorySessionView: React.FC<InventorySessionViewProps> = ({
                     setIsAddingBrandForExistingRef(false);
                     setNewRef('');
                     setNewDesignation('');
+                    setNewBrand('');
+                    setCustomBrandInput('');
                     setNewLocation(
                       selectedLocationFilter !== 'ALL' &&
                         !selectedLocationFilter.startsWith('__')
@@ -2165,38 +2163,26 @@ export const InventorySessionView: React.FC<InventorySessionViewProps> = ({
 
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
-                    Marque Constructeur *
-                  </label>
-                  <select
-                    value={newBrand}
-                    onChange={(e) => setNewBrand(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg font-bold bg-white focus:outline-none focus:border-amber-500"
-                  >
-                    {allAvailableBrands.map((b) => (
-                      <option key={b} value={b}>
-                        {b}
-                      </option>
-                    ))}
-                    <option value="__CUSTOM__">+ Autre marque (Saisir)...</option>
-                  </select>
-                </div>
-              </div>
-
-              {newBrand === '__CUSTOM__' && (
-                <div>
-                  <label className="block text-[11px] font-bold text-amber-800 uppercase mb-1">
-                    Nom de la nouvelle marque *
+                    Marque Constructeur (facultative)
                   </label>
                   <input
                     type="text"
-                    required
-                    value={customBrandInput}
-                    onChange={(e) => setCustomBrandInput(e.target.value)}
-                    placeholder="Ex: Parker, Mann-Filter, Hengst..."
-                    className="w-full px-3 py-2 border border-amber-400 rounded-lg font-bold bg-amber-50/40 focus:outline-none"
+                    list="inv-session-brands-datalist"
+                    value={newBrand === '__CUSTOM__' ? customBrandInput : newBrand}
+                    onChange={(e) => {
+                      setNewBrand(e.target.value);
+                      setCustomBrandInput('');
+                    }}
+                    placeholder="Optionnel (laisser vide si non précisé)"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg font-bold bg-white focus:outline-none focus:border-amber-500"
                   />
+                  <datalist id="inv-session-brands-datalist">
+                    {allAvailableBrands.map((b) => (
+                      <option key={b} value={b} />
+                    ))}
+                  </datalist>
                 </div>
-              )}
+              </div>
 
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
