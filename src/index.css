@@ -1,0 +1,1120 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    --bg: #F8F7F4;
+    --ink: #1B1B1B;
+    --accent: #E35E2D;
+    --accent-hover: #C94D1E;
+    --accent-tint: #FFF5F1;
+    --accent-border: #F5B79D;
+    --accent-dark: #9A3412;
+    --accent-ring: rgba(227, 94, 45, 0.15);
+    --panel: #FFFFFF;
+    --border: #E5E5E5;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    color-scheme: light;
+    background-color: var(--bg);
+    color: var(--ink);
+  }
+
+  html,
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background-color: var(--bg);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background: var(--accent);
+    color: #FFFFFF;
+  }
+
+  h1,
+  h2,
+  .font-display {
+    font-family: 'Syne', sans-serif;
+    letter-spacing: -0.04em;
+  }
+
+  code, kbd, samp, pre, .font-mono, .mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+/* ========================================================================= */
+/* VARIATION 19 — EQUIPSTOCK PRO INDUSTRIAL EDITION (SYNE + INTER + #E35E2D) */
+/* ========================================================================= */
+
+.label,
+.industrial-label,
+.section-title {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  opacity: 0.55;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.meta {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  opacity: 0.45;
+  color: var(--ink);
+}
+
+.ref {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.nav-link {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.nav-link.active {
+  background: var(--accent);
+  color: #FFFFFF;
+}
+
+.nav-link:not(.active):hover {
+  background: #F0F0F0;
+}
+
+.cta-btn {
+  background: var(--ink);
+  color: #FFFFFF;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  font-size: 0.8rem;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.15s;
+}
+
+.cta-btn:hover {
+  background: var(--accent);
+  color: #FFFFFF;
+}
+
+.card,
+.stat-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  padding: 1.5rem;
+  border-radius: 8px;
+  color: var(--ink);
+}
+
+.stat-val {
+  font-family: 'Syne', sans-serif;
+  font-size: 2.25rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--ink);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th {
+  text-align: left;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--ink);
+  opacity: 0.5;
+  padding: 0.75rem 0.5rem 1rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.data-table td {
+  padding: 1rem 0.5rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.875rem;
+  color: var(--ink);
+}
+
+/* 1. Clean 8px Card Geometry & 4px Control Geometry across #root */
+#root .rounded-xl,
+#root .rounded-2xl,
+#root .rounded-3xl {
+  border-radius: 8px !important;
+}
+
+#root button:not(.rounded-full),
+#root input:not(.rounded-full),
+#root select:not(.rounded-full),
+#root textarea:not(.rounded-full),
+#root .rounded-lg,
+#root .rounded-md,
+#root .rounded-sm,
+#root .rounded-xs {
+  border-radius: 4px !important;
+}
+
+#root .shadow-2xs,
+#root .shadow-xs,
+#root .shadow-sm,
+#root .shadow-md,
+#root .shadow-lg,
+#root .shadow-xl,
+#root .shadow-2xl {
+  box-shadow: none !important;
+}
+
+/* 2. Global Variation 19 Surface & Palette Unification (Default Light Mode) */
+/* Ensures zero leftover dark/slate/blue/yellow divs from previous variations */
+html:not(.dark):not(.soft) body,
+html:not(.dark):not(.soft) .bg-\[\#F8F7F4\] {
+  background-color: var(--bg) !important;
+  color: #1B1B1B !important;
+}
+
+html:not(.dark):not(.soft) header.bg-\[\#F8F7F4\]\/95 {
+  background-color: var(--bg) !important;
+}
+
+/* Primary elevated cards & panels -> Pure White (#FFFFFF) */
+html:not(.dark):not(.soft) #root .bg-white,
+html:not(.dark):not(.soft) #root .bg-white\/80,
+html:not(.dark):not(.soft) #root .bg-white\/90,
+html:not(.dark):not(.soft) #root .bg-\[\#18181A\],
+html:not(.dark):not(.soft) #root .bg-\[\#131b2e\] {
+  background-color: #FFFFFF !important;
+  color: #1B1B1B !important;
+}
+
+/* Secondary subtle containers, strips & input backgrounds -> #F9FAFB / #F8F7F4 */
+html:not(.dark):not(.soft) #root .bg-slate-50,
+html:not(.dark):not(.soft) #root .bg-slate-50\/30,
+html:not(.dark):not(.soft) #root .bg-slate-50\/40,
+html:not(.dark):not(.soft) #root .bg-slate-50\/50,
+html:not(.dark):not(.soft) #root .bg-slate-50\/60,
+html:not(.dark):not(.soft) #root .bg-slate-50\/70,
+html:not(.dark):not(.soft) #root .bg-slate-50\/80,
+html:not(.dark):not(.soft) #root .bg-slate-50\/90,
+html:not(.dark):not(.soft) #root .bg-\[\#141416\] {
+  background-color: #F9FAFB !important;
+  color: #1B1B1B !important;
+}
+
+html:not(.dark):not(.soft) #root .bg-slate-100,
+html:not(.dark):not(.soft) #root .bg-slate-100\/50,
+html:not(.dark):not(.soft) #root .bg-slate-100\/60,
+html:not(.dark):not(.soft) #root .bg-slate-100\/70,
+html:not(.dark):not(.soft) #root .bg-slate-100\/80,
+html:not(.dark):not(.soft) #root .bg-slate-100\/90,
+html:not(.dark):not(.soft) #root .bg-slate-200,
+html:not(.dark):not(.soft) #root .bg-slate-200\/60,
+html:not(.dark):not(.soft) #root .bg-slate-200\/70,
+html:not(.dark):not(.soft) #root .bg-slate-200\/80 {
+  background-color: #F0F0F0 !important;
+  color: #1B1B1B !important;
+}
+
+/* Convert legacy dark card headers & blocks to #1B1B1B ink with white text */
+html:not(.dark):not(.soft) #root .bg-slate-900,
+html:not(.dark):not(.soft) #root .bg-slate-950,
+html:not(.dark):not(.soft) #root .bg-slate-800 {
+  background-color: #1B1B1B !important;
+  color: #FFFFFF !important;
+}
+
+html:not(.dark):not(.soft) #root .bg-slate-900 *,
+html:not(.dark):not(.soft) #root .bg-slate-950 *,
+html:not(.dark):not(.soft) #root .bg-slate-800 * {
+  color: #FFFFFF !important;
+}
+
+/* Convert all borders & dividers to Variation 19 crisp #E5E5E5 */
+html:not(.dark):not(.soft) #root .border-slate-100,
+html:not(.dark):not(.soft) #root .border-slate-200,
+html:not(.dark):not(.soft) #root .border-slate-200\/60,
+html:not(.dark):not(.soft) #root .border-slate-200\/70,
+html:not(.dark):not(.soft) #root .border-slate-200\/80,
+html:not(.dark):not(.soft) #root .border-slate-200\/90,
+html:not(.dark):not(.soft) #root .border-slate-300,
+html:not(.dark):not(.soft) #root .border-\[\#111113\],
+html:not(.dark):not(.soft) #root .border-white\/10,
+html:not(.dark):not(.soft) #root .border-white\/15 {
+  border-color: #E5E5E5 !important;
+}
+
+html:not(.dark):not(.soft) #root .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+html:not(.dark):not(.soft) #root .divide-slate-200 > :not([hidden]) ~ :not([hidden]),
+html:not(.dark):not(.soft) #root .divide-slate-200\/60 > :not([hidden]) ~ :not([hidden]),
+html:not(.dark):not(.soft) #root .divide-slate-200\/70 > :not([hidden]) ~ :not([hidden]),
+html:not(.dark):not(.soft) #root .divide-white\/10 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #E5E5E5 !important;
+}
+
+/* Text hierarchy in Variation 19 (#1B1B1B ink) */
+html:not(.dark):not(.soft) #root .text-slate-950,
+html:not(.dark):not(.soft) #root .text-slate-900,
+html:not(.dark):not(.soft) #root .text-slate-800,
+html:not(.dark):not(.soft) #root .text-\[\#111113\],
+html:not(.dark):not(.soft) #root .text-\[\#E4E4E7\] {
+  color: #1B1B1B !important;
+}
+
+html:not(.dark):not(.soft) #root .text-slate-700,
+html:not(.dark):not(.soft) #root .text-slate-600 {
+  color: #4B5563 !important;
+}
+
+html:not(.dark):not(.soft) #root .text-slate-500,
+html:not(.dark):not(.soft) #root .text-slate-400 {
+  color: #6B7280 !important;
+}
+
+/* Primary Action Buttons (Dynamic Nuance via var(--accent) with White Text) */
+html:not(.dark):not(.soft) #root .bg-amber-500,
+html:not(.dark):not(.soft) #root .bg-amber-400,
+html:not(.dark):not(.soft) #root .bg-amber-600,
+html:not(.dark):not(.soft) #root .bg-blue-600,
+html:not(.dark):not(.soft) #root .bg-blue-500,
+html:not(.dark):not(.soft) #root .bg-\[\#EAB308\],
+html:not(.dark):not(.soft) #root .bg-\[\#2563EB\],
+html:not(.dark):not(.soft) #root .bg-\[\#E35E2D\] {
+  background-color: var(--accent) !important;
+  color: #FFFFFF !important;
+  border-color: var(--accent) !important;
+}
+
+html:not(.dark):not(.soft) #root .bg-amber-500 *,
+html:not(.dark):not(.soft) #root .bg-amber-400 *,
+html:not(.dark):not(.soft) #root .bg-amber-600 *,
+html:not(.dark):not(.soft) #root .bg-blue-600 *,
+html:not(.dark):not(.soft) #root .bg-blue-500 *,
+html:not(.dark):not(.soft) #root .bg-\[\#EAB308\] *,
+html:not(.dark):not(.soft) #root .bg-\[\#2563EB\] *,
+html:not(.dark):not(.soft) #root .bg-\[\#E35E2D\] * {
+  color: #FFFFFF !important;
+}
+
+html:not(.dark):not(.soft) #root button.bg-amber-500:hover,
+html:not(.dark):not(.soft) #root button.bg-amber-400:hover,
+html:not(.dark):not(.soft) #root button.bg-amber-600:hover,
+html:not(.dark):not(.soft) #root button.bg-blue-600:hover,
+html:not(.dark):not(.soft) #root button.bg-\[\#EAB308\]:hover,
+html:not(.dark):not(.soft) #root button.bg-\[\#E35E2D\]:hover,
+html:not(.dark):not(.soft) #root .hover\:bg-\[\#E35E2D\]:hover,
+html:not(.dark):not(.soft) #root .hover\:bg-\[\#C94D1E\]:hover,
+html:not(.dark):not(.soft) #root .hover\:bg-amber-400:hover,
+html:not(.dark):not(.soft) #root .hover\:bg-amber-500:hover {
+  background-color: var(--accent-hover) !important;
+  color: #FFFFFF !important;
+  border-color: var(--accent-hover) !important;
+}
+
+/* Secondary buttons hover border -> Dynamic Accent */
+html:not(.dark):not(.soft) #root button.bg-white:hover,
+html:not(.dark):not(.soft) #root button.bg-slate-50:hover,
+html:not(.dark):not(.soft) #root button.bg-slate-100:hover,
+html:not(.dark):not(.soft) #root .hover\:border-\[\#E35E2D\]:hover,
+html:not(.dark):not(.soft) #root .border-\[\#E35E2D\] {
+  border-color: var(--accent) !important;
+}
+
+/* Convert legacy amber/yellow/blue accents & badges to Dynamic Nuance */
+html:not(.dark):not(.soft) #root .bg-amber-50,
+html:not(.dark):not(.soft) #root .bg-amber-50\/20,
+html:not(.dark):not(.soft) #root .bg-amber-50\/30,
+html:not(.dark):not(.soft) #root .bg-amber-50\/40,
+html:not(.dark):not(.soft) #root .bg-amber-50\/50,
+html:not(.dark):not(.soft) #root .bg-amber-50\/70,
+html:not(.dark):not(.soft) #root .bg-amber-50\/80,
+html:not(.dark):not(.soft) #root .bg-amber-50\/90,
+html:not(.dark):not(.soft) #root .bg-amber-100,
+html:not(.dark):not(.soft) #root .bg-amber-100\/80,
+html:not(.dark):not(.soft) #root .bg-amber-100\/90,
+html:not(.dark):not(.soft) #root .bg-blue-50,
+html:not(.dark):not(.soft) #root .bg-blue-100,
+html:not(.dark):not(.soft) #root .bg-\[\#FFF5F1\] {
+  background-color: var(--accent-tint) !important;
+  border-color: var(--accent-border) !important;
+  color: var(--accent-dark) !important;
+}
+
+html:not(.dark):not(.soft) #root .text-amber-400,
+html:not(.dark):not(.soft) #root .text-amber-500,
+html:not(.dark):not(.soft) #root .text-amber-600,
+html:not(.dark):not(.soft) #root .text-amber-700,
+html:not(.dark):not(.soft) #root .text-blue-500,
+html:not(.dark):not(.soft) #root .text-blue-600,
+html:not(.dark):not(.soft) #root .text-blue-700,
+html:not(.dark):not(.soft) #root .text-\[\#EAB308\],
+html:not(.dark):not(.soft) #root .text-\[\#2563EB\],
+html:not(.dark):not(.soft) #root .text-\[\#E35E2D\] {
+  color: var(--accent) !important;
+}
+
+html:not(.dark):not(.soft) #root .text-amber-800,
+html:not(.dark):not(.soft) #root .text-amber-900,
+html:not(.dark):not(.soft) #root .text-amber-950,
+html:not(.dark):not(.soft) #root .text-blue-800,
+html:not(.dark):not(.soft) #root .text-blue-900,
+html:not(.dark):not(.soft) #root .text-\[\#9A3412\] {
+  color: var(--accent-dark) !important;
+}
+
+html:not(.dark):not(.soft) #root .border-amber-200,
+html:not(.dark):not(.soft) #root .border-amber-200\/80,
+html:not(.dark):not(.soft) #root .border-amber-300,
+html:not(.dark):not(.soft) #root .border-amber-400,
+html:not(.dark):not(.soft) #root .border-amber-500,
+html:not(.dark):not(.soft) #root .border-blue-200,
+html:not(.dark):not(.soft) #root .border-blue-300,
+html:not(.dark):not(.soft) #root .border-blue-400,
+html:not(.dark):not(.soft) #root .border-blue-500,
+html:not(.dark):not(.soft) #root .border-\[\#FBD5C5\] {
+  border-color: var(--accent-border) !important;
+}
+
+/* Global Tables in Variation 19 */
+html:not(.dark):not(.soft) #root table thead tr {
+  background-color: transparent !important;
+  border-bottom: 1px solid #E5E5E5 !important;
+}
+
+html:not(.dark):not(.soft) #root table thead th {
+  background-color: transparent !important;
+  border-bottom: 1px solid #E5E5E5 !important;
+  color: #1B1B1B !important;
+  opacity: 0.55;
+  font-family: 'Inter', sans-serif !important;
+  font-size: 0.65rem !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.15em !important;
+  font-weight: 700 !important;
+}
+
+html:not(.dark):not(.soft) #root table tbody td {
+  border-top: 1px solid #E5E5E5 !important;
+  border-bottom: 1px solid #E5E5E5 !important;
+  color: #1B1B1B !important;
+}
+
+html:not(.dark):not(.soft) #root table tbody tr:hover {
+  background-color: #F9FAFB !important;
+}
+
+/* Global Form Inputs, Selects & Textareas in Variation 19 */
+html:not(.dark):not(.soft) #root input:not([type="checkbox"]):not([type="radio"]),
+html:not(.dark):not(.soft) #root select,
+html:not(.dark):not(.soft) #root textarea {
+  background-color: #F9FAFB !important;
+  border: 1px solid #E5E5E5 !important;
+  color: #1B1B1B !important;
+  font-family: 'Inter', sans-serif !important;
+  border-radius: 4px !important;
+}
+
+html:not(.dark):not(.soft) #root input::placeholder,
+html:not(.dark):not(.soft) #root textarea::placeholder {
+  color: #9CA3AF !important;
+}
+
+html:not(.dark):not(.soft) #root input:not([type="checkbox"]):not([type="radio"]):focus,
+html:not(.dark):not(.soft) #root select:focus,
+html:not(.dark):not(.soft) #root textarea:focus {
+  background-color: #FFFFFF !important;
+  border-color: var(--accent) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px var(--accent-ring) !important;
+}
+
+/* Dark Theme Support */
+html.dark {
+  color-scheme: dark;
+  background-color: #0b0f19;
+  color: #f8fafc;
+}
+
+html.dark body {
+  background-color: #0b0f19 !important;
+  color: #f8fafc !important;
+}
+
+html.dark .card,
+html.dark .stat-card,
+html.dark .bg-white {
+  background-color: #131b2e !important;
+  border-color: #263352 !important;
+  color: #f1f5f9 !important;
+}
+
+html.dark .stat-val {
+  color: #f8fafc !important;
+}
+
+html.soft .stat-card {
+  border-color: #5c677d;
+  background-color: #3b4252;
+}
+
+html.soft .data-table th {
+  border-bottom-color: #64748b;
+}
+
+html.soft .data-table td {
+  border-bottom-color: #434c5e;
+}
+
+/* ========================================================================= */
+/* GLOBAL SOFT / EYE-COMFORT THEME ENGINE ("DOUX" - ARDOISE VELOURS TEMPÉRÉ) */
+/* Neither glaring white nor deep black — calibrated mid-slate comfort       */
+/* ========================================================================= */
+
+html.soft {
+  color-scheme: dark;
+  background-color: #2e3440;
+  color: #eceff4;
+}
+
+html.soft body {
+  background-color: #2e3440;
+  color: #eceff4;
+}
+
+/* Soften Sidebar & Dark Headers so there is zero harsh black */
+html.soft .bg-slate-950 {
+  background-color: #242933 !important;
+}
+
+html.soft .bg-slate-900 {
+  background-color: #2b313d !important;
+}
+
+/* Primary surface elevation (Cards & panels: warm velvety mid-slate) */
+html.soft .bg-white,
+html.soft .bg-white\/80,
+html.soft .bg-white\/90 {
+  background-color: #3b4252 !important;
+  color: #eceff4;
+}
+
+/* Secondary subtle cards & strips */
+html.soft .bg-slate-50,
+html.soft .bg-slate-50\/30,
+html.soft .bg-slate-50\/40,
+html.soft .bg-slate-50\/50,
+html.soft .bg-slate-50\/60,
+html.soft .bg-slate-50\/70,
+html.soft .bg-slate-50\/80,
+html.soft .bg-slate-50\/90 {
+  background-color: #333a48 !important;
+}
+
+/* Muted containers, table headers & segmented controls */
+html.soft .bg-slate-100,
+html.soft .bg-slate-100\/50,
+html.soft .bg-slate-100\/60,
+html.soft .bg-slate-100\/70,
+html.soft .bg-slate-100\/80,
+html.soft .bg-slate-100\/90 {
+  background-color: #434c5e !important;
+}
+
+html.soft .bg-slate-200,
+html.soft .bg-slate-200\/60,
+html.soft .bg-slate-200\/70,
+html.soft .bg-slate-200\/80 {
+  background-color: #4c566a !important;
+}
+
+/* System borders (Low-glare soft slate borders) */
+html.soft .border-slate-100 {
+  border-color: #434c5e !important;
+}
+
+html.soft .border-slate-200,
+html.soft .border-slate-200\/60,
+html.soft .border-slate-200\/70,
+html.soft .border-slate-200\/80,
+html.soft .border-slate-200\/90 {
+  border-color: #4c566a !important;
+}
+
+html.soft .border-slate-300 {
+  border-color: #5c677d !important;
+}
+
+html.soft .border-slate-800,
+html.soft .border-slate-800\/60,
+html.soft .border-slate-800\/70,
+html.soft .border-slate-800\/80 {
+  border-color: #363d4c !important;
+}
+
+/* Text hierarchy (Warm alabaster & soft snow-grey — never harsh pure white) */
+html.soft .text-slate-950,
+html.soft .text-slate-900,
+html.soft .text-slate-800 {
+  color: #eceff4 !important;
+}
+
+/* Preserve dark text on solid amber primary buttons */
+html.soft .bg-amber-500.text-slate-950,
+html.soft .bg-amber-400.text-slate-950,
+html.soft .bg-amber-500 .text-slate-950,
+html.soft .bg-amber-400 .text-slate-950 {
+  color: #0f172a !important;
+}
+
+html.soft .text-slate-700 {
+  color: #e5e9f0 !important;
+}
+
+html.soft .text-slate-600 {
+  color: #d8dee9 !important;
+}
+
+html.soft .text-slate-500 {
+  color: #b4c0cf !important;
+}
+
+html.soft .text-slate-400 {
+  color: #98a6b8 !important;
+}
+
+/* Form inputs, textareas & select dropdowns */
+html.soft input:not([type="checkbox"]):not([type="radio"]),
+html.soft select,
+html.soft textarea {
+  background-color: #292f3b !important;
+  border-color: #4c566a !important;
+  color: #eceff4 !important;
+}
+
+html.soft input::placeholder,
+html.soft textarea::placeholder {
+  color: #8c9bae !important;
+}
+
+html.soft input:focus,
+html.soft select:focus,
+html.soft textarea:focus {
+  border-color: #f59e0b !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.25) !important;
+}
+
+/* Interactive hover states */
+html.soft .hover\:bg-slate-50:hover,
+html.soft .hover\:bg-slate-50\/50:hover,
+html.soft .hover\:bg-slate-50\/70:hover,
+html.soft .hover\:bg-slate-50\/80:hover {
+  background-color: #434c5e !important;
+}
+
+html.soft .hover\:bg-slate-100:hover,
+html.soft .hover\:bg-slate-200:hover {
+  background-color: #4c566a !important;
+}
+
+html.soft .hover\:border-slate-300:hover {
+  border-color: #64748b !important;
+}
+
+html.soft .hover\:text-slate-900:hover,
+html.soft .hover\:text-slate-800:hover {
+  color: #ffffff !important;
+}
+
+/* Table dividing lines */
+html.soft .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+html.soft .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #434c5e !important;
+}
+
+/* Tone Badges & Status Pills in Soft Mode */
+html.soft .bg-amber-50,
+html.soft .bg-amber-50\/20,
+html.soft .bg-amber-50\/30,
+html.soft .bg-amber-50\/40,
+html.soft .bg-amber-50\/50,
+html.soft .bg-amber-50\/70,
+html.soft .bg-amber-50\/90,
+html.soft .bg-amber-100,
+html.soft .bg-amber-100\/80,
+html.soft .bg-amber-100\/90 {
+  background-color: rgba(245, 158, 11, 0.18) !important;
+  border-color: rgba(245, 158, 11, 0.4) !important;
+  color: #fde68a !important;
+}
+
+html.soft .text-amber-950,
+html.soft .text-amber-900,
+html.soft .text-amber-800,
+html.soft .text-amber-700 {
+  color: #fde68a !important;
+}
+
+html.soft .bg-emerald-50,
+html.soft .bg-emerald-50\/50,
+html.soft .bg-emerald-50\/90,
+html.soft .bg-emerald-100 {
+  background-color: rgba(16, 185, 129, 0.18) !important;
+  border-color: rgba(16, 185, 129, 0.4) !important;
+  color: #a7f3d0 !important;
+}
+
+html.soft .text-emerald-950,
+html.soft .text-emerald-900,
+html.soft .text-emerald-800,
+html.soft .text-emerald-700 {
+  color: #6ee7b7 !important;
+}
+
+html.soft .bg-rose-50,
+html.soft .bg-rose-50\/50,
+html.soft .bg-rose-100 {
+  background-color: rgba(244, 63, 94, 0.18) !important;
+  border-color: rgba(244, 63, 94, 0.4) !important;
+  color: #fecdd3 !important;
+}
+
+html.soft .text-rose-950,
+html.soft .text-rose-900,
+html.soft .text-rose-800,
+html.soft .text-rose-700 {
+  color: #fda4af !important;
+}
+
+html.soft .bg-blue-50,
+html.soft .bg-blue-100 {
+  background-color: rgba(59, 130, 246, 0.18) !important;
+  border-color: rgba(59, 130, 246, 0.4) !important;
+  color: #bfdbfe !important;
+}
+
+html.soft .text-blue-900,
+html.soft .text-blue-800 {
+  color: #93c5fd !important;
+}
+
+html.soft .bg-cyan-50,
+html.soft .bg-cyan-100 {
+  background-color: rgba(6, 182, 212, 0.18) !important;
+  border-color: rgba(6, 182, 212, 0.4) !important;
+  color: #cffafe !important;
+}
+
+html.soft .text-cyan-950,
+html.soft .text-cyan-900,
+html.soft .text-cyan-800,
+html.soft .text-cyan-700 {
+  color: #a5f3fc !important;
+}
+
+/* Modals & Popover Backdrops in Soft Mode */
+html.soft .bg-slate-900\/50,
+html.soft .bg-slate-900\/60,
+html.soft .bg-slate-900\/70 {
+  background-color: rgba(28, 33, 43, 0.75) !important;
+}
+
+/* ========================================================================= */
+/* SCROLLBAR                                                                 */
+/* ========================================================================= */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+html.dark ::-webkit-scrollbar-track {
+  background: #0b0f19;
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+  background: #263352;
+}
+
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: #3b4f7d;
+}
+
+html.soft ::-webkit-scrollbar-track {
+  background: #2e3440;
+}
+
+html.soft ::-webkit-scrollbar-thumb {
+  background: #4c566a;
+}
+
+html.soft ::-webkit-scrollbar-thumb:hover {
+  background: #637089;
+}
+
+/* ========================================================================= */
+/* INVOICE & QUOTE PAPER PREVIEW PROTECTION (ON-SCREEN & PRINT)              */
+/* ========================================================================= */
+
+#printable-a4-invoice,
+#printable-a4-quote,
+#printable-receipt,
+#printable-ticket-quote,
+#printable-daily-report,
+#printable-po,
+#printable-smartphone-report,
+#printable-return-slip,
+html.dark #printable-a4-invoice,
+html.dark #printable-a4-quote,
+html.dark #printable-receipt,
+html.dark #printable-ticket-quote,
+html.dark #printable-daily-report,
+html.dark #printable-po,
+html.dark #printable-smartphone-report,
+html.dark #printable-return-slip,
+html.soft #printable-a4-invoice,
+html.soft #printable-a4-quote,
+html.soft #printable-receipt,
+html.soft #printable-ticket-quote,
+html.soft #printable-daily-report,
+html.soft #printable-po,
+html.soft #printable-smartphone-report,
+html.soft #printable-return-slip {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+/* Suppress all scrollbars (lignes de défilement) inside printable documents */
+#printable-a4-invoice,
+#printable-a4-quote,
+#printable-receipt,
+#printable-ticket-quote,
+#printable-daily-report,
+#printable-po,
+#printable-smartphone-report,
+#printable-thermal-receipt,
+#printable-delivery-note,
+#printable-payment-receipt,
+#printable-return-slip {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+#printable-a4-invoice *::-webkit-scrollbar,
+#printable-a4-quote *::-webkit-scrollbar,
+#printable-receipt *::-webkit-scrollbar,
+#printable-ticket-quote *::-webkit-scrollbar,
+#printable-daily-report *::-webkit-scrollbar,
+#printable-po *::-webkit-scrollbar,
+#printable-smartphone-report *::-webkit-scrollbar,
+#printable-thermal-receipt *::-webkit-scrollbar,
+#printable-delivery-note *::-webkit-scrollbar,
+#printable-payment-receipt *::-webkit-scrollbar,
+#printable-return-slip *::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
+#printable-a4-invoice *,
+#printable-a4-quote *,
+#printable-receipt *,
+#printable-ticket-quote *,
+#printable-daily-report *,
+#printable-po *,
+#printable-smartphone-report *,
+#printable-thermal-receipt *,
+#printable-delivery-note *,
+#printable-payment-receipt *,
+#printable-return-slip * {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+/* Protect light text/borders inside printable tickets & invoices even in Dark or Soft themes */
+html.dark #printable-receipt .bg-white,
+html.soft #printable-receipt .bg-white,
+html.dark #printable-ticket-quote .bg-white,
+html.soft #printable-ticket-quote .bg-white,
+html.dark #printable-po .bg-white,
+html.soft #printable-po .bg-white,
+html.dark #printable-return-slip .bg-white,
+html.soft #printable-return-slip .bg-white {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+html.dark #printable-receipt .text-slate-900,
+html.soft #printable-receipt .text-slate-900,
+html.dark #printable-receipt .text-slate-800,
+html.soft #printable-receipt .text-slate-800,
+html.dark #printable-ticket-quote .text-slate-900,
+html.soft #printable-ticket-quote .text-slate-900,
+html.dark #printable-po .text-slate-900,
+html.soft #printable-po .text-slate-900,
+html.dark #printable-return-slip .text-slate-900,
+html.soft #printable-return-slip .text-slate-900 {
+  color: #0f172a !important;
+}
+
+html.dark #printable-receipt .text-slate-700,
+html.soft #printable-receipt .text-slate-700,
+html.dark #printable-receipt .text-slate-600,
+html.soft #printable-receipt .text-slate-600,
+html.dark #printable-po .text-slate-700,
+html.soft #printable-po .text-slate-700,
+html.dark #printable-po .text-slate-600,
+html.soft #printable-po .text-slate-600 {
+  color: #334155 !important;
+}
+
+html.dark #printable-receipt .text-slate-500,
+html.soft #printable-receipt .text-slate-500,
+html.dark #printable-receipt .text-slate-400,
+html.soft #printable-receipt .text-slate-400,
+html.dark #printable-po .text-slate-500,
+html.soft #printable-po .text-slate-500 {
+  color: #64748b !important;
+}
+
+html.dark #printable-receipt .border-slate-300,
+html.soft #printable-receipt .border-slate-300,
+html.dark #printable-receipt .border-slate-200,
+html.soft #printable-receipt .border-slate-200 {
+  border-color: #cbd5e1 !important;
+}
+
+@media screen {
+  #equipstock-print-portal {
+    display: none !important;
+  }
+}
+
+@media print {
+  @page {
+    margin: 8mm;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  html,
+  body {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* 1. Impression isolée via printElementById (#equipstock-print-portal) : cache intégralement #root et toute l'application */
+  body.printing-active-portal > *:not(#equipstock-print-portal) {
+    display: none !important;
+  }
+
+  body.printing-active-portal #equipstock-print-portal {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    overflow: visible !important;
+  }
+
+  /* 2. Fallback si l'utilisateur appuie sur Ctrl+P directement alors qu'un document est ouvert */
+  body:not(.printing-active-portal) aside,
+  body:not(.printing-active-portal) header,
+  body:not(.printing-active-portal) nav {
+    display: none !important;
+  }
+
+  body:not(.printing-active-portal):has(
+      #printable-a4-invoice,
+      #printable-receipt,
+      #printable-a4-quote,
+      #printable-ticket-quote,
+      #printable-po,
+      #printable-delivery-note,
+      #printable-thermal-receipt,
+      #printable-return-slip,
+      #printable-payment-receipt,
+      #printable-smartphone-report
+    )
+    #root
+    * {
+    visibility: hidden !important;
+  }
+
+  body:not(.printing-active-portal) #printable-a4-invoice,
+  body:not(.printing-active-portal) #printable-a4-invoice *,
+  body:not(.printing-active-portal) #printable-receipt,
+  body:not(.printing-active-portal) #printable-receipt *,
+  body:not(.printing-active-portal) #printable-a4-quote,
+  body:not(.printing-active-portal) #printable-a4-quote *,
+  body:not(.printing-active-portal) #printable-ticket-quote,
+  body:not(.printing-active-portal) #printable-ticket-quote *,
+  body:not(.printing-active-portal) #printable-po,
+  body:not(.printing-active-portal) #printable-po *,
+  body:not(.printing-active-portal) #printable-delivery-note,
+  body:not(.printing-active-portal) #printable-delivery-note *,
+  body:not(.printing-active-portal) #printable-thermal-receipt,
+  body:not(.printing-active-portal) #printable-thermal-receipt *,
+  body:not(.printing-active-portal) #printable-return-slip,
+  body:not(.printing-active-portal) #printable-return-slip *,
+  body:not(.printing-active-portal) #printable-payment-receipt,
+  body:not(.printing-active-portal) #printable-payment-receipt *,
+  body:not(.printing-active-portal) #printable-smartphone-report,
+  body:not(.printing-active-portal) #printable-smartphone-report * {
+    visibility: visible !important;
+  }
+
+  body:not(.printing-active-portal) #printable-a4-invoice,
+  body:not(.printing-active-portal) #printable-receipt,
+  body:not(.printing-active-portal) #printable-a4-quote,
+  body:not(.printing-active-portal) #printable-ticket-quote,
+  body:not(.printing-active-portal) #printable-po,
+  body:not(.printing-active-portal) #printable-delivery-note,
+  body:not(.printing-active-portal) #printable-thermal-receipt,
+  body:not(.printing-active-portal) #printable-return-slip,
+  body:not(.printing-active-portal) #printable-payment-receipt,
+  body:not(.printing-active-portal) #printable-smartphone-report {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-height: none !important;
+    overflow: visible !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+  }
+
+  /* Contrastes préservés pour les factures et devis */
+  #equipstock-print-portal .text-amber-500,
+  #printable-a4-invoice .text-amber-500,
+  #printable-a4-quote .text-amber-500,
+  #printable-receipt .text-amber-600 {
+    color: #d97706 !important;
+  }
+
+  #equipstock-print-portal .bg-amber-500,
+  #printable-a4-invoice .bg-amber-500,
+  #printable-a4-quote .bg-amber-500 {
+    background-color: #f59e0b !important;
+  }
+
+  #equipstock-print-portal .border-amber-500,
+  #printable-a4-invoice .border-amber-500,
+  #printable-a4-quote .border-amber-500 {
+    border-color: #f59e0b !important;
+  }
+}
+
+/* Official Google Sign-In Material Button */
+.gsi-material-button {
+  -moz-user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  -webkit-appearance: none;
+  background-color: #ffffff;
+  background-image: none;
+  border: 1px solid #747775;
+  border-radius: 8px;
+  box-sizing: border-box;
+  color: #1f1f1f;
+  cursor: pointer;
+  font-family: 'Inter', 'Roboto', arial, sans-serif;
+  font-size: 14px;
+  height: 40px;
+  letter-spacing: 0.25px;
+  outline: none;
+  overflow: hidden;
+  padding: 0 14px;
+  position: relative;
+  text-align: center;
+  transition: background-color 0.218s, border-color 0.218s, box-shadow 0.218s;
+  vertical-align: middle;
+  white-space: nowrap;
+  width: auto;
+  max-width: 400px;
+  min-width: min-content;
+}
+
+.gsi-material-button .gsi-material-button-icon {
+  height: 20px;
+  margin-right: 10px;
+  min-width: 20px;
+  width: 20px;
+}
+
+.gsi-material-button .gsi-material-button-content-wrapper {
+  align-items: center;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  height: 100%;
+  justify-content: space-between;
+  position: relative;
+  width: 100%;
+}
+
+.gsi-material-button .gsi-material-button-contents {
+  flex-grow: 1;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: top;
+}
+
+.gsi-material-button .gsi-material-button-state {
+  transition: opacity 0.218s;
+  bottom: 0;
+  left: 0;
+  opacity: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.gsi-material-button:hover {
+  box-shadow: 0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+  background-color: #f8fafc;
+}
+
+
