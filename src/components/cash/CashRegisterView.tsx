@@ -178,7 +178,10 @@ export const CashRegisterView: React.FC = () => {
     sessionMovements.forEach((m) => {
       // Physical Cash Drawer calculations
       if (m.isCashInDrawer) {
-        if (m.direction === 'IN' && m.type !== 'APPORT_ESPECES') {
+        const isInitMvt =
+          m.id.startsWith('CSM-INIT') ||
+          m.reason === 'Fond de caisse initial à l’ouverture';
+        if (m.direction === 'IN' && !isInitMvt) {
           cashIn += m.amount;
         } else if (m.direction === 'OUT') {
           cashOut += m.amount;
@@ -878,7 +881,10 @@ export const CashRegisterView: React.FC = () => {
                       const isInitMvt =
                         m.id.startsWith('CSM-INIT') ||
                         m.reason === 'Fond de caisse initial à l’ouverture';
-                      const canDeleteManualMvt = isAdmin && !isInitMvt && !m.saleId;
+                      const isLinkedCustomerPayment =
+                        m.type === 'ACOMPTE_CLIENT' || m.type === 'REGLEMENT_CREANCE';
+                      const canDeleteManualMvt =
+                        isAdmin && !isInitMvt && !m.saleId && !isLinkedCustomerPayment;
 
                       return (
                         <tr key={`${m.id}-${idx}`} className="hover:bg-slate-50/70">
@@ -902,6 +908,8 @@ export const CashRegisterView: React.FC = () => {
                                   ? 'bg-amber-100 text-amber-900 border border-amber-300 font-bold'
                                   : m.type === 'VENTE_ESPECES' || m.type === 'APPORT_ESPECES'
                                   ? 'bg-emerald-100 text-emerald-800'
+                                  : m.type === 'REGLEMENT_CREANCE' || m.type === 'ACOMPTE_CLIENT'
+                                  ? 'bg-indigo-100 text-indigo-800 border border-indigo-200'
                                   : m.type === 'DEPENSE' || m.type === 'REMBOURSEMENT' || m.type === 'RETRAIT_BANQUE'
                                   ? 'bg-rose-100 text-rose-800'
                                   : 'bg-sky-100 text-sky-800'
@@ -911,6 +919,10 @@ export const CashRegisterView: React.FC = () => {
                                 ? m.isCashInDrawer
                                   ? 'TRANSFERT ➔ TIROIR (+)'
                                   : 'TRANSFERT ➔ TIROIR (-)'
+                                : m.type === 'REGLEMENT_CREANCE'
+                                ? 'RÈGLEMENT CRÉANCE'
+                                : m.type === 'ACOMPTE_CLIENT'
+                                ? 'ACOMPTE CLIENT'
                                 : m.type}
                             </span>
                           </td>
@@ -966,6 +978,13 @@ export const CashRegisterView: React.FC = () => {
                                   <Trash2 className="w-3 h-3" />
                                   <span>Supprimer</span>
                                 </button>
+                              ) : isLinkedCustomerPayment ? (
+                                <span
+                                  className="text-[10px] text-slate-400 italic"
+                                  title="Modifiable ou supprimable depuis la fiche du client (synchronisation automatique avec la caisse et le bilan)"
+                                >
+                                  Fiche client
+                                </span>
                               ) : (
                                 <span className="text-[10px] text-slate-400">—</span>
                               )}

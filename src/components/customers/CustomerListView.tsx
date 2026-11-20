@@ -49,6 +49,7 @@ export const CustomerListView: React.FC = () => {
     sales,
     payments,
     warehouses,
+    selectedWarehouseId,
     createCustomer,
     updateCustomer,
     deleteCustomer,
@@ -80,10 +81,13 @@ export const CustomerListView: React.FC = () => {
 
   // Settlement & Advance (Acompte) Modal
   const [settlingCustomer, setSettlingCustomer] = useState<Customer | null>(null);
+  const [settleType, setSettleType] = useState<'REGLEMENT_CREANCE' | 'ACOMPTE_AVANCE'>('REGLEMENT_CREANCE');
   const [settleAmount, setSettleAmount] = useState<number>(0);
   const [settleDate, setSettleDate] = useState<string>(() => getTodayDateInput());
   const [settleMethod, setSettleMethod] = useState<PaymentMethod>('WAVE');
-  const [settleWarehouseId, setSettleWarehouseId] = useState(warehouses[0]?.id || '');
+  const [settleWarehouseId, setSettleWarehouseId] = useState(
+    selectedWarehouseId || warehouses.find((w) => w.isDefault)?.id || warehouses[0]?.id || ''
+  );
   const [settleRef, setSettleRef] = useState('');
   const [settleNotes, setSettleNotes] = useState('');
   const [settleError, setSettleError] = useState('');
@@ -266,12 +270,19 @@ export const CustomerListView: React.FC = () => {
   const handleOpenSettleModal = (c: Customer) => {
     const summary = customerSummaryMap.get(c.id);
     const currentCreance = summary ? summary.creance : 0;
+    const defaultType = currentCreance > 0 ? 'REGLEMENT_CREANCE' : 'ACOMPTE_AVANCE';
+    const defaultWh =
+      selectedWarehouseId ||
+      warehouses.find((w) => w.isDefault)?.id ||
+      warehouses[0]?.id ||
+      '';
     setSettlingCustomer(c);
+    setSettleType(defaultType);
     setSettleAmount(currentCreance > 0 ? currentCreance : 50000);
     setSettleDate(getTodayDateInput());
     setSettleMethod('WAVE');
-    setSettleWarehouseId(warehouses[0]?.id || '');
-    setSettleRef(`ACP-${Date.now().toString().slice(-6)}`);
+    setSettleWarehouseId(defaultWh);
+    setSettleRef(`${defaultType === 'REGLEMENT_CREANCE' ? 'REG' : 'ACP'}-${Date.now().toString().slice(-6)}`);
     setSettleNotes('');
     setSettleError('');
   };
@@ -286,14 +297,25 @@ export const CustomerListView: React.FC = () => {
       return;
     }
 
+    const effectiveWarehouseId =
+      settleWarehouseId ||
+      selectedWarehouseId ||
+      warehouses.find((w) => w.isDefault)?.id ||
+      warehouses[0]?.id ||
+      '';
+
     const result = recordCustomerPayment({
       customerId: settlingCustomer.id,
-      type: 'ACOMPTE_AVANCE',
+      type: settleType,
       amount: Number(settleAmount),
       method: settleMethod,
-      warehouseId: settleWarehouseId,
+      warehouseId: effectiveWarehouseId,
       reference: settleRef,
-      notes: settleNotes || `Acompte / règlement client (${settlingCustomer.name})`,
+      notes:
+        settleNotes.trim() ||
+        (settleType === 'REGLEMENT_CREANCE'
+          ? `Règlement créance (${settlingCustomer.name})`
+          : `Acompte / Avance client (${settlingCustomer.name})`),
       customDate: settleDate,
     });
 
@@ -989,8 +1011,50 @@ export const CustomerListView: React.FC = () => {
 
             <form onSubmit={handleExecuteSettleDebt} className="space-y-3 text-xs">
               <div>
+                <label className="block text-xs font-semibold text-[#1B1B1B]/70 uppercase mb-1.5">
+                  Nature de l’opération *
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSettleType('REGLEMENT_CREANCE');
+                      if (settleRef.startsWith('ACP-')) {
+                        setSettleRef(settleRef.replace(/^ACP-/, 'REG-'));
+                      }
+                    }}
+                    className={`py-2 px-2.5 rounded border text-xs font-semibold transition-colors cursor-pointer ${
+                      settleType === 'REGLEMENT_CREANCE'
+                        ? 'bg-[#E35E2D] text-white border-[#E35E2D]'
+                        : 'bg-[#F9FAFB] text-[#1B1B1B] border-[#E5E5E5] hover:bg-[#F3F4F6]'
+                    }`}
+                  >
+                    Règlement de créance
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSettleType('ACOMPTE_AVANCE');
+                      if (settleRef.startsWith('REG-')) {
+                        setSettleRef(settleRef.replace(/^REG-/, 'ACP-'));
+                      }
+                    }}
+                    className={`py-2 px-2.5 rounded border text-xs font-semibold transition-colors cursor-pointer ${
+                      settleType === 'ACOMPTE_AVANCE'
+                        ? 'bg-[#E35E2D] text-white border-[#E35E2D]'
+                        : 'bg-[#F9FAFB] text-[#1B1B1B] border-[#E5E5E5] hover:bg-[#F3F4F6]'
+                    }`}
+                  >
+                    Acompte / Avance
+                  </button>
+                </div>
+              </div>
+
+              <div>
                 <label className="block text-xs font-semibold text-[#1B1B1B]/70 uppercase mb-1">
-                  Montant de l’acompte versé (FCFA) *
+                  {settleType === 'REGLEMENT_CREANCE'
+                    ? 'Montant du règlement (FCFA) *'
+                    : 'Montant de l’acompte versé (FCFA) *'}
                 </label>
                 <NumericInput
                   min={1}
@@ -1013,7 +1077,7 @@ export const CustomerListView: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-[#1B1B1B]/70 uppercase mb-1">
-                    Date de l’acompte *
+                    Date de l’opération *
                   </label>
                   <div className="relative">
                     <Calendar className="w-3.5 h-3.5 text-[#E35E2D] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -1045,6 +1109,25 @@ export const CustomerListView: React.FC = () => {
                 </div>
               </div>
 
+              {warehouses.length > 1 && (
+                <div>
+                  <label className="block text-xs font-semibold text-[#1B1B1B]/70 uppercase mb-1">
+                    Magasin d’encaissement *
+                  </label>
+                  <select
+                    value={settleWarehouseId}
+                    onChange={(e) => setSettleWarehouseId(e.target.value)}
+                    className="w-full px-2.5 py-2 bg-[#F9FAFB] border border-[#E5E5E5] rounded font-medium focus:outline-none focus:border-[#E35E2D]"
+                  >
+                    {warehouses.map((w) => (
+                      <option key={w.id} value={w.id}>
+                        {w.code} — {w.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-semibold text-[#1B1B1B]/70 uppercase mb-1">
                   N° de Reçu / Référence
@@ -1053,7 +1136,7 @@ export const CustomerListView: React.FC = () => {
                   type="text"
                   value={settleRef}
                   onChange={(e) => setSettleRef(e.target.value)}
-                  placeholder="Ex: ACP-12345"
+                  placeholder="Ex: REG-12345"
                   className="w-full px-3 py-2 font-mono bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#E35E2D]"
                 />
               </div>
@@ -1084,7 +1167,11 @@ export const CustomerListView: React.FC = () => {
                   className="px-5 py-2 bg-[#E35E2D] hover:bg-[#1B1B1B] text-white rounded font-bold transition-colors inline-flex items-center gap-1.5 cursor-pointer"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Valider l’acompte</span>
+                  <span>
+                    {settleType === 'REGLEMENT_CREANCE'
+                      ? 'Valider le règlement'
+                      : 'Valider l’acompte'}
+                  </span>
                 </button>
               </div>
             </form>

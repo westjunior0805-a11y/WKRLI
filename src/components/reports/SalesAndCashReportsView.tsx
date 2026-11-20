@@ -1,9 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import { useStock } from '../../context/StockContext';
-import { Sale, CashMovement } from '../../types';
+import { Sale, CashMovement, PaymentRecord, Customer } from '../../types';
 import { formatFCFA, formatDate, formatDateTime } from '../../utils/formatters';
+import { getCustomerCreditSummary } from '../../utils/customerAccount';
 import { downloadElementAsPdf, printElementById } from '../../utils/pdfExporter';
 import { ReceiptModal } from '../sales/ReceiptModal';
+import { PaymentReceiptModal } from '../customers/PaymentReceiptModal';
 import {
   TrendingUp,
   Calendar,
@@ -83,6 +85,10 @@ export const SalesAndCashReportsView: React.FC = () => {
 
   // Receipt Modal preview
   const [activeReceiptSale, setActiveReceiptSale] = useState<Sale | null>(null);
+  const [activeCustomerPaymentReceipt, setActiveCustomerPaymentReceipt] = useState<{
+    payment: PaymentRecord;
+    customer: Customer | null;
+  } | null>(null);
 
   // Quick navigation day by day
   const handleShiftSingleDate = (days: number) => {
@@ -209,6 +215,46 @@ export const SalesAndCashReportsView: React.FC = () => {
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [cashMovements, activeSaleIdSet, selectedWarehouseFilter, effectiveStart, effectiveEnd]);
 
+  // Standalone customer payments (Acomptes clients & Règlements de créances) in the period
+  // Includes both PaymentRecord entries (!p.saleId) and any orphan CashMovement entries of type ACOMPTE_CLIENT / REGLEMENT_CREANCE
+  const { standaloneCustomerPayments, orphanCashCustomerPayments } = useMemo(() => {
+    const directPayments = filteredPayments.filter((p) => !p.saleId && (Number(p.amount) || 0) > 0);
+    const recordedIds = new Set(directPayments.map((p) => p.id));
+    const orphans: PaymentRecord[] = [];
+
+    filteredAllCashMovements.forEach((m) => {
+      if (m.type !== 'ACOMPTE_CLIENT' && m.type !== 'REGLEMENT_CREANCE') return;
+      if (m.direction !== 'IN' || (Number(m.amount) || 0) <= 0) return;
+      if (m.documentRef && recordedIds.has(m.documentRef)) return;
+
+      const cust = m.customerId ? customers.find((c) => c.id === m.customerId) : undefined;
+      orphans.push({
+        id: m.documentRef || m.id,
+        date: m.date,
+        customerId: m.customerId,
+        customerName: cust?.name || m.reason,
+        paymentType: m.type === 'ACOMPTE_CLIENT' ? 'ACOMPTE_CLIENT' : 'REGLEMENT_CREANCE',
+        cashSessionId: m.cashSessionId,
+        warehouseId: m.warehouseId,
+        method: m.method,
+        amount: m.amount,
+        userId: m.userId,
+        userName: m.userName,
+        reference: m.documentRef || m.id,
+        notes: m.notes || m.reason,
+      });
+    });
+
+    const combined = [...directPayments, ...orphans].sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+
+    return {
+      standaloneCustomerPayments: combined,
+      orphanCashCustomerPayments: orphans,
+    };
+  }, [filteredPayments, filteredAllCashMovements, customers]);
+
   // Filter cash expenses in the period
   const filteredCashExpenses = useMemo(() => {
     return filteredAllCashMovements.filter((m) => m.type === 'DEPENSE');
@@ -219,12 +265,21 @@ export const SalesAndCashReportsView: React.FC = () => {
     return sortedSales.reduce((sum, s) => sum + Math.max(0, s.totalAmount - (s.refundedAmount || 0)), 0);
   }, [sortedSales]);
 
-  const totalCollected = useMemo(() => {
+  // Encaissements directs issus des ventes de la période
+  const totalSalesCollected = useMemo(() => {
     return sortedSales.reduce((sum, s) => {
       const netSaleAmount = Math.max(0, s.totalAmount - (s.refundedAmount || 0));
       return sum + Math.min(s.totalPaid, netSaleAmount);
     }, 0);
   }, [sortedSales]);
+
+  // Encaissements d'acomptes & règlements de créances clients sur la période
+  const totalCustomerPaymentsCollected = useMemo(() => {
+    return standaloneCustomerPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  }, [standaloneCustomerPayments]);
+
+  // Total Encaissé Réel = Encaissements sur ventes + Acomptes & Règlements clients
+  const totalCollected = totalSalesCollected + totalCustomerPaymentsCollected;
 
   const totalUnpaid = useMemo(() => {
     return sortedSales.reduce((sum, s) => sum + s.remainingDue, 0);
@@ -245,7 +300,13 @@ export const SalesAndCashReportsView: React.FC = () => {
     return filteredCashExpenses.reduce((sum, m) => sum + m.amount, 0);
   }, [filteredCashExpenses]);
 
-  // Payment Breakdown
+  const totalCashDrawerExpenses = useMemo(() => {
+    return filteredCashExpenses
+      .filter((m) => m.isCashInDrawer !== false)
+      .reduce((sum, m) => sum + m.amount, 0);
+  }, [filteredCashExpenses]);
+
+  // Payment Breakdown (Ventes + Acomptes & Règlements clients)
   const paymentBreakdown = useMemo(() => {
     const stats: Record<string, number> = {
       ESPECES: 0,
@@ -256,13 +317,18 @@ export const SalesAndCashReportsView: React.FC = () => {
     };
     filteredPayments.forEach((p) => {
       if (stats[p.method] !== undefined) {
-        stats[p.method] += p.amount;
+        stats[p.method] += Number(p.amount) || 0;
+      }
+    });
+    orphanCashCustomerPayments.forEach((p) => {
+      if (stats[p.method] !== undefined) {
+        stats[p.method] += Number(p.amount) || 0;
       }
     });
     return stats;
-  }, [filteredPayments]);
+  }, [filteredPayments, orphanCashCustomerPayments]);
 
-  const netDrawerCash = (paymentBreakdown.ESPECES || 0) - totalExpenses;
+  const netDrawerCash = (paymentBreakdown.ESPECES || 0) - totalCashDrawerExpenses;
 
   // Selected warehouse object
   const activeWarehouseObj = warehouses.find((w) => w.id === selectedWarehouseFilter);
@@ -285,11 +351,14 @@ export const SalesAndCashReportsView: React.FC = () => {
     lines.push(`"=== 1. SYNTHÈSE FINANCIÈRE GLOBALE ==="`);
     lines.push(`"Indicateur"${sep}"Montant (FCFA)"`);
     lines.push(`"Chiffre d'Affaires Total (Ventes)"${sep}"${totalRevenue}"`);
-    lines.push(`"Total Encaissé Réel"${sep}"${totalCollected}"`);
+    lines.push(`"Total Encaissé Réel (Ventes + Acomptes/Règlements)"${sep}"${totalCollected}"`);
+    lines.push(`"  dont Encaissements sur Ventes"${sep}"${totalSalesCollected}"`);
+    lines.push(`"  dont Acomptes & Règlements Clients"${sep}"${totalCustomerPaymentsCollected}"`);
     lines.push(`"Crédits Accordés (Reste Dû)"${sep}"${totalUnpaid}"`);
     lines.push(`"Dépenses Décaissées"${sep}"${totalExpenses}"`);
     lines.push(`"Solde Net Espèces en Tiroir"${sep}"${netDrawerCash}"`);
     lines.push(`"Nombre de Ventes Réalisées"${sep}"${sortedSales.length}"`);
+    lines.push(`"Nombre d'Acomptes / Règlements Clients"${sep}"${standaloneCustomerPayments.length}"`);
     lines.push(`"Total Pièces Vendues"${sep}"${totalItemsSold}"`);
     lines.push(`"--- Ventilation des Encaissements ---"`);
     lines.push(`"Espèces"${sep}"${paymentBreakdown.ESPECES || 0}"`);
@@ -338,8 +407,50 @@ export const SalesAndCashReportsView: React.FC = () => {
     }
     lines.push('');
 
-    // 4. Detailed Sales & Parts Sold (Line by line)
-    lines.push(`"=== 3. DÉTAIL DES VENTES ET PIÈCES VENDUES (LIGNE PAR LIGNE) ==="`);
+    // 4. Customer Deposits & Debt Settlements (Line by line)
+    lines.push(`"=== 3. ACOMPTES & RÈGLEMENTS CLIENTS (LIGNE PAR LIGNE) ==="`);
+    lines.push([
+      '"Date"',
+      '"Heure"',
+      '"N° Pièce"',
+      '"Référence"',
+      '"Magasin"',
+      '"Client"',
+      '"Nature"',
+      '"Mode Règlement"',
+      '"Montant Encaissé (FCFA)"',
+      '"Motif / Observations"',
+      '"Opérateur"',
+    ].join(sep));
+
+    if (standaloneCustomerPayments.length === 0) {
+      lines.push(`"Aucun acompte ou règlement client enregistré sur cette période"${sep}""${sep}""${sep}""${sep}""${sep}""${sep}""${sep}""${sep}"0"${sep}""${sep}""`);
+    } else {
+      standaloneCustomerPayments.forEach((p) => {
+        const custObj = p.customerId ? customers.find((c) => c.id === p.customerId) : undefined;
+        const custName = custObj?.name || p.customerName || 'Client';
+        const whName = warehouses.find((w) => w.id === p.warehouseId)?.name || warehouseLabel;
+        const natureLabel =
+          p.paymentType === 'ACOMPTE_CLIENT' ? 'Acompte / Avance Client' : 'Règlement de Créance';
+        lines.push([
+          `"${formatDate(p.date)}"`,
+          `"${new Date(p.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}"`,
+          `"${p.id}"`,
+          `"${(p.reference || p.id).replace(/"/g, '""')}"`,
+          `"${whName}"`,
+          `"${custName.replace(/"/g, '""')}"`,
+          `"${natureLabel}"`,
+          `"${p.method}"`,
+          `"${p.amount}"`,
+          `"${(p.notes || '').replace(/"/g, '""')}"`,
+          `"${p.userName || 'Admin'}"`,
+        ].join(sep));
+      });
+    }
+    lines.push('');
+
+    // 5. Detailed Sales & Parts Sold (Line by line)
+    lines.push(`"=== 4. DÉTAIL DES VENTES ET PIÈCES VENDUES (LIGNE PAR LIGNE) ==="`);
     lines.push([
       '"Date Vente"',
       '"Heure"',
@@ -411,23 +522,37 @@ export const SalesAndCashReportsView: React.FC = () => {
 
   // Analytics Tab helpers
   const totalGlobalReceivables = useMemo(() => {
-    return customers.reduce((sum, c) => sum + c.outstandingBalance, 0);
-  }, [customers]);
+    return customers.reduce((sum, c) => sum + getCustomerCreditSummary(c, sales, payments).creance, 0);
+  }, [customers, sales, payments]);
 
   const salesByWarehouse = useMemo(() => {
     return warehouses.map((wh) => {
       const whSales = filteredSales.filter((s) => s.warehouseId === wh.id);
+      const whStandalonePayments = standaloneCustomerPayments.filter((p) => p.warehouseId === wh.id);
       const count = whSales.length;
-      const revenue = whSales.reduce((sum, s) => sum + s.totalAmount, 0);
-      const collected = whSales.reduce((sum, s) => sum + s.totalPaid, 0);
+      const revenue = whSales.reduce(
+        (sum, s) => sum + Math.max(0, s.totalAmount - (s.refundedAmount || 0)),
+        0
+      );
+      const salesCollected = whSales.reduce((sum, s) => {
+        const netAmt = Math.max(0, s.totalAmount - (s.refundedAmount || 0));
+        return sum + Math.min(s.totalPaid, netAmt);
+      }, 0);
+      const customerPaymentsCollected = whStandalonePayments.reduce(
+        (sum, p) => sum + (Number(p.amount) || 0),
+        0
+      );
       return {
         warehouse: wh,
         count,
         revenue,
-        collected,
+        salesCollected,
+        customerPaymentsCollected,
+        customerPaymentsCount: whStandalonePayments.length,
+        collected: salesCollected + customerPaymentsCollected,
       };
     });
-  }, [warehouses, filteredSales]);
+  }, [warehouses, filteredSales, standaloneCustomerPayments]);
 
   const topSellingArticles = useMemo(() => {
     const map = new Map<string, { ref: string; desig: string; brand: string; qty: number; totalRev: number }>();
@@ -783,11 +908,26 @@ export const SalesAndCashReportsView: React.FC = () => {
                     {formatFCFA(totalCollected)}
                   </div>
                 </div>
-                <div className="mt-3 pt-2 border-t border-emerald-200/80 text-[11px] text-emerald-800 flex justify-between">
-                  <span>Argent effectivement reçu :</span>
-                  <span className="font-bold font-mono">
-                    {totalRevenue > 0 ? `${Math.round((totalCollected / totalRevenue) * 100)}% encaissé` : '0%'}
-                  </span>
+                <div className="mt-3 pt-2 border-t border-emerald-200/80 text-[11px] text-emerald-800 space-y-0.5">
+                  {totalCustomerPaymentsCollected > 0 ? (
+                    <>
+                      <div className="flex justify-between">
+                        <span>Sur ventes :</span>
+                        <span className="font-bold font-mono">{formatFCFA(totalSalesCollected)}</span>
+                      </div>
+                      <div className="flex justify-between text-indigo-800">
+                        <span>Acomptes / Règl. ({standaloneCustomerPayments.length}) :</span>
+                        <span className="font-bold font-mono">+{formatFCFA(totalCustomerPaymentsCollected)}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex justify-between">
+                      <span>Argent effectivement reçu :</span>
+                      <span className="font-bold font-mono">
+                        {totalRevenue > 0 ? `${Math.round((totalSalesCollected / totalRevenue) * 100)}% encaissé` : '0%'}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -822,7 +962,7 @@ export const SalesAndCashReportsView: React.FC = () => {
                   </div>
                 </div>
                 <div className="mt-3 pt-2 border-t border-slate-200 text-[11px] text-slate-600 flex justify-between">
-                  <span>Après dépenses (-{formatFCFA(totalExpenses)})</span>
+                  <span>Après dépenses espèces (-{formatFCFA(totalCashDrawerExpenses)})</span>
                   <span className="font-bold text-emerald-700 font-mono">En caisse</span>
                 </div>
               </div>
@@ -892,22 +1032,29 @@ export const SalesAndCashReportsView: React.FC = () => {
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
                   <FileSpreadsheet className="w-4 h-4 text-amber-500" />
-                  <span>Tableau détaillé des transactions ({sortedSales.length})</span>
+                  <span>Tableau détaillé des ventes ({sortedSales.length})</span>
                 </h4>
                 <span className="text-[11px] text-slate-500">
                   Affichage par ordre chronologique
                 </span>
               </div>
 
-              {sortedSales.length === 0 ? (
+              {sortedSales.length === 0 && standaloneCustomerPayments.length === 0 ? (
                 <div className="py-12 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200 space-y-2">
                   <AlertCircle className="w-8 h-8 text-slate-400 mx-auto" />
                   <p className="text-sm font-bold text-slate-700">
-                    Aucune vente enregistrée pour cette période ({periodLabel})
+                    Aucune vente ni encaissement client enregistré pour cette période ({periodLabel})
                   </p>
                   <p className="text-xs text-slate-500 max-w-md mx-auto">
                     Si votre magasin était fermé ce jour-là (dimanche ou jour férié), vous pouvez utiliser les boutons ci-dessus pour naviguer d'un jour ou sélectionner une autre date.
                   </p>
+                </div>
+              ) : sortedSales.length === 0 ? (
+                <div className="py-4 px-4 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-xs text-slate-600 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-slate-400 shrink-0" />
+                  <span>
+                    Aucune vente sur cette période — les acomptes et règlements clients encaissés figurent ci-dessous.
+                  </span>
                 </div>
               ) : (
                 <div className="overflow-x-auto border border-slate-200 rounded-xl">
@@ -1033,6 +1180,159 @@ export const SalesAndCashReportsView: React.FC = () => {
               )}
             </div>
 
+            {/* Standalone Customer Payments Section (Acomptes & Règlements de Créances) */}
+            {standaloneCustomerPayments.length > 0 && (
+              <div className="space-y-2.5 pt-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                    <Coins className="w-4 h-4 text-indigo-600" />
+                    <span>
+                      Acomptes & Règlements Clients encaissés ({standaloneCustomerPayments.length})
+                    </span>
+                  </h4>
+                  <span className="text-xs font-mono font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-lg tabular-nums">
+                    Total : +{formatFCFA(totalCustomerPaymentsCollected)}
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto border border-indigo-200/80 rounded-xl">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-indigo-50/70 border-b border-indigo-200/80 text-indigo-950 uppercase text-[10px] font-bold">
+                      <tr>
+                        <th className="py-2.5 px-3">Date & Heure</th>
+                        <th className="py-2.5 px-3">Réf. / Pièce</th>
+                        <th className="py-2.5 px-3">Client</th>
+                        <th className="py-2.5 px-3">Nature & Motif</th>
+                        <th className="py-2.5 px-3 text-center">Mode</th>
+                        <th className="py-2.5 px-3 text-right">Montant Encaissé</th>
+                        <th className="py-2.5 px-3 text-right print:hidden">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
+                      {standaloneCustomerPayments.map((p) => {
+                        const pDate = new Date(p.date);
+                        const dateStr = pDate.toLocaleDateString('fr-FR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                        });
+                        const timeStr = pDate.toLocaleTimeString('fr-FR', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        });
+                        const customerObj = p.customerId
+                          ? customers.find((c) => c.id === p.customerId) || null
+                          : null;
+                        const displayCustomerName = customerObj?.name || p.customerName || 'Client';
+                        const isAcompte = p.paymentType === 'ACOMPTE_CLIENT';
+                        const whName = warehouses.find((w) => w.id === p.warehouseId)?.name;
+
+                        return (
+                          <tr key={p.id} className="hover:bg-indigo-50/30 transition-colors">
+                            <td className="py-3 px-3 font-mono text-slate-900 whitespace-nowrap">
+                              <div className="flex flex-col gap-0.5">
+                                <span className="flex items-center gap-1 font-bold text-slate-900">
+                                  <Calendar className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                                  {dateStr}
+                                </span>
+                                <span className="flex items-center gap-1 text-[11px] text-slate-500 pl-4.5">
+                                  <Clock className="w-3 h-3 text-slate-400 shrink-0" />
+                                  {timeStr}
+                                </span>
+                              </div>
+                            </td>
+
+                            <td className="py-3 px-3 font-mono text-slate-700 whitespace-nowrap">
+                              <div className="font-semibold">{p.reference || p.id}</div>
+                              {p.reference && p.reference !== p.id && (
+                                <div className="text-[10px] text-slate-400">{p.id}</div>
+                              )}
+                            </td>
+
+                            <td className="py-3 px-3">
+                              <div className="font-bold text-slate-900">{displayCustomerName}</div>
+                              <div className="text-[10px] font-mono text-slate-400 flex items-center gap-2 mt-0.5">
+                                {customerObj?.phone && (
+                                  <span className="inline-flex items-center gap-0.5">
+                                    <Phone className="w-2.5 h-2.5" />
+                                    {customerObj.phone}
+                                  </span>
+                                )}
+                                {whName && <span>· {whName}</span>}
+                              </div>
+                            </td>
+
+                            <td className="py-3 px-3 max-w-xs">
+                              <span
+                                className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold mb-1 ${
+                                  isAcompte
+                                    ? 'bg-sky-50 text-sky-800 border border-sky-200'
+                                    : 'bg-indigo-50 text-indigo-800 border border-indigo-200'
+                                }`}
+                              >
+                                {isAcompte ? 'Acompte Client' : 'Règlement Créance'}
+                              </span>
+                              {p.notes && (
+                                <div className="text-[11px] text-slate-600 line-clamp-2">
+                                  {p.notes}
+                                </div>
+                              )}
+                            </td>
+
+                            <td className="py-3 px-3 text-center whitespace-nowrap">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded bg-slate-100 text-slate-800 font-semibold text-[10px] uppercase">
+                                {p.method === 'ORANGE_MONEY'
+                                  ? 'Orange Money'
+                                  : p.method === 'ESPECES'
+                                  ? 'Espèces'
+                                  : p.method === 'VIREMENT'
+                                  ? 'Virement'
+                                  : p.method === 'CARTE'
+                                  ? 'Carte'
+                                  : p.method}
+                              </span>
+                            </td>
+
+                            <td className="py-3 px-3 text-right font-mono font-extrabold text-sm text-emerald-700 whitespace-nowrap tabular-nums">
+                              +{formatFCFA(p.amount)}
+                            </td>
+
+                            <td className="py-3 px-3 text-right print:hidden whitespace-nowrap">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setActiveCustomerPaymentReceipt({
+                                    payment: p,
+                                    customer: customerObj,
+                                  })
+                                }
+                                className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[11px] font-semibold transition-colors cursor-pointer"
+                                title="Voir ou imprimer le reçu de cet acompte / règlement"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>Reçu</span>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot className="bg-emerald-50/60 border-t border-indigo-200/80 text-xs font-bold">
+                      <tr>
+                        <td colSpan={5} className="py-2.5 px-3 text-right text-slate-700 uppercase text-[11px]">
+                          Total Acomptes & Règlements Clients :
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono font-extrabold text-emerald-800 tabular-nums whitespace-nowrap">
+                          +{formatFCFA(totalCustomerPaymentsCollected)}
+                        </td>
+                        <td className="print:hidden" />
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            )}
+
             {/* Signature & Date Footer */}
             <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-400">
               <span>{companyInfo.name || 'WKRLI'} — {companyInfo.slogan || 'Système certifié de gestion pièces & filtration'}</span>
@@ -1077,8 +1377,16 @@ export const SalesAndCashReportsView: React.FC = () => {
                 </span>
               </div>
               <div className="mt-2 text-xs text-slate-500 border-t border-slate-100 pt-2 flex justify-between">
-                <span>Règlements effectifs</span>
-                <span className="font-medium text-slate-700">Comptant & Digital</span>
+                <span>
+                  {totalCustomerPaymentsCollected > 0
+                    ? `Ventes : ${formatFCFA(totalSalesCollected)}`
+                    : 'Règlements effectifs'}
+                </span>
+                <span className="font-medium text-slate-700 font-mono">
+                  {totalCustomerPaymentsCollected > 0
+                    ? `+${formatFCFA(totalCustomerPaymentsCollected)} acomptes`
+                    : 'Comptant & Digital'}
+                </span>
               </div>
             </div>
 
@@ -1149,6 +1457,11 @@ export const SalesAndCashReportsView: React.FC = () => {
                         </td>
                         <td className="py-2.5 text-right font-mono text-emerald-700 font-bold">
                           {formatFCFA(w.collected)}
+                          {w.customerPaymentsCollected > 0 && (
+                            <span className="block text-[10px] font-normal text-indigo-700">
+                              dont +{formatFCFA(w.customerPaymentsCollected)} acomptes/règl.
+                            </span>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -1215,6 +1528,15 @@ export const SalesAndCashReportsView: React.FC = () => {
         />
       )}
 
+      {/* Customer Payment / Deposit Receipt Modal */}
+      {activeCustomerPaymentReceipt && (
+        <PaymentReceiptModal
+          payment={activeCustomerPaymentReceipt.payment}
+          customer={activeCustomerPaymentReceipt.customer}
+          onClose={() => setActiveCustomerPaymentReceipt(null)}
+        />
+      )}
+
       {/* Smartphone-formatted PDF / Mobile Slip Modal */}
       {isSmartphoneModalOpen && (
         <SmartphoneReportModal
@@ -1227,10 +1549,14 @@ export const SalesAndCashReportsView: React.FC = () => {
           periodLabel={periodLabel}
           warehouseLabel={warehouseLabel}
           totalRevenue={totalRevenue}
+          totalSalesCollected={totalSalesCollected}
+          totalCustomerPaymentsCollected={totalCustomerPaymentsCollected}
           totalCollected={totalCollected}
           totalUnpaid={totalUnpaid}
           paymentBreakdown={paymentBreakdown}
           sortedSales={sortedSales}
+          standaloneCustomerPayments={standaloneCustomerPayments}
+          customers={customers}
         />
       )}
     </div>
@@ -1247,10 +1573,14 @@ interface SmartphoneReportModalProps {
   periodLabel: string;
   warehouseLabel: string;
   totalRevenue: number;
+  totalSalesCollected: number;
+  totalCustomerPaymentsCollected: number;
   totalCollected: number;
   totalUnpaid: number;
   paymentBreakdown: Record<string, number>;
   sortedSales: Sale[];
+  standaloneCustomerPayments: PaymentRecord[];
+  customers: Customer[];
 }
 
 const SmartphoneReportModal: React.FC<SmartphoneReportModalProps> = ({
@@ -1262,10 +1592,14 @@ const SmartphoneReportModal: React.FC<SmartphoneReportModalProps> = ({
   periodLabel,
   warehouseLabel,
   totalRevenue,
+  totalSalesCollected,
+  totalCustomerPaymentsCollected,
   totalCollected,
   totalUnpaid,
   paymentBreakdown,
   sortedSales,
+  standaloneCustomerPayments,
+  customers,
 }) => {
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
@@ -1389,6 +1723,12 @@ const SmartphoneReportModal: React.FC<SmartphoneReportModalProps> = ({
                 </span>
               </div>
             </div>
+            {totalCustomerPaymentsCollected > 0 && (
+              <div className="pt-1.5 border-t border-slate-800 flex items-center justify-between text-[10px] text-slate-300">
+                <span>Dont ventes : <strong className="font-mono text-white">{formatFCFA(totalSalesCollected)}</strong></span>
+                <span>Acomptes / Règl. : <strong className="font-mono text-emerald-400">+{formatFCFA(totalCustomerPaymentsCollected)}</strong></span>
+              </div>
+            )}
           </div>
 
           {/* Payment Methods Breakdown */}
@@ -1494,6 +1834,72 @@ const SmartphoneReportModal: React.FC<SmartphoneReportModalProps> = ({
               </div>
             )}
           </div>
+
+          {/* Standalone Customer Deposits & Debt Settlements in Smartphone PDF */}
+          {standaloneCustomerPayments.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between pb-1 border-b border-indigo-200 dark:border-indigo-900/60">
+                <span className="text-[11px] font-black uppercase tracking-wider text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
+                  <Coins className="w-3.5 h-3.5 text-indigo-600" />
+                  Acomptes & Règlements ({standaloneCustomerPayments.length})
+                </span>
+                <span className="text-[10px] font-mono font-extrabold text-emerald-700">
+                  +{formatFCFA(totalCustomerPaymentsCollected)}
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                {standaloneCustomerPayments.map((p, idx) => {
+                  const pDate = new Date(p.date);
+                  const dateFormatted = pDate.toLocaleDateString('fr-FR', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                  });
+                  const timeFormatted = pDate.toLocaleTimeString('fr-FR', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  });
+                  const custName =
+                    (p.customerId ? customers.find((c) => c.id === p.customerId)?.name : undefined) ||
+                    p.customerName ||
+                    'Client';
+                  const isAcompte = p.paymentType === 'ACOMPTE_CLIENT';
+
+                  return (
+                    <div
+                      key={p.id}
+                      className="p-2.5 bg-indigo-50/50 border border-indigo-200/70 rounded-xl space-y-1 text-[10px]"
+                    >
+                      <div className="flex items-center justify-between text-[11px]">
+                        <div className="flex items-center gap-1.5 font-bold text-slate-900 flex-wrap">
+                          <span className="text-indigo-600 font-mono">#{idx + 1}</span>
+                          <span>{p.reference || p.id}</span>
+                          <span className="text-[10px] text-slate-500 font-mono">
+                            ({dateFormatted} à {timeFormatted})
+                          </span>
+                        </div>
+                        <span className="font-mono font-black text-emerald-700 tabular-nums shrink-0">
+                          +{formatFCFA(p.amount)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-slate-700">
+                        <span>
+                          Client : <strong>{custName}</strong>
+                        </span>
+                        <span className="px-1.5 py-0.5 rounded bg-white border border-indigo-200 text-indigo-900 font-bold text-[9px] uppercase">
+                          {isAcompte ? 'Acompte' : 'Règlement'} · {p.method}
+                        </span>
+                      </div>
+                      {p.notes && (
+                        <div className="text-slate-500 italic">{p.notes}</div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Footer Signature */}
           <div className="pt-3 border-t border-dashed border-slate-300 dark:border-slate-700 text-center text-[9px] text-slate-400 space-y-1">

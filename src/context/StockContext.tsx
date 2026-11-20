@@ -2632,6 +2632,59 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   };
 
+  // Helper: recalcule le solde théorique espèces (et écart si clôturée) des sessions de caisse impactées
+  const syncCashSessionsTheoreticalBalance = (
+    affectedSessionIds: Set<string>,
+    movementsSnapshot: CashMovement[]
+  ) => {
+    if (affectedSessionIds.size === 0) return;
+    setCashSessions((prevSessions) => {
+      let anyChanged = false;
+      const updatedSessionsToSave: CashSession[] = [];
+      const nextSessions = prevSessions.map((session) => {
+        if (!affectedSessionIds.has(session.id)) return session;
+        const sessionMvts = movementsSnapshot.filter((m) => m.cashSessionId === session.id);
+        let cashIn = 0;
+        let cashOut = 0;
+        for (const m of sessionMvts) {
+          if (!m.isCashInDrawer) continue;
+          const isInitMvt =
+            m.id.startsWith('CSM-INIT') ||
+            m.reason === 'Fond de caisse initial à l’ouverture';
+          if (m.direction === 'IN' && !isInitMvt) {
+            cashIn += m.amount;
+          } else if (m.direction === 'OUT') {
+            cashOut += m.amount;
+          }
+        }
+        const newTheoretical = Math.max(0, session.initialCashFloat + cashIn - cashOut);
+        const newVariance =
+          session.status === 'CLOSED' && session.countedCash !== null
+            ? session.countedCash - newTheoretical
+            : 0;
+        if (
+          session.theoreticalCash !== newTheoretical ||
+          session.cashVariance !== newVariance
+        ) {
+          anyChanged = true;
+          const updatedSession: CashSession = {
+            ...session,
+            theoreticalCash: newTheoretical,
+            cashVariance: newVariance,
+          };
+          updatedSessionsToSave.push(updatedSession);
+          return updatedSession;
+        }
+        return session;
+      });
+      if (anyChanged) {
+        safeSetLocalStorage('cash_sessions', nextSessions);
+        updatedSessionsToSave.forEach((s) => saveCashSessionToFirebase(s).catch(console.warn));
+      }
+      return nextSessions;
+    });
+  };
+
   // Customer payment & advance management (Règlements de créances & Acomptes clients)
   const recordCustomerPayment = (params: {
     customerId: string;
@@ -2686,6 +2739,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       customerId: params.customerId,
       customerName: customer.name,
       paymentType: paymentTypeLabel,
+      cashSessionId: activeSession?.id,
       warehouseId: params.warehouseId,
       method: params.method,
       amount: params.amount,
@@ -2715,7 +2769,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     safeSetLocalStorage('customers', nextCustomers);
     saveCustomerToFirebase(updatedCustomerRecord).catch(console.warn);
 
-    // Record cash movement if cash session is active (or if Espèces)
+    // Record cash movement if cash session is active
     if (activeSession) {
       const isDrawerCash = params.method === 'ESPECES';
       const csmId = generateCashMovementId();
@@ -2737,15 +2791,13 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         notes: params.notes?.trim(),
       };
 
-      setCashMovements((prev) => [newCashMvt, ...prev]);
+      const nextCashMovements = [newCashMvt, ...cashMovements];
+      setCashMovements(nextCashMovements);
+      safeSetLocalStorage('cash_movements', nextCashMovements);
       saveCashMovementToFirebase(newCashMvt).catch(console.warn);
 
       if (isDrawerCash) {
-        const updatedSession = { ...activeSession, theoreticalCash: activeSession.theoreticalCash + params.amount };
-        setCashSessions((prev) =>
-          prev.map((s) => (s.id === activeSession.id ? updatedSession : s))
-        );
-        saveCashSessionToFirebase(updatedSession).catch(console.warn);
+        syncCashSessionsTheoreticalBalance(new Set([activeSession.id]), nextCashMovements);
       }
     }
 
@@ -2814,6 +2866,43 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     safeSetLocalStorage('payments', nextPayments);
     savePaymentToFirebase(updatedPayment).catch(console.warn);
 
+    // Synchroniser l'écriture correspondante dans le journal des flux de caisse (pour les acomptes / règlements autonomes)
+    if (!targetPay.saleId) {
+      const affectedSessionIds = new Set<string>();
+      const updatedCashMvtsToSave: CashMovement[] = [];
+      const customerName =
+        targetPay.customerName ||
+        customers.find((c) => c.id === targetPay.customerId)?.name ||
+        'Client';
+      const isAcompte = updatedPayment.paymentType === 'ACOMPTE_CLIENT';
+      const baseReason = isAcompte
+        ? `Acompte / Avance sur commande (${customerName})`
+        : `Règlement créance (${customerName})`;
+
+      const nextCashMovements = cashMovements.map((cm) => {
+        if (cm.documentRef !== paymentId) return cm;
+        affectedSessionIds.add(cm.cashSessionId);
+        const updatedMvt: CashMovement = {
+          ...cm,
+          date: updatedPayment.date,
+          amount: updatedPayment.amount,
+          method: updatedPayment.method,
+          isCashInDrawer: updatedPayment.method === 'ESPECES',
+          reason: `${baseReason} - ${updatedPayment.method}`,
+          notes: updatedPayment.notes,
+        };
+        updatedCashMvtsToSave.push(updatedMvt);
+        return updatedMvt;
+      });
+
+      if (updatedCashMvtsToSave.length > 0) {
+        setCashMovements(nextCashMovements);
+        safeSetLocalStorage('cash_movements', nextCashMovements);
+        updatedCashMvtsToSave.forEach((m) => saveCashMovementToFirebase(m).catch(console.warn));
+        syncCashSessionsTheoreticalBalance(affectedSessionIds, nextCashMovements);
+      }
+    }
+
     // If linked to a sale (initial acompte), update the sale's date/totalPaid if amount changed
     let nextSales = sales;
     if (targetPay.saleId) {
@@ -2879,22 +2968,21 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     safeSetLocalStorage('payments', nextPayments);
     deletePaymentsFromFirebase([paymentId]).catch(console.warn);
 
-    const linkedCashMvts = cashMovements
-      .filter((cm) => cm.documentRef === paymentId)
-      .map((cm) => cm.id);
+    const linkedCashMvtObjs = cashMovements.filter((cm) => cm.documentRef === paymentId);
+    const linkedCashMvts = linkedCashMvtObjs.map((cm) => cm.id);
     if (linkedCashMvts.length > 0) {
+      const affectedSessionIds = new Set(linkedCashMvtObjs.map((cm) => cm.cashSessionId));
       markIdsDeleted('cashMovements', linkedCashMvts);
-      setCashMovements((prev) => {
-        const next = prev.filter((cm) => cm.documentRef !== paymentId);
-        safeSetLocalStorage('cash_movements', next);
-        return next;
-      });
+      const nextCashMovements = cashMovements.filter((cm) => cm.documentRef !== paymentId);
+      setCashMovements(nextCashMovements);
+      safeSetLocalStorage('cash_movements', nextCashMovements);
       deleteCashMovementsFromFirebase(linkedCashMvts).catch(console.warn);
+      syncCashSessionsTheoreticalBalance(affectedSessionIds, nextCashMovements);
     }
 
     if (targetPay.customerId) {
-      setCustomers((prev) =>
-        prev.map((c) => {
+      setCustomers((prev) => {
+        const nextCusts = prev.map((c) => {
           if (c.id !== targetPay.customerId) return c;
           const summary = getCustomerCreditSummary(c, sales, nextPayments);
           const updated: Customer = {
@@ -2905,8 +2993,10 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           };
           saveCustomerToFirebase(updated).catch(console.warn);
           return updated;
-        })
-      );
+        });
+        safeSetLocalStorage('customers', nextCusts);
+        return nextCusts;
+      });
     }
 
     return { success: true };
