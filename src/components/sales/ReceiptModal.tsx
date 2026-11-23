@@ -460,101 +460,107 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             /* ============================================================== */
             <div
               id="printable-receipt"
-              className={`bg-white text-slate-900 shadow-sm border border-slate-200 p-6 sm:p-8 transition-all ${
-                format === 'THERMAL' ? 'max-w-[420px] w-full text-xs font-mono' : 'max-w-[500px] w-full text-xs font-sans'
+              className={`bg-white text-black shadow-sm border border-slate-300 p-5 sm:p-6 transition-all font-sans font-semibold leading-snug ${
+                format === 'THERMAL' ? 'max-w-[380px] w-full text-[13px]' : 'max-w-[500px] w-full text-[13px]'
               }`}
             >
               {/* Store Header */}
-              <div className="text-center pb-4 border-b border-dashed border-slate-300">
+              <div className="text-center pb-3.5 border-b-2 border-dashed border-black">
                 <div className="flex items-center justify-center gap-2 mb-1">
                   {companyInfo.logoUrl ? (
-                    <img src={companyInfo.logoUrl} alt={companyInfo.name} className="w-7 h-7 object-contain" />
+                    <img src={companyInfo.logoUrl} alt={companyInfo.name} className="w-8 h-8 object-contain" />
                   ) : (
-                    <Truck className="w-5 h-5 text-amber-600" />
+                    <Truck className="w-5 h-5 text-black stroke-[2.4]" />
                   )}
-                  <span className="font-bold text-base tracking-tight uppercase">
+                  <span className="font-black text-lg tracking-tight uppercase text-black">
                     {companyInfo.name}
                   </span>
                 </div>
-                <p className="font-semibold text-slate-800">
+                <p className="font-extrabold text-sm text-black">
                   {warehouse?.name || sale.warehouseName}
                 </p>
-                <p className="text-slate-500 text-[11px]">{companyInfo.address || warehouse?.location}</p>
-                <p className="text-slate-500 text-[11px]">Tél : {companyInfo.phone || warehouse?.phone}</p>
-                <div className="mt-2 text-[10px] text-slate-400 uppercase tracking-wider">
-                  {companyInfo.slogan}
-                </div>
+                {(companyInfo.address || warehouse?.location) && (
+                  <p className="text-black font-bold text-xs">{companyInfo.address || warehouse?.location}</p>
+                )}
+                {(companyInfo.phone || warehouse?.phone) && (
+                  <p className="text-black font-bold text-xs">Tél : {companyInfo.phone || warehouse?.phone}</p>
+                )}
+                {companyInfo.slogan && (
+                  <div className="mt-1.5 text-[11px] font-bold text-black uppercase tracking-wide">
+                    {companyInfo.slogan}
+                  </div>
+                )}
               </div>
 
               {/* Receipt metadata */}
-              <div className="py-3 border-b border-dashed border-slate-300 space-y-1 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-slate-500">N° Reçu :</span>
-                  <span className="font-bold font-mono text-slate-900">{sale.receiptNumber}</span>
+              <div className="py-3 border-b-2 border-dashed border-black space-y-1 text-xs">
+                <div className="flex justify-between gap-2">
+                  <span className="text-black font-bold">N° Reçu :</span>
+                  <span className="font-black font-mono text-black">{sale.receiptNumber}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Réf. Vente :</span>
-                  <span className="font-mono text-slate-700">{sale.id}</span>
+                <div className="flex justify-between gap-2">
+                  <span className="text-black font-bold">Réf. Vente :</span>
+                  <span className="font-extrabold font-mono text-black">{sale.id}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Date & Heure :</span>
-                  <span className="text-slate-800">{formatDateTime(sale.date)}</span>
+                <div className="flex justify-between gap-2">
+                  <span className="text-black font-bold">Date & Heure :</span>
+                  <span className="font-bold text-black">{formatDateTime(sale.date)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Vendeur / Caissier :</span>
-                  <span className="text-slate-800 font-medium">{sale.userName}</span>
+                <div className="flex justify-between gap-2">
+                  <span className="text-black font-bold">Vendeur / Caissier :</span>
+                  <span className="font-extrabold text-black">{sale.userName}</span>
                 </div>
-                <div className="flex justify-between pt-1">
-                  <span className="text-slate-500">Client :</span>
-                  <span className="font-bold text-slate-900 text-right">{sale.customerName}</span>
+                <div className="flex justify-between gap-2 pt-1">
+                  <span className="text-black font-bold">Client :</span>
+                  <span className="font-black text-black text-right">{sale.customerName}</span>
                 </div>
                 {sale.customerPhone && (
-                  <div className="flex justify-between text-[11px]">
-                    <span className="text-slate-400">Tél Client :</span>
-                    <span className="text-slate-600">{sale.customerPhone}</span>
+                  <div className="flex justify-between gap-2 text-xs">
+                    <span className="text-black font-bold">Tél Client :</span>
+                    <span className="font-extrabold text-black">{sale.customerPhone}</span>
                   </div>
                 )}
               </div>
 
               {/* Items List */}
-              <div className="py-3 border-b border-dashed border-slate-300">
-                <div className="font-bold uppercase text-[11px] text-slate-500 mb-2 flex justify-between">
-                  <span>Désignation / Réf {format === 'BL' && '· Emplacement en Rayon'}</span>
+              <div className="py-3 border-b-2 border-dashed border-black">
+                <div className="font-black uppercase text-xs text-black mb-2 pb-1 border-b border-black flex justify-between">
+                  <span>Désignation / Réf {format === 'BL' && '· Rayon'}</span>
                   <span>Total</span>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2.5">
                   {sale.items.map((it, idx) => {
                     const art = articles.find((a) => a.id === it.articleId);
                     const locText =
                       art?.defaultLocation ||
                       (art?.rack ? `${art.rack} ${art.shelf ? `· ${art.shelf}` : ''} ${art.bin ? `· ${art.bin}` : ''}` : null);
                     return (
-                      <div key={idx} className="text-xs">
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1 pr-2">
-                            <span className="font-bold text-slate-900 font-mono block">
+                      <div key={idx} className="text-[13px] pb-1.5 border-b border-dotted border-black last:border-b-0 last:pb-0">
+                        <div className="flex justify-between items-start gap-2">
+                          <div className="flex-1 min-w-0">
+                            <span className="font-black text-black font-mono block text-[13px]">
                               {it.mainReference}
                             </span>
-                            <span className="text-slate-600 text-[11px] block">{it.designation}</span>
+                            <span className="text-black font-bold text-xs block leading-snug">{it.designation}</span>
 
                             {/* Shelf location for BL picker */}
                             {format === 'BL' && (
-                              <div className="inline-flex items-center gap-1 my-0.5 px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-900 font-mono text-[10px] font-semibold">
-                                <MapPin className="w-3 h-3 text-amber-600" />
+                              <div className="inline-flex items-center gap-1 my-0.5 px-1.5 py-0.5 rounded border border-black text-black font-mono text-[11px] font-extrabold">
+                                <MapPin className="w-3 h-3 text-black stroke-[2.4]" />
                                 <span>{locText || 'Emplacement standard'}</span>
                               </div>
                             )}
 
-                            <span className="text-slate-400 text-[10px] block">
+                            <span className="text-black font-bold text-xs block mt-0.5">
                               {it.quantity} {it.unit} × {formatFCFA(it.unitPrice)}
                               {it.discountAmount > 0 && (
-                                <span className="text-emerald-700 ml-1">
-                                  (Remise: -{formatFCFA(it.discountAmount)})
+                                <span className="font-extrabold ml-1">
+                                  (Rem: -{formatFCFA(it.discountAmount)})
                                 </span>
                               )}
                             </span>
                           </div>
-                          <span className="font-bold font-mono text-slate-900 whitespace-nowrap">
+                          <span className="font-black font-mono text-black whitespace-nowrap text-[13px]">
                             {formatFCFA(it.totalLine)}
                           </span>
                         </div>
@@ -565,37 +571,37 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               </div>
 
               {/* Totals & Payments */}
-              <div className="py-3 border-b border-dashed border-slate-300 space-y-1.5 text-xs">
-                <div className="flex justify-between text-slate-600">
+              <div className="py-3 border-b-2 border-dashed border-black space-y-1.5 text-xs">
+                <div className="flex justify-between font-bold text-black">
                   <span>Sous-total articles :</span>
-                  <span className="font-mono">{formatFCFA(sale.subtotal)}</span>
+                  <span className="font-mono font-extrabold">{formatFCFA(sale.subtotal)}</span>
                 </div>
                 {sale.totalDiscount > 0 && (
-                  <div className="flex justify-between text-emerald-700 font-medium">
+                  <div className="flex justify-between text-black font-extrabold">
                     <span>Total remises accordées :</span>
-                    <span className="font-mono">-{formatFCFA(sale.totalDiscount)}</span>
+                    <span className="font-mono font-black">-{formatFCFA(sale.totalDiscount)}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-sm sm:text-base font-bold text-slate-900 pt-1 border-t border-slate-200">
+                <div className="flex justify-between text-base font-black text-black pt-1.5 border-t-2 border-black">
                   <span>NET À PAYER :</span>
-                  <span className="font-mono">{formatFCFA(sale.totalAmount)}</span>
+                  <span className="font-mono font-black">{formatFCFA(sale.totalAmount)}</span>
                 </div>
 
                 {/* Payments breakdown */}
-                <div className="pt-2 text-[11px] text-slate-600 space-y-1">
-                  <div className="flex justify-between font-semibold text-slate-800">
+                <div className="pt-2 text-xs text-black space-y-1">
+                  <div className="flex justify-between font-extrabold text-black">
                     <span>Montant encaissé :</span>
-                    <span className="font-mono">{formatFCFA(sale.totalPaid)}</span>
+                    <span className="font-mono font-black">{formatFCFA(sale.totalPaid)}</span>
                   </div>
                   {sale.remainingDue > 0 && (
-                    <div className="flex justify-between font-bold text-rose-700">
-                      <span>SOLDE RESTANT DÛ (CRÉANCE) :</span>
-                      <span className="font-mono">{formatFCFA(sale.remainingDue)}</span>
+                    <div className="flex justify-between font-black text-[13px] text-black pt-0.5">
+                      <span>SOLDE RESTANT DÛ :</span>
+                      <span className="font-mono font-black">{formatFCFA(sale.remainingDue)}</span>
                     </div>
                   )}
                   {sale.remainingDue <= 0 && (
-                    <div className="flex items-center gap-1 text-emerald-700 font-semibold text-[11px] pt-1">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
+                    <div className="flex items-center gap-1.5 text-black font-black text-xs pt-1 uppercase">
+                      <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
                       <span>Payé intégralement</span>
                     </div>
                   )}
@@ -604,35 +610,35 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 
               {/* Notes if any */}
               {sale.notes && (
-                <div className="py-2 text-[11px] text-slate-500 italic border-b border-dashed border-slate-300">
+                <div className="py-2 text-xs font-bold text-black border-b-2 border-dashed border-black">
                   Note : {sale.notes}
                 </div>
               )}
 
               {/* BL Signature Boxes */}
               {format === 'BL' && (
-                <div className="pt-4 pb-2 border-b border-slate-300 grid grid-cols-2 gap-4 text-[10px]">
-                  <div className="border border-slate-300 rounded p-2.5 h-20 flex flex-col justify-between">
-                    <span className="font-bold text-slate-700 uppercase">Magasin / Sortie :</span>
-                    <span className="text-slate-400 text-[9px] italic">Visa & Date</span>
+                <div className="pt-4 pb-2 border-b-2 border-black grid grid-cols-2 gap-3 text-[11px]">
+                  <div className="border-2 border-black rounded p-2 h-20 flex flex-col justify-between">
+                    <span className="font-black text-black uppercase">Magasin / Sortie :</span>
+                    <span className="text-black font-bold text-[10px]">Visa & Date</span>
                   </div>
-                  <div className="border border-slate-300 rounded p-2.5 h-20 flex flex-col justify-between">
-                    <span className="font-bold text-slate-700 uppercase">Décharge Réception Client :</span>
-                    <span className="text-slate-400 text-[9px] italic">Nom, Date & Signature</span>
+                  <div className="border-2 border-black rounded p-2 h-20 flex flex-col justify-between">
+                    <span className="font-black text-black uppercase">Réception Client :</span>
+                    <span className="text-black font-bold text-[10px]">Nom, Date & Signature</span>
                   </div>
                 </div>
               )}
 
               {/* Legal / Non-tax Disclaimer */}
-              <div className="pt-4 text-center text-[10px] text-slate-400 space-y-1">
-                <p className="font-medium text-slate-500">
+              <div className="pt-3.5 text-center text-xs text-black space-y-1">
+                <p className="font-black text-black text-[13px]">
                   {format === 'BL' ? 'Matériel reçu en bon état conforme à la commande' : 'Merci de votre confiance !'}
                 </p>
-                <p className="italic leading-tight">
-                  * Justificatif commercial de délivrance de stock. Ce document interne ne constitue pas une facture fiscale certifiée.
+                <p className="font-bold leading-snug text-[11px] text-black">
+                  * Justificatif commercial de délivrance de stock. Document interne non fiscal.
                 </p>
-                <p className="font-mono text-[9px] text-slate-300">
-                  {companyInfo.name || 'WKRLI'} - Imprimé le {formatDateTime(new Date().toISOString())}
+                <p className="font-mono font-extrabold text-[11px] text-black pt-0.5">
+                  {companyInfo.name || 'WKRLI'} - {formatDateTime(new Date().toISOString())}
                 </p>
               </div>
             </div>

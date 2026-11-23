@@ -1492,49 +1492,49 @@ export const SalesHistoryView: React.FC = () => {
               {/* Printable Slip */}
               <div
                 id="printable-return-slip"
-                className="p-4 bg-white text-slate-900 rounded-xl border border-slate-200 text-xs space-y-3 font-mono"
+                className="p-4 bg-white text-black rounded-xl border border-slate-300 text-[13px] leading-snug space-y-3 font-sans font-semibold"
               >
-                <div className="text-center pb-2 border-b border-dashed border-slate-300">
-                  <h4 className="font-extrabold text-sm text-slate-950">{companyInfo?.name || 'WKRLI'}</h4>
-                  <p className="text-[11px] text-slate-500">{slipTitle}</p>
-                  <p className="text-[10px] text-slate-500 mt-1">N° : {completedReturnRecord.returnNumber}</p>
-                  <p className="text-[10px] text-slate-500">Vente liée : {completedReturnRecord.saleReceiptNumber}</p>
+                <div className="text-center pb-2.5 border-b-2 border-dashed border-black">
+                  <h4 className="font-black text-base uppercase text-black">{companyInfo?.name || 'WKRLI'}</h4>
+                  <p className="text-xs font-extrabold text-black uppercase mt-0.5">{slipTitle}</p>
+                  <p className="text-xs font-black font-mono text-black mt-1">N° : {completedReturnRecord.returnNumber}</p>
+                  <p className="text-xs font-bold text-black">Vente liée : {completedReturnRecord.saleReceiptNumber}</p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-1 text-[11px]">
-                  <div><span className="text-slate-500">Date :</span> {formatDateTime(completedReturnRecord.date)}</div>
-                  <div><span className="text-slate-500">Client :</span> {completedReturnRecord.customerName}</div>
-                  <div><span className="text-slate-500">Dépôt :</span> {completedReturnRecord.warehouseName}</div>
-                  <div><span className="text-slate-500">Opérateur :</span> {completedReturnRecord.userName}</div>
+                <div className="grid grid-cols-2 gap-1.5 text-xs text-black">
+                  <div><span className="font-bold">Date :</span> <strong className="font-extrabold">{formatDateTime(completedReturnRecord.date)}</strong></div>
+                  <div><span className="font-bold">Client :</span> <strong className="font-black">{completedReturnRecord.customerName}</strong></div>
+                  <div><span className="font-bold">Dépôt :</span> <strong className="font-extrabold">{completedReturnRecord.warehouseName}</strong></div>
+                  <div><span className="font-bold">Opérateur :</span> <strong className="font-extrabold">{completedReturnRecord.userName}</strong></div>
                 </div>
 
-                <div className="pt-2 border-t border-slate-200 space-y-1.5">
-                  <div className="font-bold text-[11px] text-slate-700 uppercase">Articles retournés :</div>
+                <div className="pt-2 border-t-2 border-dashed border-black space-y-2">
+                  <div className="font-black text-xs text-black uppercase">Articles retournés :</div>
                   {completedReturnRecord.items.map((it, idx) => (
-                    <div key={idx} className="flex justify-between items-center text-[11px] py-0.5 border-b border-slate-100">
-                      <div>
-                        <strong>{it.quantity}x</strong> {it.mainReference} {it.brand ? `(${it.brand})` : ''}
-                        <span className="block text-[9px] text-slate-500">
-                          Motif : {it.reason === 'DEFECTIVE' ? 'Défectueux — Non réintégré au stock' : `${it.reason} — Réintégré au stock`}
+                    <div key={idx} className="flex justify-between items-start gap-2 text-xs py-1 border-b border-dotted border-black last:border-b-0">
+                      <div className="min-w-0">
+                        <strong className="font-black">{it.quantity}x</strong> <span className="font-black font-mono">{it.mainReference}</span> {it.brand ? `(${it.brand})` : ''}
+                        <span className="block text-[11px] font-bold text-black">
+                          Motif : {it.reason === 'DEFECTIVE' ? 'Défectueux — Non réintégré' : `${it.reason} — Réintégré`}
                         </span>
                       </div>
-                      <span className="font-bold">{formatFCFA(it.totalRefund)}</span>
+                      <span className="font-black font-mono whitespace-nowrap">{formatFCFA(it.totalRefund)}</span>
                     </div>
                   ))}
                 </div>
 
-                <div className="pt-2 border-t border-slate-300 space-y-1">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-slate-600">Valeur totale pièces retournées :</span>
-                    <span className="font-bold">{formatFCFA(completedReturnRecord.totalRefundAmount)}</span>
+                <div className="pt-2 border-t-2 border-black space-y-1.5">
+                  <div className="flex justify-between items-center text-xs font-bold text-black">
+                    <span>Valeur totale pièces retournées :</span>
+                    <span className="font-mono font-black">{formatFCFA(completedReturnRecord.totalRefundAmount)}</span>
                   </div>
                   {completedReturnRecord.debtDeducted !== undefined && completedReturnRecord.debtDeducted > 0 && (
-                    <div className="flex justify-between items-center text-xs text-amber-900 font-semibold">
+                    <div className="flex justify-between items-center text-xs text-black font-extrabold">
                       <span>Déduction sur créance client :</span>
-                      <span className="font-mono font-bold">- {formatFCFA(completedReturnRecord.debtDeducted)}</span>
+                      <span className="font-mono font-black">- {formatFCFA(completedReturnRecord.debtDeducted)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between items-center text-sm font-extrabold pt-1 border-t border-dashed border-slate-300">
+                  <div className="flex justify-between items-center text-sm font-black text-black pt-1.5 border-t-2 border-dashed border-black">
                     <span>
                       {isAvoirSlip
                         ? 'AVOIR CLIENT CRÉDITÉ :'
@@ -1542,15 +1542,7 @@ export const SalesHistoryView: React.FC = () => {
                         ? `REMBOURSÉ (${completedReturnRecord.refundMethod}) :`
                         : 'IMPUTATION SUR CRÉANCE :'}
                     </span>
-                    <span
-                      className={
-                        isAvoirSlip
-                          ? 'text-indigo-700 font-black'
-                          : completedReturnRecord.cashRefunded && completedReturnRecord.cashRefunded > 0
-                          ? 'text-rose-700 font-black'
-                          : 'text-slate-800 font-black'
-                      }
-                    >
+                    <span className="font-mono font-black text-black">
                       {completedReturnRecord.cashRefunded && completedReturnRecord.cashRefunded > 0
                         ? formatFCFA(completedReturnRecord.cashRefunded)
                         : '0 FCFA (Dette allégée)'}
@@ -1558,9 +1550,9 @@ export const SalesHistoryView: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="text-[10px] text-slate-600 pt-1">
+                <div className="text-xs font-bold text-black pt-1">
                   Modalité :{' '}
-                  <strong>
+                  <strong className="font-black">
                     {isAvoirSlip
                       ? 'Avoir sur compte client'
                       : isRefundSlip

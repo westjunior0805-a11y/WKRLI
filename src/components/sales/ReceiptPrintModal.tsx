@@ -66,23 +66,23 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({ sale, onCl
           {/* 80mm Thermal Receipt Layout */}
           <div
             id="printable-thermal-receipt"
-            className="p-6 font-mono text-[11px] leading-tight text-slate-950 print:p-2 bg-white space-y-4"
+            className="p-5 font-sans text-[13px] leading-snug font-semibold text-black print:p-1 bg-white space-y-3"
           >
           {/* Header */}
-          <div className="text-center space-y-1 border-b border-dashed border-slate-300 pb-3">
+          <div className="text-center space-y-1 border-b-2 border-dashed border-black pb-3">
             {companyInfo.logoUrl && (
               <img
                 src={companyInfo.logoUrl}
                 alt={companyInfo.name}
-                className="w-8 h-8 object-contain mx-auto mb-1"
+                className="w-9 h-9 object-contain mx-auto mb-1"
               />
             )}
-            <h2 className="text-sm font-black tracking-wider uppercase">{companyInfo.name || 'WKRLI'}</h2>
-            {companyInfo.slogan && <p className="text-[10px] text-slate-600">{companyInfo.slogan}</p>}
-            {companyInfo.address && <p className="text-[10px] text-slate-600">{companyInfo.address}</p>}
-            {companyInfo.phone && <p className="text-[10px] text-slate-600">Tél : {companyInfo.phone}</p>}
+            <h2 className="text-lg font-black tracking-tight uppercase text-black">{companyInfo.name || 'WKRLI'}</h2>
+            {companyInfo.slogan && <p className="text-xs font-bold text-black">{companyInfo.slogan}</p>}
+            {companyInfo.address && <p className="text-xs font-bold text-black">{companyInfo.address}</p>}
+            {companyInfo.phone && <p className="text-xs font-extrabold text-black">Tél : {companyInfo.phone}</p>}
             {(companyInfo.ninea || companyInfo.rc) && (
-              <p className="text-[10px] text-slate-500">
+              <p className="text-[11px] font-bold text-black">
                 {companyInfo.ninea ? `NINEA : ${companyInfo.ninea}` : ''}
                 {companyInfo.ninea && companyInfo.rc ? ' · ' : ''}
                 {companyInfo.rc ? `RC : ${companyInfo.rc}` : ''}
@@ -91,86 +91,86 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({ sale, onCl
           </div>
 
           {/* Sale details */}
-          <div className="border-b border-dashed border-slate-300 pb-2 text-[10px] space-y-0.5">
-            <div className="flex justify-between">
-              <span>Ticket N° :</span>
-              <strong className="font-bold">{sale.receiptNumber || sale.id}</strong>
+          <div className="border-b-2 border-dashed border-black pb-2.5 text-xs space-y-1">
+            <div className="flex justify-between gap-2">
+              <span className="font-bold text-black">Ticket N° :</span>
+              <strong className="font-black font-mono text-black">{sale.receiptNumber || sale.id}</strong>
             </div>
-            <div className="flex justify-between">
-              <span>Date :</span>
-              <span>{formatDate(sale.date)}</span>
+            <div className="flex justify-between gap-2">
+              <span className="font-bold text-black">Date :</span>
+              <span className="font-extrabold text-black">{formatDate(sale.date)}</span>
             </div>
-            <div className="flex justify-between">
-              <span>Magasin :</span>
-              <span>{sale.warehouseName}</span>
+            <div className="flex justify-between gap-2">
+              <span className="font-bold text-black">Magasin :</span>
+              <span className="font-extrabold text-black">{sale.warehouseName}</span>
             </div>
-            <div className="flex justify-between">
-              <span>Vendeur :</span>
-              <span>{sale.userName}</span>
+            <div className="flex justify-between gap-2">
+              <span className="font-bold text-black">Vendeur :</span>
+              <span className="font-extrabold text-black">{sale.userName}</span>
             </div>
             {sale.customerName && (
-              <div className="flex justify-between">
-                <span>Client :</span>
-                <strong>{sale.customerName}</strong>
+              <div className="flex justify-between gap-2">
+                <span className="font-bold text-black">Client :</span>
+                <strong className="font-black text-black">{sale.customerName}</strong>
               </div>
             )}
           </div>
 
           {/* Items */}
-          <div className="border-b border-dashed border-slate-300 pb-2 space-y-2">
+          <div className="border-b-2 border-dashed border-black pb-2.5 space-y-2.5">
             {sale.items.map((item, idx) => (
-              <div key={idx} className="space-y-0.5">
-                <div className="flex justify-between font-bold">
-                  <span className="truncate max-w-[180px]">{item.mainReference}</span>
-                  <span>{formatFCFA(item.totalLine)}</span>
+              <div key={idx} className="space-y-0.5 pb-1.5 border-b border-dotted border-black last:border-b-0 last:pb-0">
+                <div className="flex justify-between items-start gap-2 font-black text-[13px] text-black">
+                  <span className="font-mono break-words">{item.mainReference}</span>
+                  <span className="font-mono whitespace-nowrap">{formatFCFA(item.totalLine)}</span>
                 </div>
-                <div className="text-[10px] text-slate-600 truncate">{item.designation}</div>
-                <div className="flex justify-between text-[10px] text-slate-500">
+                <div className="text-xs font-bold text-black leading-snug">{item.designation}</div>
+                <div className="flex justify-between text-xs font-bold text-black">
                   <span>{item.quantity} x {formatFCFA(item.unitPrice)}</span>
-                  {item.discountAmount > 0 && <span>(Rem. -{formatFCFA(item.discountAmount)})</span>}
+                  {item.discountAmount > 0 && <span className="font-extrabold">(Rem. -{formatFCFA(item.discountAmount)})</span>}
                 </div>
               </div>
             ))}
           </div>
 
           {/* Totals */}
-          <div className="space-y-1 text-xs border-b border-dashed border-slate-300 pb-3">
-            <div className="flex justify-between">
+          <div className="space-y-1.5 text-xs border-b-2 border-dashed border-black pb-3">
+            <div className="flex justify-between font-bold text-black">
               <span>Sous-total :</span>
-              <span>{formatFCFA(sale.subtotal)}</span>
+              <span className="font-mono font-extrabold">{formatFCFA(sale.subtotal)}</span>
             </div>
             {sale.totalDiscount > 0 && (
-              <div className="flex justify-between text-slate-700">
+              <div className="flex justify-between font-extrabold text-black">
                 <span>Remise :</span>
-                <span>-{formatFCFA(sale.totalDiscount)}</span>
+                <span className="font-mono font-black">-{formatFCFA(sale.totalDiscount)}</span>
               </div>
             )}
-            <div className="flex justify-between text-sm font-black pt-1 border-t border-slate-900">
+            <div className="flex justify-between text-base font-black text-black pt-1.5 border-t-2 border-black">
               <span>TOTAL TTC :</span>
-              <span>{formatFCFA(sale.totalAmount)}</span>
+              <span className="font-mono font-black">{formatFCFA(sale.totalAmount)}</span>
             </div>
-            <div className="flex justify-between text-[11px] pt-1">
+            <div className="flex justify-between text-xs font-extrabold text-black pt-1">
               <span>Montant Payé :</span>
-              <span>{formatFCFA(sale.totalPaid)}</span>
+              <span className="font-mono font-black">{formatFCFA(sale.totalPaid)}</span>
             </div>
             {sale.remainingDue > 0 ? (
-              <div className="flex justify-between text-[11px] font-bold text-rose-700">
+              <div className="flex justify-between text-[13px] font-black text-black">
                 <span>Reste Dû (Créance) :</span>
-                <span>{formatFCFA(sale.remainingDue)}</span>
+                <span className="font-mono font-black">{formatFCFA(sale.remainingDue)}</span>
               </div>
             ) : (
-              <div className="flex justify-between text-[11px] text-slate-600">
+              <div className="flex justify-between text-xs font-bold text-black">
                 <span>Statut :</span>
-                <span className="font-bold uppercase text-emerald-800">SOLDÉ / PAYÉ</span>
+                <span className="font-black uppercase text-black">SOLDÉ / PAYÉ</span>
               </div>
             )}
           </div>
 
           {/* Footer & Barcode mock */}
-          <div className="text-center space-y-1 pt-1 text-[10px]">
-            <p className="font-bold">Merci pour votre confiance !</p>
-            <p className="text-slate-500">Conservez ce ticket pour toute réclamation ou garantie (30 jours).</p>
-            <div className="pt-2 font-mono tracking-widest text-[9px] text-slate-400">
+          <div className="text-center space-y-1 pt-1 text-xs text-black">
+            <p className="font-black text-[13px]">Merci pour votre confiance !</p>
+            <p className="font-bold text-[11px] text-black">Conservez ce ticket pour toute réclamation ou garantie (30 jours).</p>
+            <div className="pt-1.5 font-mono font-black tracking-widest text-xs text-black">
               *|||| ||||| ||||||| |||||| ||||*
             </div>
           </div>

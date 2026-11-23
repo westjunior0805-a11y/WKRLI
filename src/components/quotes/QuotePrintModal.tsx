@@ -438,64 +438,64 @@ export const QuotePrintModal: React.FC<QuotePrintModalProps> = ({ quote, onClose
             /* ============================================================== */
             <div
               id="printable-ticket-quote"
-              className="mx-auto bg-white text-slate-900 border border-slate-200 shadow-sm p-6 max-w-[420px] w-full font-mono text-xs print:border-none print:shadow-none print:p-2"
+              className="mx-auto bg-white text-black border border-slate-300 shadow-sm p-5 max-w-[380px] w-full font-sans font-semibold text-[13px] leading-snug print:border-none print:shadow-none print:p-1"
             >
-              <div className="text-center pb-3 border-b border-dashed border-slate-300">
-                <h2 className="font-black text-sm uppercase">{companyInfo.name}</h2>
-                <p className="text-[10px] text-slate-500">{quote.warehouseName}</p>
-                <p className="text-[10px] text-slate-500">Tél : {companyInfo.phone}</p>
-                <div className="mt-2 py-0.5 bg-slate-900 text-amber-400 font-bold text-[11px] rounded">
+              <div className="text-center pb-3 border-b-2 border-dashed border-black">
+                <h2 className="font-black text-lg uppercase text-black">{companyInfo.name}</h2>
+                <p className="text-xs font-extrabold text-black">{quote.warehouseName}</p>
+                {companyInfo.phone && <p className="text-xs font-bold text-black">Tél : {companyInfo.phone}</p>}
+                <div className="mt-2 py-1 border-2 border-black text-black font-black text-xs uppercase tracking-wide">
                   FACTURE DEVIS / PROFORMA
                 </div>
-                <p className="font-bold text-xs mt-1">N° {quote.quoteNumber}</p>
-                <p className="text-[10px] text-slate-500">Date : {formatDate(quote.date)}</p>
+                <p className="font-black font-mono text-sm mt-1.5 text-black">N° {quote.quoteNumber}</p>
+                <p className="text-xs font-bold text-black">Date : {formatDate(quote.date)}</p>
               </div>
 
-              <div className="py-2.5 border-b border-dashed border-slate-300 text-[11px]">
-                <p>Client : <strong>{quote.customerName}</strong></p>
-                {quote.customerPhone && <p>Tél : {quote.customerPhone}</p>}
-                <p>Conseiller : {quote.createdByName}</p>
-                <p>Validité : jusqu'au {quote.validUntil}</p>
+              <div className="py-2.5 border-b-2 border-dashed border-black text-xs space-y-0.5 text-black">
+                <p className="font-bold">Client : <strong className="font-black">{quote.customerName}</strong></p>
+                {quote.customerPhone && <p className="font-bold">Tél : <strong className="font-extrabold">{quote.customerPhone}</strong></p>}
+                <p className="font-bold">Conseiller : <strong className="font-extrabold">{quote.createdByName}</strong></p>
+                <p className="font-bold">Validité : <strong className="font-extrabold">jusqu'au {quote.validUntil}</strong></p>
               </div>
 
-              <div className="py-2.5 border-b border-dashed border-slate-300 space-y-2">
+              <div className="py-2.5 border-b-2 border-dashed border-black space-y-2.5">
                 {quote.items.map((it, idx) => (
-                  <div key={idx} className="flex justify-between items-start">
-                    <div className="flex-1 pr-2">
-                      <span className="font-bold text-slate-900 block">{it.mainReference}</span>
-                      <span className="text-[10px] text-slate-600 block">{it.designation}</span>
-                      <span className="text-[10px] text-slate-400">
+                  <div key={idx} className="flex justify-between items-start gap-2 pb-1.5 border-b border-dotted border-black last:border-b-0 last:pb-0">
+                    <div className="flex-1 min-w-0">
+                      <span className="font-black font-mono text-[13px] text-black block">{it.mainReference}</span>
+                      <span className="text-xs font-bold text-black block leading-snug">{it.designation}</span>
+                      <span className="text-xs font-bold text-black block mt-0.5">
                         {it.quantity} {it.unit} × {formatFCFA(it.unitPrice)}
                         {it.discountPercent > 0 && ` (-${it.discountPercent}%)`}
                       </span>
                     </div>
-                    <span className="font-bold text-slate-900 shrink-0">
+                    <span className="font-black font-mono text-[13px] text-black shrink-0 whitespace-nowrap">
                       {formatFCFA(it.totalLine)}
                     </span>
                   </div>
                 ))}
               </div>
 
-              <div className="py-2.5 space-y-1 text-xs">
-                <div className="flex justify-between">
+              <div className="py-2.5 space-y-1.5 text-xs text-black">
+                <div className="flex justify-between font-bold">
                   <span>Sous-total :</span>
-                  <span>{formatFCFA(quote.subtotal)}</span>
+                  <span className="font-mono font-extrabold">{formatFCFA(quote.subtotal)}</span>
                 </div>
                 {quote.totalDiscount > 0 && (
-                  <div className="flex justify-between text-emerald-700">
+                  <div className="flex justify-between font-extrabold text-black">
                     <span>Remise :</span>
-                    <span>-{formatFCFA(quote.totalDiscount)}</span>
+                    <span className="font-mono font-black">-{formatFCFA(quote.totalDiscount)}</span>
                   </div>
                 )}
-                <div className="flex justify-between font-bold text-sm pt-1 border-t border-slate-300">
-                  <span>Net à payer :</span>
-                  <span>{formatFCFA(quote.totalAmount)}</span>
+                <div className="flex justify-between font-black text-base pt-1.5 border-t-2 border-black">
+                  <span>NET À PAYER :</span>
+                  <span className="font-mono font-black">{formatFCFA(quote.totalAmount)}</span>
                 </div>
               </div>
 
-              <div className="text-center pt-3 border-t border-dashed border-slate-300 text-[10px] text-slate-500">
+              <div className="text-center pt-3 border-t-2 border-dashed border-black text-xs font-bold text-black space-y-0.5">
                 <p>Devis valable 30 jours.</p>
-                <p>Merci pour votre confiance !</p>
+                <p className="font-black text-[13px]">Merci pour votre confiance !</p>
               </div>
             </div>
           )}

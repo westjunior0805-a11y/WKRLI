@@ -68,12 +68,13 @@ export async function downloadElementAsPdf(
   }
 
   const isTicket = format === 'TICKET' || format === 'TICKET_80MM';
+  const isThermalReceipt = isTicket && elementId !== 'printable-smartphone-report';
   const cleanFilename = filename.endsWith('.pdf') ? filename : `${filename}.pdf`;
 
   // Standard target rendering width in pixels
-  // 380px corresponds to 80mm ticket roll at crisp readable resolution
-  // 800px corresponds to standard A4 (210mm at 96 DPI is ~794px)
-  const targetRenderWidth = isTicket ? 380 : 800;
+  // 330px for 80mm thermal receipts ensures thicker, larger, high-contrast strokes when scaled to 80mm roll
+  // 380px for smartphone reports, 800px for standard A4 (210mm at 96 DPI is ~794px)
+  const targetRenderWidth = isThermalReceipt ? 330 : isTicket ? 380 : 800;
 
   // Create dedicated offscreen staging sandbox in document.body
   let sandbox: HTMLElement | null = null;
@@ -163,7 +164,7 @@ export async function downloadElementAsPdf(
       }
     });
 
-    // Inject strict scrollbar-suppression stylesheet into the staging sandbox
+    // Inject strict scrollbar-suppression stylesheet (and crisp pure-black thermal contrast for 80mm tickets)
     const styleTag = document.createElement('style');
     styleTag.textContent = `
       #equipstock-pdf-render-sandbox,
@@ -177,6 +178,65 @@ export async function downloadElementAsPdf(
         width: 0 !important;
         height: 0 !important;
         background: transparent !important;
+      }
+      ${
+        isThermalReceipt
+          ? `
+      #equipstock-pdf-render-sandbox,
+      #equipstock-pdf-render-sandbox #${clone.id} {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+        font-family: 'Arial', 'Helvetica Neue', 'Roboto', 'Liberation Sans', sans-serif !important;
+        font-weight: 700 !important;
+        padding: 8px 10px !important;
+        -webkit-font-smoothing: none !important;
+        text-rendering: geometricPrecision !important;
+      }
+      #equipstock-pdf-render-sandbox #${clone.id} * {
+        color: #000000 !important;
+        border-color: #000000 !important;
+        opacity: 1 !important;
+        text-shadow: none !important;
+        box-shadow: none !important;
+      }
+      #equipstock-pdf-render-sandbox #${clone.id} p,
+      #equipstock-pdf-render-sandbox #${clone.id} span,
+      #equipstock-pdf-render-sandbox #${clone.id} div {
+        font-weight: 700 !important;
+      }
+      #equipstock-pdf-render-sandbox #${clone.id} strong,
+      #equipstock-pdf-render-sandbox #${clone.id} b,
+      #equipstock-pdf-render-sandbox #${clone.id} h1,
+      #equipstock-pdf-render-sandbox #${clone.id} h2,
+      #equipstock-pdf-render-sandbox #${clone.id} h3,
+      #equipstock-pdf-render-sandbox #${clone.id} h4,
+      #equipstock-pdf-render-sandbox #${clone.id} .font-bold,
+      #equipstock-pdf-render-sandbox #${clone.id} .font-extrabold,
+      #equipstock-pdf-render-sandbox #${clone.id} .font-black {
+        font-weight: 900 !important;
+      }
+      #equipstock-pdf-render-sandbox #${clone.id} .font-mono {
+        font-family: 'Courier New', 'Liberation Mono', 'Consolas', monospace !important;
+        font-weight: 800 !important;
+      }
+      #equipstock-pdf-render-sandbox #${clone.id} [class*="bg-slate-"],
+      #equipstock-pdf-render-sandbox #${clone.id} [class*="bg-amber-"],
+      #equipstock-pdf-render-sandbox #${clone.id} [class*="bg-emerald-"],
+      #equipstock-pdf-render-sandbox #${clone.id} [class*="bg-rose-"],
+      #equipstock-pdf-render-sandbox #${clone.id} [class*="bg-indigo-"] {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+      }
+      #equipstock-pdf-render-sandbox #${clone.id} svg {
+        color: #000000 !important;
+        stroke: #000000 !important;
+        stroke-width: 2.4px !important;
+      }
+      #equipstock-pdf-render-sandbox #${clone.id} img {
+        filter: grayscale(100%) contrast(220%) !important;
+      }
+      `
+          : ''
       }
     `;
     sandbox.appendChild(styleTag);
@@ -268,10 +328,11 @@ export async function downloadElementAsPdf(
       .join(' ');
 
     // Generate high-resolution canvas using html-to-image
+    // 3x pixelRatio on 80mm tickets delivers >300 DPI crisp black characters without anti-alias blur
     const canvas = await toCanvas(clone, {
       width: finalWidth,
       height: finalHeight,
-      pixelRatio: 2,
+      pixelRatio: isTicket ? 3 : 2,
       backgroundColor: '#ffffff',
       cacheBust: false,
       skipFonts: true,
@@ -311,10 +372,13 @@ export async function downloadElementAsPdf(
         creator: 'EquipStock Pro Dakar',
       });
 
-      const imgData = canvas.toDataURL('image/jpeg', 0.98);
+      // Use lossless PNG for 80mm thermal tickets so black text edges stay razor-sharp (zero JPEG ringing)
+      const imgData = isThermalReceipt
+        ? canvas.toDataURL('image/png')
+        : canvas.toDataURL('image/jpeg', 0.98);
       pdf.addImage(
         imgData,
-        'JPEG',
+        isThermalReceipt ? 'PNG' : 'JPEG',
         0,
         3,
         pdfWidth,
@@ -513,10 +577,12 @@ export function printElementById(
   clone.style.scrollbarWidth = 'none';
 
   if (isTicket) {
-    clone.style.width = '76mm';
-    clone.style.maxWidth = '76mm';
-    clone.style.padding = '2mm';
+    clone.style.width = '72mm';
+    clone.style.maxWidth = '72mm';
+    clone.style.padding = '1mm 1.5mm';
     clone.style.border = 'none';
+    clone.style.fontWeight = '700';
+    clone.style.color = '#000000';
   } else {
     clone.style.width = '100%';
     clone.style.maxWidth = '210mm';
@@ -535,6 +601,25 @@ export function printElementById(
       el.style.overflow = 'visible';
     }
   });
+
+  // Inject dynamic @page rule for 80mm thermal rolls so browser doesn't apply 8mm A4 margins & shrink text
+  const existingPageStyle = document.getElementById('equipstock-ticket-page-style');
+  if (existingPageStyle) {
+    existingPageStyle.remove();
+  }
+  if (isTicket) {
+    const ticketPageStyle = document.createElement('style');
+    ticketPageStyle.id = 'equipstock-ticket-page-style';
+    ticketPageStyle.textContent = `
+      @media print {
+        @page {
+          size: 80mm auto;
+          margin: 1.5mm 2mm;
+        }
+      }
+    `;
+    document.head.appendChild(ticketPageStyle);
+  }
 
   portal.appendChild(clone);
   document.body.appendChild(portal);
@@ -562,6 +647,8 @@ export function printElementById(
     if (hadSoft) htmlEl.classList.add('soft');
     const p = document.getElementById('equipstock-print-portal');
     if (p) p.remove();
+    const pageStyle = document.getElementById('equipstock-ticket-page-style');
+    if (pageStyle) pageStyle.remove();
     window.removeEventListener('afterprint', cleanup);
   };
 

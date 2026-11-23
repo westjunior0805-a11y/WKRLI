@@ -891,6 +891,21 @@ html.dark #printable-receipt .text-slate-700,
 html.soft #printable-receipt .text-slate-700,
 html.dark #printable-receipt .text-slate-600,
 html.soft #printable-receipt .text-slate-600,
+html.dark #printable-thermal-receipt .text-slate-700,
+html.soft #printable-thermal-receipt .text-slate-700,
+html.dark #printable-thermal-receipt .text-slate-600,
+html.soft #printable-thermal-receipt .text-slate-600,
+html.dark #printable-ticket-quote .text-slate-700,
+html.soft #printable-ticket-quote .text-slate-700,
+html.dark #printable-ticket-quote .text-slate-600,
+html.soft #printable-ticket-quote .text-slate-600,
+html.dark #printable-return-slip .text-slate-700,
+html.soft #printable-return-slip .text-slate-700,
+html.dark #printable-return-slip .text-slate-600,
+html.soft #printable-return-slip .text-slate-600 {
+  color: #000000 !important;
+}
+
 html.dark #printable-po .text-slate-700,
 html.soft #printable-po .text-slate-700,
 html.dark #printable-po .text-slate-600,
@@ -902,6 +917,21 @@ html.dark #printable-receipt .text-slate-500,
 html.soft #printable-receipt .text-slate-500,
 html.dark #printable-receipt .text-slate-400,
 html.soft #printable-receipt .text-slate-400,
+html.dark #printable-thermal-receipt .text-slate-500,
+html.soft #printable-thermal-receipt .text-slate-500,
+html.dark #printable-thermal-receipt .text-slate-400,
+html.soft #printable-thermal-receipt .text-slate-400,
+html.dark #printable-ticket-quote .text-slate-500,
+html.soft #printable-ticket-quote .text-slate-500,
+html.dark #printable-ticket-quote .text-slate-400,
+html.soft #printable-ticket-quote .text-slate-400,
+html.dark #printable-return-slip .text-slate-500,
+html.soft #printable-return-slip .text-slate-500,
+html.dark #printable-return-slip .text-slate-400,
+html.soft #printable-return-slip .text-slate-400 {
+  color: #000000 !important;
+}
+
 html.dark #printable-po .text-slate-500,
 html.soft #printable-po .text-slate-500 {
   color: #64748b !important;
@@ -910,8 +940,28 @@ html.soft #printable-po .text-slate-500 {
 html.dark #printable-receipt .border-slate-300,
 html.soft #printable-receipt .border-slate-300,
 html.dark #printable-receipt .border-slate-200,
-html.soft #printable-receipt .border-slate-200 {
-  border-color: #cbd5e1 !important;
+html.soft #printable-receipt .border-slate-200,
+html.dark #printable-receipt .border-black,
+html.soft #printable-receipt .border-black,
+html.dark #printable-thermal-receipt .border-black,
+html.soft #printable-thermal-receipt .border-black,
+html.dark #printable-ticket-quote .border-black,
+html.soft #printable-ticket-quote .border-black,
+html.dark #printable-return-slip .border-black,
+html.soft #printable-return-slip .border-black {
+  border-color: #000000 !important;
+}
+
+html.dark #printable-thermal-receipt,
+html.soft #printable-thermal-receipt,
+html.dark #printable-receipt,
+html.soft #printable-receipt,
+html.dark #printable-ticket-quote,
+html.soft #printable-ticket-quote,
+html.dark #printable-return-slip,
+html.soft #printable-return-slip {
+  background-color: #ffffff !important;
+  color: #000000 !important;
 }
 
 @media screen {
@@ -954,6 +1004,110 @@ html.soft #printable-receipt .border-slate-200 {
     background-color: #ffffff !important;
     color: #000000 !important;
     overflow: visible !important;
+  }
+
+  /* ========================================================================= */
+  /* IMPRESSION THERMIQUE 80MM HAUTE NETTETÉ (NOIR PUR & CARACTÈRES RENFORCÉS) */
+  /* ========================================================================= */
+  body.printing-ticket-mode #equipstock-print-portal[data-print-format="ticket"],
+  body:not(.printing-active-portal) #printable-receipt,
+  body:not(.printing-active-portal) #printable-thermal-receipt,
+  body:not(.printing-active-portal) #printable-ticket-quote,
+  body:not(.printing-active-portal) #printable-return-slip {
+    width: 72mm !important;
+    max-width: 72mm !important;
+    margin: 0 auto !important;
+    padding: 1mm 1.5mm !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    font-family: 'Arial', 'Helvetica Neue', 'Roboto', 'Liberation Sans', sans-serif !important;
+    font-size: 13px !important;
+    line-height: 1.3 !important;
+    font-weight: 700 !important;
+    -webkit-font-smoothing: none !important;
+    text-rendering: geometricPrecision !important;
+    letter-spacing: 0.01em !important;
+  }
+
+  body.printing-ticket-mode #equipstock-print-portal[data-print-format="ticket"] *,
+  body:not(.printing-active-portal) #printable-receipt *,
+  body:not(.printing-active-portal) #printable-thermal-receipt *,
+  body:not(.printing-active-portal) #printable-ticket-quote *,
+  body:not(.printing-active-portal) #printable-return-slip * {
+    color: #000000 !important;
+    border-color: #000000 !important;
+    opacity: 1 !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+    -webkit-font-smoothing: none !important;
+    text-rendering: geometricPrecision !important;
+  }
+
+  body.printing-ticket-mode #equipstock-print-portal[data-print-format="ticket"] p,
+  body.printing-ticket-mode #equipstock-print-portal[data-print-format="ticket"] span,
+  body.printing-ticket-mode #equipstock-print-portal[data-print-format="ticket"] div,
+  body.printing-ticket-mode #equipstock-print-portal[data-print-format="ticket"] td,
+  body.printing-ticket-mode #equipstock-print-portal[data-print-format="ticket"] th,
+  body:not(.printing-active-portal) #printable-receipt p,
+  body:not(.printing-active-portal) #printable-receipt span,
+  body:not(.printing-active-portal) #printable-thermal-receipt p,
+  body:not(.printing-active-portal) #printable-thermal-receipt span,
+  body:not(.printing-active-portal) #printable-ticket-quote p,
+  body:not(.printing-active-portal) #printable-ticket-quote span,
+  body:not(.printing-active-portal) #printable-return-slip p,
+  body:not(.printing-active-portal) #printable-return-slip span {
+    font-weight: 700 !important;
+  }
+
+  body.printing-ticket-mode #equipstock-print-portal[data-print-format="ticket"] strong,
+  body.printing-ticket-mode #equipstock-print-portal[data-print-format="ticket"] b,
+  body.printing-ticket-mode #equipstock-print-portal[data-print-format="ticket"] h1,
+  body.printing-ticket-mode #equipstock-print-portal[data-print-format="ticket"] h2,
+  body.printing-ticket-mode #equipstock-print-portal[data-print-format="ticket"] h3,
+  body.printing-ticket-mode #equipstock-print-portal[data-print-format="ticket"] h4,
+  body.printing-ticket-mode #equipstock-print-portal[data-print-format="ticket"] .font-bold,
+  body.printing-ticket-mode #equipstock-print-portal[data-print-format="ticket"] .font-extrabold,
+  body.printing-ticket-mode #equipstock-print-portal[data-print-format="ticket"] .font-black,
+  body:not(.printing-active-portal) #printable-receipt strong,
+  body:not(.printing-active-portal) #printable-receipt .font-bold,
+  body:not(.printing-active-portal) #printable-receipt .font-black,
+  body:not(.printing-active-portal) #printable-thermal-receipt strong,
+  body:not(.printing-active-portal) #printable-thermal-receipt .font-bold,
+  body:not(.printing-active-portal) #printable-thermal-receipt .font-black {
+    font-weight: 900 !important;
+  }
+
+  body.printing-ticket-mode #equipstock-print-portal[data-print-format="ticket"] .font-mono,
+  body:not(.printing-active-portal) #printable-receipt .font-mono,
+  body:not(.printing-active-portal) #printable-thermal-receipt .font-mono,
+  body:not(.printing-active-portal) #printable-ticket-quote .font-mono,
+  body:not(.printing-active-portal) #printable-return-slip .font-mono {
+    font-family: 'Courier New', 'Liberation Mono', 'Consolas', monospace !important;
+    font-weight: 800 !important;
+  }
+
+  /* Supprime les fonds grisés/colorés pâles sur imprimante thermique (évite le tramage gris) */
+  body.printing-ticket-mode #equipstock-print-portal[data-print-format="ticket"] [class*="bg-slate-"],
+  body.printing-ticket-mode #equipstock-print-portal[data-print-format="ticket"] [class*="bg-amber-"],
+  body.printing-ticket-mode #equipstock-print-portal[data-print-format="ticket"] [class*="bg-emerald-"],
+  body.printing-ticket-mode #equipstock-print-portal[data-print-format="ticket"] [class*="bg-rose-"],
+  body.printing-ticket-mode #equipstock-print-portal[data-print-format="ticket"] [class*="bg-indigo-"] {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  body.printing-ticket-mode #equipstock-print-portal[data-print-format="ticket"] svg,
+  body:not(.printing-active-portal) #printable-receipt svg,
+  body:not(.printing-active-portal) #printable-thermal-receipt svg,
+  body:not(.printing-active-portal) #printable-ticket-quote svg,
+  body:not(.printing-active-portal) #printable-return-slip svg {
+    color: #000000 !important;
+    stroke: #000000 !important;
+    stroke-width: 2.4px !important;
+  }
+
+  body.printing-ticket-mode #equipstock-print-portal[data-print-format="ticket"] img {
+    filter: grayscale(100%) contrast(220%) !important;
   }
 
   /* 2. Fallback si l'utilisateur appuie sur Ctrl+P directement alors qu'un document est ouvert */
@@ -1025,21 +1179,20 @@ html.soft #printable-receipt .border-slate-200 {
     margin: 0 !important;
   }
 
-  /* Contrastes préservés pour les factures et devis */
-  #equipstock-print-portal .text-amber-500,
+  /* Contrastes préservés pour les factures et devis A4 uniquement */
+  #equipstock-print-portal[data-print-format="a4"] .text-amber-500,
   #printable-a4-invoice .text-amber-500,
-  #printable-a4-quote .text-amber-500,
-  #printable-receipt .text-amber-600 {
+  #printable-a4-quote .text-amber-500 {
     color: #d97706 !important;
   }
 
-  #equipstock-print-portal .bg-amber-500,
+  #equipstock-print-portal[data-print-format="a4"] .bg-amber-500,
   #printable-a4-invoice .bg-amber-500,
   #printable-a4-quote .bg-amber-500 {
     background-color: #f59e0b !important;
   }
 
-  #equipstock-print-portal .border-amber-500,
+  #equipstock-print-portal[data-print-format="a4"] .border-amber-500,
   #printable-a4-invoice .border-amber-500,
   #printable-a4-quote .border-amber-500 {
     border-color: #f59e0b !important;
