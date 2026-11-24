@@ -34,6 +34,7 @@ import { ConfirmModal } from '../common/ConfirmModal';
 import { cleanBrandName, getBrandLocation, stripWarehousePrefix } from '../../utils/articleHelpers';
 import { NumericInput } from '../common/NumericInput';
 import { TablePagination, usePagination } from '../common/TablePagination';
+import { SearchField } from '../common/SearchField';
 
 interface InventorySessionViewProps {
   session: InventorySession;
@@ -1292,24 +1293,12 @@ export const InventorySessionView: React.FC<InventorySessionViewProps> = ({
         {/* Ligne 1 : Recherche + Filtres Emplacement / Marque / Catégorie / Statut */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2.5">
           {/* Recherche texte */}
-          <div className="lg:col-span-2 relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
+          <div className="lg:col-span-2">
+            <SearchField
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={setSearchQuery}
               placeholder="Rechercher réf, marque, désignation, emplacement..."
-              className="w-full pl-9 pr-8 py-2 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-medium"
             />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
           </div>
 
           {/* Sélecteur d'Emplacement Précis */}

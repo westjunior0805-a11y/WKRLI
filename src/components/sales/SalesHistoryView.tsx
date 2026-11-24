@@ -38,6 +38,7 @@ import { ReceiptModal } from './ReceiptModal';
 import { DeliveryNotePrintModal } from './DeliveryNotePrintModal';
 import { TablePagination, usePagination } from '../common/TablePagination';
 import { RowActionsMenu } from '../common/RowActionsMenu';
+import { SearchField } from '../common/SearchField';
 
 type SaleSortField =
   | 'receiptNumber'
@@ -388,16 +389,12 @@ export const SalesHistoryView: React.FC = () => {
       {/* Top Controls & Search Bar */}
       <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-          <div className="flex-1 relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Recherche par n° vente (VTE-2026-0001), reçu, client (Eiffage), vendeur..."
-              className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-            />
-          </div>
+          <SearchField
+            value={searchQuery}
+            onChange={setSearchQuery}
+            className="flex-1"
+            placeholder="Recherche par n° vente (VTE-2026-0001), reçu, client (Eiffage), vendeur..."
+          />
 
           <button
             onClick={handleExportCSV}

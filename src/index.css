@@ -391,6 +391,62 @@ html:not(.dark):not(.soft) #root .border-\[\#FBD5C5\] {
   border-color: var(--accent-border) !important;
 }
 
+/* Color Harmony Guard: NEVER render red, rose, or terracotta (#E35E2D) text on black/dark surfaces */
+html:not(.dark):not(.soft) #root .bg-slate-900,
+html:not(.dark):not(.soft) #root .bg-slate-950,
+html:not(.dark):not(.soft) #root .bg-slate-800,
+html:not(.dark):not(.soft) #root .bg-black,
+html:not(.dark):not(.soft) #root .bg-\[\#1B1B1B\] {
+  color: #FFFFFF !important;
+}
+
+html:not(.dark):not(.soft) #root .bg-slate-900.text-amber-300,
+html:not(.dark):not(.soft) #root .bg-slate-900.text-amber-400,
+html:not(.dark):not(.soft) #root .bg-slate-900.text-amber-500,
+html:not(.dark):not(.soft) #root .bg-slate-900.text-rose-400,
+html:not(.dark):not(.soft) #root .bg-slate-900.text-rose-500,
+html:not(.dark):not(.soft) #root .bg-slate-900.text-rose-600,
+html:not(.dark):not(.soft) #root .bg-slate-900.text-red-500,
+html:not(.dark):not(.soft) #root .bg-slate-900.text-red-600,
+html:not(.dark):not(.soft) #root .bg-slate-900.text-\[\#E35E2D\],
+html:not(.dark):not(.soft) #root .bg-slate-950.text-amber-400,
+html:not(.dark):not(.soft) #root .bg-slate-950.text-amber-500,
+html:not(.dark):not(.soft) #root .bg-slate-950.text-rose-500,
+html:not(.dark):not(.soft) #root .bg-slate-950.text-red-500,
+html:not(.dark):not(.soft) #root .bg-black.text-amber-400,
+html:not(.dark):not(.soft) #root .bg-black.text-amber-500,
+html:not(.dark):not(.soft) #root .bg-black.text-rose-500,
+html:not(.dark):not(.soft) #root .bg-black.text-red-500,
+html:not(.dark):not(.soft) #root .bg-\[\#1B1B1B\].text-amber-400,
+html:not(.dark):not(.soft) #root .bg-\[\#1B1B1B\].text-\[\#E35E2D\],
+html:not(.dark):not(.soft) #root .bg-slate-900 .text-amber-300,
+html:not(.dark):not(.soft) #root .bg-slate-900 .text-amber-400,
+html:not(.dark):not(.soft) #root .bg-slate-900 .text-amber-500,
+html:not(.dark):not(.soft) #root .bg-slate-900 .text-rose-400,
+html:not(.dark):not(.soft) #root .bg-slate-900 .text-rose-500,
+html:not(.dark):not(.soft) #root .bg-slate-900 .text-rose-600,
+html:not(.dark):not(.soft) #root .bg-slate-900 .text-red-500,
+html:not(.dark):not(.soft) #root .bg-slate-900 .text-red-600,
+html:not(.dark):not(.soft) #root .bg-slate-900 .text-\[\#E35E2D\],
+html:not(.dark):not(.soft) #root .bg-slate-950 .text-amber-300,
+html:not(.dark):not(.soft) #root .bg-slate-950 .text-amber-400,
+html:not(.dark):not(.soft) #root .bg-slate-950 .text-amber-500,
+html:not(.dark):not(.soft) #root .bg-slate-950 .text-rose-500,
+html:not(.dark):not(.soft) #root .bg-slate-950 .text-red-500,
+html:not(.dark):not(.soft) #root .bg-slate-800 .text-amber-400,
+html:not(.dark):not(.soft) #root .bg-slate-800 .text-rose-500,
+html:not(.dark):not(.soft) #root .bg-slate-800 .text-red-500,
+html:not(.dark):not(.soft) #root .bg-black .text-amber-400,
+html:not(.dark):not(.soft) #root .bg-black .text-amber-500,
+html:not(.dark):not(.soft) #root .bg-black .text-rose-500,
+html:not(.dark):not(.soft) #root .bg-black .text-red-500,
+html:not(.dark):not(.soft) #root .bg-\[\#1B1B1B\] .text-amber-400,
+html:not(.dark):not(.soft) #root .bg-\[\#1B1B1B\] .text-\[\#E35E2D\],
+html:not(.dark):not(.soft) #root .bg-\[\#1B1B1B\] .text-rose-500,
+html:not(.dark):not(.soft) #root .bg-\[\#1B1B1B\] .text-red-500 {
+  color: #FFFFFF !important;
+}
+
 /* Global Tables in Variation 19 */
 html:not(.dark):not(.soft) #root table thead tr {
   background-color: transparent !important;
@@ -444,6 +500,36 @@ html:not(.dark):not(.soft) #root textarea:focus {
   box-shadow: 0 0 0 2px var(--accent-ring) !important;
 }
 
+/* Prominent Pure-Neutral Search Inputs (Immediately visible on page load, zero color tint) */
+html:not(.dark):not(.soft) #root input[data-search-input="true"],
+html:not(.dark):not(.soft) #root input.search-input-prominent {
+  background-color: #FFFFFF !important;
+  border: 1.5px solid #374151 !important;
+  color: #111827 !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06) !important;
+  border-radius: 6px !important;
+}
+
+html:not(.dark):not(.soft) #root input[data-search-input="true"]::placeholder,
+html:not(.dark):not(.soft) #root input.search-input-prominent::placeholder {
+  color: #4B5563 !important;
+  font-weight: 500;
+}
+
+html:not(.dark):not(.soft) #root input[data-search-input="true"]:hover,
+html:not(.dark):not(.soft) #root input.search-input-prominent:hover {
+  border-color: #1B1B1B !important;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.09) !important;
+}
+
+html:not(.dark):not(.soft) #root input[data-search-input="true"]:focus,
+html:not(.dark):not(.soft) #root input.search-input-prominent:focus {
+  background-color: #FFFFFF !important;
+  border: 2px solid #1B1B1B !important;
+  box-shadow: 0 0 0 3px rgba(27, 27, 27, 0.12) !important;
+  outline: none !important;
+}
+
 /* Dark Theme Support */
 html.dark {
   color-scheme: dark;
@@ -466,6 +552,53 @@ html.dark .bg-white {
 
 html.dark .stat-val {
   color: #f8fafc !important;
+}
+
+/* Dark Mode Color Harmony: prevent harsh dark red on dark backgrounds */
+html.dark #root .text-rose-600,
+html.dark #root .text-rose-700,
+html.dark #root .text-red-600,
+html.dark #root .text-red-700 {
+  color: #FDA4AF !important;
+}
+
+html.dark #root .bg-slate-900 .text-rose-500,
+html.dark #root .bg-slate-900 .text-red-500,
+html.dark #root .bg-black .text-rose-500,
+html.dark #root .bg-black .text-red-500,
+html.dark #root .bg-\[\#1B1B1B\] .text-\[\#E35E2D\] {
+  color: #F8FAFC !important;
+}
+
+html.dark #root input[data-search-input="true"],
+html.dark #root input.search-input-prominent {
+  background-color: #0f172a !important;
+  border: 1.5px solid #94a3b8 !important;
+  color: #f8fafc !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35) !important;
+}
+
+html.dark #root input[data-search-input="true"]::placeholder,
+html.dark #root input.search-input-prominent::placeholder {
+  color: #cbd5e1 !important;
+}
+
+html.dark #root input[data-search-input="true"]:focus,
+html.dark #root input.search-input-prominent:focus {
+  border-color: #ffffff !important;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.16) !important;
+}
+
+html.soft #root input[data-search-input="true"],
+html.soft #root input.search-input-prominent {
+  background-color: #242933 !important;
+  border: 1.5px solid #cbd5e1 !important;
+  color: #f8fafc !important;
+}
+
+html.soft #root input[data-search-input="true"]::placeholder,
+html.soft #root input.search-input-prominent::placeholder {
+  color: #d8dee9 !important;
 }
 
 html.soft .stat-card {

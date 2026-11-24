@@ -20,6 +20,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { TablePagination, SortableTh, usePagination } from '../common/TablePagination';
+import { SearchField } from '../common/SearchField';
 
 type MovementSortField =
   | 'date'
@@ -259,25 +260,12 @@ export const MovementHistoryView: React.FC = () => {
       {/* Top Controls & Search Bar */}
       <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3.5">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-          <div className="flex-1 relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Recherche multi-critères : référence (1R-0716, 1R0716), désignation, marque, magasin, N° document, tiers, motif..."
-              className="w-full pl-9 pr-9 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded"
-                title="Effacer la recherche"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
+          <SearchField
+            value={searchQuery}
+            onChange={setSearchQuery}
+            className="flex-1"
+            placeholder="Recherche multi-critères : référence (1R-0716, 1R0716), désignation, marque, magasin, N° document, tiers, motif..."
+          />
 
           <button
             onClick={handleExportCSV}

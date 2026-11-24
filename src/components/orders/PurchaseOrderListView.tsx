@@ -35,6 +35,7 @@ import { CreatePurchaseOrderModal } from './CreatePurchaseOrderModal';
 import { ReceiveOrderModal } from './ReceiveOrderModal';
 import { PurchaseOrderPrintModal } from './PurchaseOrderPrintModal';
 import { RowActionsMenu } from '../common/RowActionsMenu';
+import { SearchField } from '../common/SearchField';
 
 interface PurchaseOrderListViewProps {
   focusedOrderId?: string | null;
@@ -560,16 +561,12 @@ export const PurchaseOrderListView: React.FC<PurchaseOrderListViewProps> = ({
         <div className="space-y-4">
           {/* Filters Bar */}
           <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-xs">
-            <div className="flex-1 relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Rechercher par N° commande, fournisseur, magasin, référence ou désignation de pièce..."
-                className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-              />
-            </div>
+            <SearchField
+              value={searchQuery}
+              onChange={setSearchQuery}
+              className="flex-1"
+              placeholder="Rechercher par N° commande, fournisseur, magasin, référence ou désignation de pièce..."
+            />
 
             <div className="flex items-center gap-2">
               <span className="text-slate-400">Statut :</span>
@@ -899,16 +896,12 @@ export const PurchaseOrderListView: React.FC<PurchaseOrderListViewProps> = ({
 
           {/* Search Bar Suppliers */}
           <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-xs">
-            <div className="flex-1 relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={supplierSearchQuery}
-                onChange={(e) => setSupplierSearchQuery(e.target.value)}
-                placeholder="Rechercher un fournisseur par nom, code, contact, téléphone, pays ou marque..."
-                className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-              />
-            </div>
+            <SearchField
+              value={supplierSearchQuery}
+              onChange={setSupplierSearchQuery}
+              className="flex-1"
+              placeholder="Rechercher un fournisseur par nom, code, contact, téléphone, pays ou marque..."
+            />
           </div>
 
           {/* Suppliers Table */}

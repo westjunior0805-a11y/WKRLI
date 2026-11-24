@@ -117,7 +117,7 @@ export const PurchaseOrderPrintModal: React.FC<PurchaseOrderPrintModalProps> = (
             </div>
 
             <div className="text-right">
-              <span className="inline-block px-3 py-1 rounded bg-slate-900 text-amber-400 font-mono font-bold text-xs uppercase tracking-wider mb-2">
+              <span className="inline-block px-3 py-1 rounded bg-slate-900 text-white font-mono font-bold text-xs uppercase tracking-wider mb-2">
                 BON DE COMMANDE
               </span>
               <h2 className="text-lg font-black font-mono text-slate-900">{order.orderNumber}</h2>

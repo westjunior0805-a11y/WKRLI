@@ -29,13 +29,34 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   onClose,
   initialFormat = 'A4',
 }) => {
-  const { getWarehouseById, articles, companyInfo } = useStock();
+  const { getWarehouseById, articles, companyInfo, payments } = useStock();
   const [format, setFormat] = useState<'THERMAL' | 'A4' | 'BL'>(initialFormat);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   if (!sale) return null;
 
   const warehouse: Warehouse | undefined = getWarehouseById(sale.warehouseId);
+  const salePayments = payments.filter((p) => p.saleId === sale.id && p.amount > 0);
+  const formatMethodLabel = (method: string) => {
+    switch (method) {
+      case 'ESPECES':
+        return 'Espèces';
+      case 'WAVE':
+        return 'Wave';
+      case 'ORANGE_MONEY':
+        return 'Orange Money';
+      case 'CARTE':
+        return 'Carte / Virement';
+      case 'VIREMENT':
+        return 'Virement';
+      case 'CHEQUE':
+        return 'Chèque';
+      case 'CREDIT':
+        return 'Crédit';
+      default:
+        return method;
+    }
+  };
 
   const handlePrint = () => {
     const targetId = format === 'A4' ? 'printable-a4-invoice' : 'printable-receipt';
@@ -68,7 +89,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
         <div className="px-6 py-3.5 bg-slate-900 text-white flex flex-wrap items-center justify-between gap-3 shrink-0 print:hidden">
           <div className="flex items-center gap-3">
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <Printer className="w-4 h-4 text-amber-400" />
+              <Printer className="w-4 h-4 text-white" />
               <span>
                 {format === 'BL'
                   ? `Bon de Livraison BL-${sale.receiptNumber}`
@@ -173,7 +194,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                           className="w-12 h-12 object-contain border border-neutral-300 bg-white p-0.5 shrink-0"
                         />
                       ) : (
-                        <div className="w-11 h-11 bg-black text-amber-500 border border-amber-500 font-black text-sm flex items-center justify-center shrink-0 shadow-2xs">
+                        <div className="w-11 h-11 bg-black text-white border border-black font-black text-sm flex items-center justify-center shrink-0 shadow-2xs">
                           {companyInfo.shortName || companyInfo.name?.slice(0, 4).toUpperCase() || 'WKRLI'}
                         </div>
                       )}
@@ -272,6 +293,22 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                     <p className="text-neutral-900">
                       Montant Encaissé : <strong className="font-mono text-black">{formatFCFA(sale.totalPaid)}</strong>
                     </p>
+                    {salePayments.length > 0 && (
+                      <div className="pt-1 mt-1 border-t border-neutral-200 space-y-0.5 text-[11px]">
+                        <span className="font-bold text-neutral-700 block">
+                          {salePayments.length > 1 ? 'Détail des règlements (mixte) :' : 'Mode de règlement :'}
+                        </span>
+                        {salePayments.map((p) => (
+                          <div key={p.id} className="flex justify-between text-neutral-900">
+                            <span>
+                              {formatMethodLabel(p.method)}
+                              {p.reference ? ` (${p.reference})` : ''}
+                            </span>
+                            <strong className="font-mono">{formatFCFA(p.amount)}</strong>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     {sale.remainingDue > 0 && (
                       <p className="text-black font-bold">
                         Solde restant dû : <span className="font-mono font-black underline">{formatFCFA(sale.remainingDue)}</span>
@@ -285,7 +322,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                   <table className="w-full text-left text-xs">
                     <thead className="bg-black text-white font-black uppercase tracking-wider text-[10px]">
                       <tr>
-                        <th className="py-2.5 px-3 w-8 text-center text-amber-400">#</th>
+                        <th className="py-2.5 px-3 w-8 text-center text-white">#</th>
                         <th className="py-2.5 px-3 w-36">Référence</th>
                         <th className="py-2.5 px-3">Désignation & Marque</th>
                         <th className="py-2.5 px-3 text-center w-20">Qté</th>
@@ -399,12 +436,12 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                           </div>
                         )}
 
-                        {/* Net à Payer : Information Clé avec Orange Signature de l'application */}
+                        {/* Net à Payer : Contraste élevé Blanc sur Noir */}
                         <div className="p-3 bg-black text-white flex justify-between items-center border-b border-black">
-                          <span className="font-black text-xs uppercase text-amber-400">
+                          <span className="font-black text-xs uppercase text-white">
                             Net à Payer (TTC) :
                           </span>
-                          <span className="font-mono font-black text-lg text-amber-400 tabular-nums">
+                          <span className="font-mono font-black text-lg text-white tabular-nums">
                             {formatFCFA(netTotal)}
                           </span>
                         </div>
@@ -589,6 +626,18 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 
                 {/* Payments breakdown */}
                 <div className="pt-2 text-xs text-black space-y-1">
+                  {salePayments.length > 0 && (
+                    <div className="space-y-0.5 pb-1 border-b border-dotted border-black">
+                      {salePayments.map((p) => (
+                        <div key={p.id} className="flex justify-between font-bold text-black">
+                          <span>
+                            Règlement ({formatMethodLabel(p.method)}):
+                          </span>
+                          <span className="font-mono font-extrabold">{formatFCFA(p.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <div className="flex justify-between font-extrabold text-black">
                     <span>Montant encaissé :</span>
                     <span className="font-mono font-black">{formatFCFA(sale.totalPaid)}</span>

@@ -43,6 +43,7 @@ import { QuickStockEditModal } from './QuickStockEditModal';
 import { MachineWhereUsedModal } from './MachineWhereUsedModal';
 import { SortableTh } from '../common/TablePagination';
 import { RowActionsMenu } from '../common/RowActionsMenu';
+import { SearchField } from '../common/SearchField';
 import {
   scoreArticleByScope,
   SearchTargetScope,
@@ -593,58 +594,18 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
         </div>
       )}
 
-      {/* Top Header & Search Bar */}
-      <div className="bg-white border border-slate-200/80 rounded-xl p-3.5 sm:p-4 shadow-xs space-y-3.5">
-        <div className="flex flex-wrap items-center justify-between gap-2 pb-1 border-b border-slate-100">
-          <div className="flex flex-wrap items-center gap-1" title="Recherche technique exacte SIS 2.0">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mr-1">
-              Cibler :
-            </span>
-            {SEARCH_SCOPE_OPTIONS.map((opt) => {
-              const isActive = searchScope === opt.id;
-              return (
-                <button
-                  key={opt.id}
-                  type="button"
-                  onClick={() => setSearchScope(opt.id)}
-                  className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-all cursor-pointer border ${
-                    isActive
-                      ? 'bg-[#E35E2D]! text-white! border-[#E35E2D]!'
-                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
-                  }`}
-                  title={opt.label}
-                >
-                  {opt.shortLabel}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
+      {/* Top Header & Search Bar — Champ de recherche immédiatement visible en premier */}
+      <div className="bg-white border border-slate-200/80 rounded-xl p-3.5 sm:p-4 shadow-xs space-y-3">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
-          <div className="flex-1 relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={
-                SEARCH_SCOPE_OPTIONS.find((o) => o.id === searchScope)?.placeholder ||
-                'Rechercher une référence (ex: 1R-0716), désignation, description ou équivalence...'
-              }
-              className="w-full pl-9 pr-8 py-2 text-xs sm:text-sm bg-slate-50/50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-colors"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
-                title="Effacer la recherche"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
+          <SearchField
+            value={searchQuery}
+            onChange={setSearchQuery}
+            className="flex-1"
+            placeholder={
+              SEARCH_SCOPE_OPTIONS.find((o) => o.id === searchScope)?.placeholder ||
+              'Rechercher une référence (ex: 1R-0716), désignation, description ou équivalence...'
+            }
+          />
 
           <div className="flex items-center gap-1.5 shrink-0">
             {/* Catalogue Import & Export Actions */}
@@ -699,6 +660,31 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
               </button>
             )}
           </div>
+        </div>
+
+        {/* Scope Strip */}
+        <div className="flex flex-wrap items-center gap-1 pt-0.5" title="Recherche technique exacte SIS 2.0">
+          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mr-1">
+            Cibler :
+          </span>
+          {SEARCH_SCOPE_OPTIONS.map((opt) => {
+            const isActive = searchScope === opt.id;
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => setSearchScope(opt.id)}
+                className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-all cursor-pointer border ${
+                  isActive
+                    ? 'bg-[#1B1B1B]! text-white! border-[#1B1B1B]!'
+                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
+                }`}
+                title={opt.label}
+              >
+                {opt.shortLabel}
+              </button>
+            );
+          })}
         </div>
 
         {/* Filters Strip */}
@@ -758,7 +744,7 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
                 onClick={() => setLayoutMode('LINE')}
                 className={`inline-flex items-center gap-1 px-2 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
                   layoutMode === 'LINE'
-                    ? 'bg-slate-900 text-amber-400 shadow-2xs'
+                    ? 'bg-slate-900 text-white shadow-2xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
                 title="Affichage en ligne (tableau)"
@@ -771,7 +757,7 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
                 onClick={() => setLayoutMode('GRID')}
                 className={`inline-flex items-center gap-1 px-2 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
                   layoutMode === 'GRID'
-                    ? 'bg-slate-900 text-amber-400 shadow-2xs'
+                    ? 'bg-slate-900 text-white shadow-2xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
                 title="Affichage en grille (cartes)"

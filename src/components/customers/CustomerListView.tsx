@@ -25,6 +25,7 @@ import { ImportCustomersModal } from './ImportCustomersModal';
 import { NumericInput } from '../common/NumericInput';
 import { TablePagination, SortableTh, usePagination } from '../common/TablePagination';
 import { RowActionsMenu } from '../common/RowActionsMenu';
+import { SearchField } from '../common/SearchField';
 
 type CustomerSortField =
   | 'code'
@@ -528,7 +529,58 @@ export const CustomerListView: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      {/* Top Banner & Summary Strip */}
+      {/* Search, Filter & Actions Bar — Immédiatement visible dès l'accès à la page */}
+      <div className="bg-white border border-[#E5E5E5] rounded-lg p-4 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 text-xs">
+        <SearchField
+          value={searchQuery}
+          onChange={setSearchQuery}
+          className="flex-1"
+          placeholder="Rechercher un client par nom, code client ou téléphone..."
+        />
+
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <label className="flex items-center gap-1.5 cursor-pointer font-medium text-[#1B1B1B]/80 mr-1">
+            <input
+              type="checkbox"
+              checked={filterDebtOnly}
+              onChange={(e) => setFilterDebtOnly(e.target.checked)}
+              className="rounded accent-[#E35E2D]"
+            />
+            <span>Avec créance uniquement</span>
+          </label>
+
+          <button
+            type="button"
+            onClick={handleOpenCreateModal}
+            className="inline-flex items-center gap-1.5 px-3 py-2 font-semibold text-white bg-[#E35E2D] hover:bg-[#1B1B1B] rounded transition-colors cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Nouveau client
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsImportModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 font-semibold text-[#1B1B1B] bg-white hover:bg-[#F8F7F4] border border-[#E5E5E5] rounded transition-colors cursor-pointer"
+            title="Importer une liste de clients depuis Excel ou CSV"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-[#E35E2D]" />
+            Importer
+          </button>
+
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            className="inline-flex items-center gap-1.5 px-3 py-2 font-semibold text-[#1B1B1B] bg-white hover:bg-[#F8F7F4] border border-[#E5E5E5] rounded transition-colors cursor-pointer"
+            title="Exporter le répertoire en CSV"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Export CSV
+          </button>
+        </div>
+      </div>
+
+      {/* Summary KPI Strip */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="p-4 bg-white border border-[#E5E5E5] rounded-lg">
           <span className="text-[11px] font-semibold text-[#1B1B1B]/60 uppercase tracking-wider block">
@@ -575,61 +627,6 @@ export const CustomerListView: React.FC = () => {
               {formatFCFA(globalTotals.totalCreances)}
             </span>
           </div>
-        </div>
-      </div>
-
-      {/* Search, Filter & Actions Bar */}
-      <div className="bg-white border border-[#E5E5E5] rounded-lg p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-        <div className="w-full sm:w-96 relative">
-          <Search className="w-4 h-4 text-[#1B1B1B]/40 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Rechercher par nom, code client ou téléphone..."
-            className="w-full pl-9 pr-3 py-2 bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#E35E2D]"
-          />
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-1.5 cursor-pointer font-medium text-[#1B1B1B]/80 mr-1">
-            <input
-              type="checkbox"
-              checked={filterDebtOnly}
-              onChange={(e) => setFilterDebtOnly(e.target.checked)}
-              className="rounded accent-[#E35E2D]"
-            />
-            <span>Avec créance uniquement</span>
-          </label>
-
-          <button
-            type="button"
-            onClick={handleOpenCreateModal}
-            className="inline-flex items-center gap-1.5 px-3 py-2 font-semibold text-white bg-[#E35E2D] hover:bg-[#1B1B1B] rounded transition-colors cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Nouveau client
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setIsImportModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 font-semibold text-[#1B1B1B] bg-white hover:bg-[#F8F7F4] border border-[#E5E5E5] rounded transition-colors cursor-pointer"
-            title="Importer une liste de clients depuis Excel ou CSV"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-[#E35E2D]" />
-            Importer
-          </button>
-
-          <button
-            type="button"
-            onClick={handleExportCSV}
-            className="inline-flex items-center gap-1.5 px-3 py-2 font-semibold text-[#1B1B1B] bg-white hover:bg-[#F8F7F4] border border-[#E5E5E5] rounded transition-colors cursor-pointer"
-            title="Exporter le répertoire en CSV"
-          >
-            <Download className="w-3.5 h-3.5" />
-            Export CSV
-          </button>
         </div>
       </div>
 

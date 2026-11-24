@@ -150,7 +150,7 @@ export const QuotePrintModal: React.FC<QuotePrintModalProps> = ({ quote, onClose
                           className="w-12 h-12 object-contain border border-neutral-300 bg-white p-0.5 shrink-0"
                         />
                       ) : (
-                        <div className="w-11 h-11 bg-black text-amber-500 border border-amber-500 font-black text-sm flex items-center justify-center shrink-0 shadow-2xs">
+                        <div className="w-11 h-11 bg-black text-white border border-black font-black text-sm flex items-center justify-center shrink-0 shadow-2xs">
                           {companyInfo.shortName || companyInfo.name?.slice(0, 4).toUpperCase() || 'WKRLI'}
                         </div>
                       )}
@@ -266,7 +266,7 @@ export const QuotePrintModal: React.FC<QuotePrintModalProps> = ({ quote, onClose
                   <table className="w-full text-left text-xs">
                     <thead className="bg-black text-white font-black uppercase tracking-wider text-[10px]">
                       <tr>
-                        <th className="py-2.5 px-3 w-8 text-center text-amber-400">#</th>
+                        <th className="py-2.5 px-3 w-8 text-center text-white">#</th>
                         <th className="py-2.5 px-3 w-36">Référence</th>
                         <th className="py-2.5 px-3">Désignation & Marque</th>
                         <th className="py-2.5 px-3 text-center w-20">Qté</th>
@@ -382,12 +382,12 @@ export const QuotePrintModal: React.FC<QuotePrintModalProps> = ({ quote, onClose
                       <span className="font-mono">Exonéré (0 FCFA)</span>
                     </div>
 
-                    {/* Grand Total Net à Payer avec touche Orange Signature */}
+                    {/* Grand Total Net à Payer : Blanc sur Noir */}
                     <div className="p-3 bg-black text-white flex justify-between items-center">
-                      <span className="font-black text-xs uppercase text-amber-400">
+                      <span className="font-black text-xs uppercase text-white">
                         Net à Payer (TTC) :
                       </span>
-                      <span className="font-mono font-black text-lg text-amber-400 tabular-nums">
+                      <span className="font-mono font-black text-lg text-white tabular-nums">
                         {formatFCFA(quote.totalAmount)}
                       </span>
                     </div>

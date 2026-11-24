@@ -40,6 +40,7 @@ import {
 } from '../../firebase';
 import { exportToCSV } from '../../utils/formatters';
 import { SortableTh, TablePagination, usePagination } from '../common/TablePagination';
+import { SearchField } from '../common/SearchField';
 
 type DatabaseTab = 'tables' | 'sync' | 'backup' | 'schemas';
 
@@ -1283,19 +1284,15 @@ CREATE TABLE public.customers (
 
               {/* Search & View Switcher Bar */}
               <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                <div className="relative flex-1 min-w-[200px]">
-                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    value={tableSearch}
-                    onChange={(e) => {
-                      setTableSearch(e.target.value);
-                      setInspectorPage(1);
-                    }}
-                    placeholder={`Rechercher dans ${selectedTable.label} (${selectedTable.data.length} lignes)...`}
-                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:bg-white focus:border-slate-900"
-                  />
-                </div>
+                <SearchField
+                  value={tableSearch}
+                  onChange={(val) => {
+                    setTableSearch(val);
+                    setInspectorPage(1);
+                  }}
+                  className="flex-1 min-w-[200px]"
+                  placeholder={`Rechercher dans ${selectedTable.label} (${selectedTable.data.length} lignes)...`}
+                />
 
                 <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
                   <button

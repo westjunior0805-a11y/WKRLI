@@ -24,6 +24,7 @@ import {
 import { CreatePurchaseOrderModal } from '../orders/CreatePurchaseOrderModal';
 import { TablePagination, SortableTh, usePagination } from '../common/TablePagination';
 import { RowActionsMenu } from '../common/RowActionsMenu';
+import { SearchField } from '../common/SearchField';
 
 interface AlertsAndReportsViewProps {
   onOpenStockIn: (articleId?: string) => void;
@@ -566,6 +567,43 @@ export const AlertsAndReportsView: React.FC<AlertsAndReportsViewProps> = ({
       {/* TAB 1: ALERTS (FORMAT LISTE DES PIÈCES & FOURNISSEUR AVEC PAGINATION) */}
       {activeReportTab === 'ALERTS' && (
         <div className="space-y-4">
+          {/* Search & Filter Bar for Pieces — visible immediately at top */}
+          <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 text-xs">
+            <SearchField
+              value={pieceSearchQuery}
+              onChange={setPieceSearchQuery}
+              className="flex-1"
+              placeholder="Rechercher une pièce par référence, désignation, marque, catégorie, fournisseur ou N° BC..."
+            />
+
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {(
+                [
+                  {
+                    id: 'ALERTS_ONLY',
+                    label: `Ruptures & Sous seuil (${replenishmentSuggestionsCount})`,
+                  },
+                  { id: 'UNORDERED_ALERTS', label: 'Alertes non commandées' },
+                  { id: 'ORDERED_ONLY', label: 'Pièces déjà commandées' },
+                  { id: 'ALL_CATALOG', label: `Tout le catalogue (${allPiecesData.length})` },
+                ] as const
+              ).map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setPieceFilterMode(f.id)}
+                  className={`px-2.5 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer ${
+                    pieceFilterMode === f.id
+                      ? 'bg-slate-900 text-white'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Clickable KPI Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div
@@ -636,56 +674,6 @@ export const AlertsAndReportsView: React.FC<AlertsAndReportsViewProps> = ({
               <p className="text-xs text-amber-700 mt-1.5">
                 Articles dont la quantité totale en stock est inférieure ou égale au seuil de sécurité.
               </p>
-            </div>
-          </div>
-
-          {/* Search & Filter Bar for Pieces */}
-          <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 text-xs">
-            <div className="flex-1 relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={pieceSearchQuery}
-                onChange={(e) => setPieceSearchQuery(e.target.value)}
-                placeholder="Rechercher une pièce par référence, désignation, marque, catégorie, fournisseur ou N° BC..."
-                className="w-full pl-9 pr-8 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-              />
-              {pieceSearchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setPieceSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {(
-                [
-                  {
-                    id: 'ALERTS_ONLY',
-                    label: `Ruptures & Sous seuil (${replenishmentSuggestionsCount})`,
-                  },
-                  { id: 'UNORDERED_ALERTS', label: 'Alertes non commandées' },
-                  { id: 'ORDERED_ONLY', label: 'Pièces déjà commandées' },
-                  { id: 'ALL_CATALOG', label: `Tout le catalogue (${allPiecesData.length})` },
-                ] as const
-              ).map((f) => (
-                <button
-                  key={f.id}
-                  type="button"
-                  onClick={() => setPieceFilterMode(f.id)}
-                  className={`px-2.5 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer ${
-                    pieceFilterMode === f.id
-                      ? 'bg-slate-900 text-white'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  {f.label}
-                </button>
-              ))}
             </div>
           </div>
 

@@ -43,6 +43,7 @@ import { ArticleFormModal } from '../catalog/ArticleFormModal';
 import { QuickStockEditModal } from '../catalog/QuickStockEditModal';
 import { ImportCatalogModal } from '../catalog/ImportCatalogModal';
 import { RowActionsMenu } from '../common/RowActionsMenu';
+import { SearchField } from '../common/SearchField';
 import { scoreArticleByScope } from '../../utils/fuzzySearch';
 import {
   cleanBrandName,
@@ -715,27 +716,12 @@ export const WarehouseListView: React.FC<WarehouseListViewProps> = ({
       {viewMode === 'stock' && (
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
         <div className="px-5 py-4 border-b border-slate-200 bg-slate-50 flex flex-col gap-3">
-          {/* Full-width Search Bar */}
-          <div className="relative w-full">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={stockSearchQuery}
-              onChange={(e) => setStockSearchQuery(e.target.value)}
-              placeholder="Rechercher par référence, désignation, marque, emplacement, numéro de facture..."
-              className="w-full pl-10 pr-9 py-2.5 bg-white border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 shadow-2xs"
-            />
-            {stockSearchQuery && (
-              <button
-                type="button"
-                onClick={() => setStockSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
-                aria-label="Effacer la recherche"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
+          {/* Full-width Prominent Neutral Search Bar */}
+          <SearchField
+            value={stockSearchQuery}
+            onChange={setStockSearchQuery}
+            placeholder="Rechercher par référence, désignation, marque, emplacement, numéro de facture..."
+          />
 
           {/* Filters & View options row */}
           <div className="flex flex-wrap items-center justify-between gap-2">

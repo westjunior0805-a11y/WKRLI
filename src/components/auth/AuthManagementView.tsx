@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { TablePagination, SortableTh, usePagination } from '../common/TablePagination';
 import { RowActionsMenu } from '../common/RowActionsMenu';
+import { SearchField } from '../common/SearchField';
 
 type UserSortField = 'name' | 'role' | 'warehouse' | 'phone' | 'status';
 
@@ -981,16 +982,12 @@ export const AuthManagementView: React.FC = () => {
           {/* Controls: Search, filter, Add User */}
           <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
             <div className="flex flex-1 flex-col sm:flex-row items-stretch sm:items-center gap-3">
-              <div className="relative flex-1">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Rechercher par nom, email ou téléphone..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
-                />
-              </div>
+              <SearchField
+                value={searchQuery}
+                onChange={setSearchQuery}
+                className="flex-1"
+                placeholder="Rechercher par nom, email ou téléphone..."
+              />
 
               <div className="flex items-center gap-2">
                 <Filter className="w-4 h-4 text-slate-400 shrink-0" />

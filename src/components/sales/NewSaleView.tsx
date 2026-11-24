@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useDeferredValue, useEffect, useCallback, useRef } from 'react';
 import { useStock } from '../../context/StockContext';
-import { Article, ArticleBrandOffer, PaymentMethod, Sale } from '../../types';
+import { Article, ArticleBrandOffer, PaymentMethod, Quote, Sale } from '../../types';
 import { formatFCFA, formatDateTime, formatDate } from '../../utils/formatters';
 import {
   getArticleBrandOffers,
@@ -46,8 +46,11 @@ import {
   ChevronUp,
   Building2,
   Tag,
+  FileText,
+  Layers,
 } from 'lucide-react';
 import { ReceiptModal } from './ReceiptModal';
+import { QuotePrintModal } from '../quotes/QuotePrintModal';
 import { ArticleDetailModal } from '../catalog/ArticleDetailModal';
 import { ArticleFormModal } from '../catalog/ArticleFormModal';
 import { QuickStockEditModal } from '../catalog/QuickStockEditModal';
@@ -142,6 +145,7 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
     users,
     getTotalStockForArticle,
     recordSale,
+    createQuote,
     updateArticle,
     selectedWarehouseId,
     getActiveCashSession,
@@ -260,12 +264,14 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
 
   // Payment Tenders (Block 4 of Model 2)
   const [tenders, setTenders] = useState<TenderEntry[]>([{ method: 'ESPECES', amount: 0 }]);
+  const [isMultiPaymentMode, setIsMultiPaymentMode] = useState<boolean>(false);
 
   // Form submission state & modals
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isConfirmSaleModalOpen, setIsConfirmSaleModalOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [completedSale, setCompletedSale] = useState<Sale | null>(null);
+  const [createdQuoteForPrint, setCreatedQuoteForPrint] = useState<Quote | null>(null);
   const [receiptFormat] = useState<'THERMAL' | 'A4' | 'BL'>('A4');
 
   // Price override modal state
@@ -294,6 +300,7 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
     setGlobalDiscountManual(0);
     setShowExtraInvoiceOptions(false);
     setTenders([{ method: 'ESPECES', amount: 0 }]);
+    setIsMultiPaymentMode(false);
     setSaleDate(new Date().toISOString().slice(0, 10));
     setIsAdminApprovedForBackdating(false);
     setErrorMessage('');
@@ -657,19 +664,21 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
   const totalDiscount = lineDiscountsTotal + computedGlobalDiscount;
   const netTotal = Math.max(0, subtotal - totalDiscount);
 
-  // Sync single tender amount with netTotal when cart changes
+  // Sync single tender amount with netTotal when cart changes (only in single-payment mode)
   useEffect(() => {
     if (cart.length === 0) {
       setTenders([{ method: 'ESPECES', amount: 0 }]);
+      setIsMultiPaymentMode(false);
       return;
     }
+    if (isMultiPaymentMode) return;
     setTenders((prev) => {
       if (prev.length === 1 && prev[0].method !== 'CREDIT') {
         return [{ ...prev[0], amount: netTotal }];
       }
       return prev;
     });
-  }, [netTotal, cart.length]);
+  }, [netTotal, cart.length, isMultiPaymentMode]);
 
   const totalTendered = useMemo(() => {
     return tenders.reduce((sum, t) => {
@@ -943,14 +952,117 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
     setOverrideItemIndex(null);
   };
 
+  const MULTI_PAYMENT_METHODS: Array<{ id: PaymentMethod; label: string }> = [
+    { id: 'ESPECES', label: 'Espèces' },
+    { id: 'WAVE', label: 'Wave' },
+    { id: 'ORANGE_MONEY', label: 'Orange Money' },
+    { id: 'CARTE', label: 'Carte / Virement' },
+  ];
+
+  const formatPaymentMethodLabel = (method: PaymentMethod) => {
+    switch (method) {
+      case 'ESPECES':
+        return 'Espèces';
+      case 'WAVE':
+        return 'Wave';
+      case 'ORANGE_MONEY':
+        return 'Orange Money';
+      case 'CARTE':
+        return 'Carte / Virement';
+      case 'CREDIT':
+        return 'Crédit';
+      default:
+        return method;
+    }
+  };
+
   // Quick tender setters
   const setExactTender = (method: PaymentMethod) => {
+    setIsMultiPaymentMode(false);
     if (method === 'CREDIT') {
       setCustomerType('REGISTERED');
       setTenders([{ method: 'CREDIT', amount: 0 }]);
     } else {
       setTenders([{ method, amount: netTotal }]);
     }
+  };
+
+  const handleToggleMultiPaymentMode = () => {
+    if (isMultiPaymentMode) {
+      const firstValid = tenders.find((t) => t.method !== 'CREDIT');
+      setIsMultiPaymentMode(false);
+      setTenders([{ method: firstValid?.method || 'ESPECES', amount: netTotal }]);
+      return;
+    }
+    setIsMultiPaymentMode(true);
+    setTenders((prev) => {
+      const nonCredit = prev.filter((t) => t.method !== 'CREDIT');
+      if (nonCredit.length >= 2) return nonCredit;
+      if (nonCredit.length === 1) {
+        const firstMethod = nonCredit[0].method;
+        const nextMethod: PaymentMethod = firstMethod === 'ESPECES' ? 'WAVE' : 'ESPECES';
+        const firstAmt = Math.min(nonCredit[0].amount || 0, netTotal);
+        // If first row currently equals full netTotal, split hint cleanly: keep first row editable & add second at 0 (or remaining)
+        const secondAmt = Math.max(0, netTotal - firstAmt);
+        return [
+          { ...nonCredit[0], amount: firstAmt },
+          { method: nextMethod, amount: secondAmt, reference: '' },
+        ];
+      }
+      return [
+        { method: 'ESPECES', amount: 0, reference: '' },
+        { method: 'WAVE', amount: netTotal, reference: '' },
+      ];
+    });
+  };
+
+  const handleAddTenderRow = () => {
+    const usedMethods = new Set(tenders.map((t) => t.method));
+    const preferredOrder: PaymentMethod[] = ['ESPECES', 'WAVE', 'ORANGE_MONEY', 'CARTE'];
+    const nextMethod = preferredOrder.find((m) => !usedMethods.has(m)) || 'WAVE';
+    const currentRemaining = Math.max(0, netTotal - totalTendered);
+    setTenders((prev) => [
+      ...prev.filter((t) => t.method !== 'CREDIT'),
+      { method: nextMethod, amount: currentRemaining, reference: '' },
+    ]);
+  };
+
+  const handleUpdateTenderRow = (
+    index: number,
+    patch: Partial<Pick<TenderEntry, 'method' | 'amount' | 'reference'>>
+  ) => {
+    setTenders((prev) =>
+      prev.map((row, idx) =>
+        idx === index
+          ? {
+              ...row,
+              ...patch,
+              amount: patch.amount !== undefined ? Math.max(0, patch.amount) : row.amount,
+            }
+          : row
+      )
+    );
+  };
+
+  const handleRemoveTenderRow = (index: number) => {
+    setTenders((prev) => {
+      const next = prev.filter((_, idx) => idx !== index);
+      if (next.length === 0) {
+        return [{ method: 'ESPECES', amount: 0 }];
+      }
+      return next;
+    });
+  };
+
+  const handleFillRemainingOnTender = (index: number) => {
+    setTenders((prev) => {
+      const otherTotal = prev.reduce((sum, t, idx) => {
+        if (idx === index || t.method === 'CREDIT') return sum;
+        return sum + (Number(t.amount) || 0);
+      }, 0);
+      const needed = Math.max(0, netTotal - otherTotal);
+      return prev.map((row, idx) => (idx === index ? { ...row, amount: needed } : row));
+    });
   };
 
   const handleUpdatePrimaryTenderAmount = (amt: number) => {
@@ -965,6 +1077,91 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
       updated[0] = { ...updated[0], amount: Math.max(0, amt) };
     }
     setTenders(updated);
+  };
+
+  const handleSaveAsQuote = () => {
+    setErrorMessage('');
+    setSuccessBanner(null);
+
+    if (cart.length === 0) {
+      setErrorMessage('Veuillez ajouter au moins une pièce avant d’enregistrer un devis / proforma.');
+      return;
+    }
+
+    const selectedCust =
+      customerType === 'REGISTERED' ? customers.find((c) => c.id === selectedCustomerId) : null;
+    const customerName =
+      customerType === 'REGISTERED' && selectedCust
+        ? selectedCust.name
+        : walkInName.trim() || 'Client Comptoir';
+    const customerPhone =
+      customerType === 'REGISTERED' && selectedCust
+        ? selectedCust.phone
+        : walkInPhone.trim() || undefined;
+    const customerEmail =
+      customerType === 'REGISTERED' && selectedCust ? selectedCust.email : undefined;
+
+    let remainingGlobalDisc = computedGlobalDiscount;
+    const quoteItemsPayload = cart.map((c, idx) => {
+      const rawLine = c.quantity * c.unitPrice;
+      const netLineBeforeGlobal = Math.max(0, rawLine - c.discountAmount);
+      let extraGlobalDisc = 0;
+
+      if (remainingGlobalDisc > 0 && subtotalAfterLineDiscounts > 0) {
+        if (idx === cart.length - 1) {
+          extraGlobalDisc = Math.min(netLineBeforeGlobal, remainingGlobalDisc);
+        } else {
+          extraGlobalDisc = Math.min(
+            netLineBeforeGlobal,
+            Math.round(
+              (netLineBeforeGlobal / subtotalAfterLineDiscounts) * computedGlobalDiscount
+            )
+          );
+        }
+        remainingGlobalDisc = Math.max(0, remainingGlobalDisc - extraGlobalDisc);
+      }
+
+      const totalLineDisc = c.discountAmount + extraGlobalDisc;
+      const effectiveDiscountPercent =
+        rawLine > 0 ? Math.round((totalLineDisc / rawLine) * 10000) / 100 : 0;
+
+      return {
+        articleId: c.article.id,
+        quantity: c.quantity,
+        unitPrice: c.unitPrice,
+        discountPercent: effectiveDiscountPercent,
+      };
+    });
+
+    const notesParts = [
+      computedGlobalDiscount > 0
+        ? `Remise globale appliquée : -${formatFCFA(computedGlobalDiscount)}`
+        : '',
+      orderRef.trim() ? `Réf BC : ${orderRef.trim()}` : '',
+      saleNotes.trim(),
+    ].filter(Boolean);
+
+    const res = createQuote({
+      customerId: customerType === 'REGISTERED' && selectedCust ? selectedCust.id : undefined,
+      customerName,
+      customerPhone,
+      customerEmail,
+      warehouseId,
+      items: quoteItemsPayload,
+      notes: notesParts.join(' · ') || undefined,
+    });
+
+    if (!res.success || !res.quote) {
+      setErrorMessage(res.error || 'Impossible de créer le devis proforma.');
+      return;
+    }
+
+    setCreatedQuoteForPrint(res.quote);
+    setSuccessBanner(
+      `Devis / Proforma ${res.quote.quoteNumber} enregistré pour ${customerName} (${formatFCFA(
+        res.quote.totalAmount
+      )}). Aucun stock n’a été déduit.`
+    );
   };
 
   const handleSaveDraftList = () => {
@@ -1298,12 +1495,13 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
 
             {/* Corps du grand bloc de recherche */}
             <div className="p-6 space-y-5">
-              {/* Grande barre de saisie centrale — Variation 19 */}
+              {/* Grande barre de saisie centrale — Haute visibilité neutre */}
               <div className="relative">
-                <Search className="w-5 h-5 text-[#E35E2D] absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Search className="w-5 h-5 text-[#1B1B1B] absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none stroke-[2.25]" />
                 <input
                   ref={heroSearchInputRef}
                   type="text"
+                  data-search-input="true"
                   autoFocus
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -1312,7 +1510,7 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                     SEARCH_SCOPE_OPTIONS.find((o) => o.id === searchScope)?.placeholder ||
                     'Rechercher une référence (ex: 1R-0716), une désignation, une marque ou un modèle d’engin...'
                   }
-                  className="w-full pl-12 pr-24 py-4 text-sm sm:text-base font-medium bg-[#F9FAFB] border border-[#E5E5E5] rounded text-[#1B1B1B] placeholder:text-[#9CA3AF] focus:bg-white focus:outline-none focus:border-[#E35E2D] transition-all"
+                  className="search-input-prominent w-full pl-12 pr-28 py-4 text-sm sm:text-base font-medium bg-white border-[1.5px] border-[#374151] rounded-md text-[#1B1B1B] focus:outline-none focus:border-[#1B1B1B] transition-all"
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
                   {searchQuery && (
@@ -1326,10 +1524,10 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                     </button>
                   )}
                   <span
-                    className="px-2.5 py-1 bg-white text-[#1B1B1B] text-[11px] font-mono font-semibold inline-flex items-center gap-1 border border-[#E5E5E5] rounded"
+                    className="px-2.5 py-1 bg-[#F3F4F6] text-[#1B1B1B] text-[11px] font-mono font-semibold inline-flex items-center gap-1 border border-[#D1D5DB] rounded"
                     title="Appuyez sur Entrée pour ajouter directement le 1er résultat"
                   >
-                    <Barcode className="w-3.5 h-3.5 text-[#E35E2D]" />
+                    <Barcode className="w-3.5 h-3.5 text-[#1B1B1B]" />
                     <span className="hidden sm:inline">ENTRÉE</span>
                   </span>
                 </div>
@@ -1856,12 +2054,13 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                 </div>
               </div>
 
-              {/* Champ de recherche */}
+              {/* Champ de recherche — Haute visibilité neutre */}
               <div className="relative">
-                <Search className="w-4 h-4 text-[#E35E2D] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Search className="w-4 h-4 text-[#1B1B1B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none stroke-[2.25]" />
                 <input
                   ref={step2SearchInputRef}
                   type="text"
+                  data-search-input="true"
                   value={searchQuery}
                   onFocus={() => setIsStep2SearchOpen(true)}
                   onChange={(e) => {
@@ -1871,7 +2070,7 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                   onKeyDown={handleSearchKeyDown}
                   placeholder="Référence (ex: 1R-0716), désignation, marque..."
                   title="Tapez une référence ou désignation puis appuyez sur Entrée ou cliquez sur une pièce pour l'ajouter"
-                  className="w-full pl-10 pr-9 py-2.5 text-xs sm:text-sm font-medium bg-[#F9FAFB] border border-[#E5E5E5] rounded text-[#1B1B1B] focus:bg-white focus:outline-none focus:border-[#E35E2D]"
+                  className="search-input-prominent w-full pl-10 pr-9 py-2.5 text-xs sm:text-sm font-medium bg-white border-[1.5px] border-[#374151] rounded-md text-[#1B1B1B] focus:outline-none focus:border-[#1B1B1B]"
                 />
                 {(searchQuery || isStep2SearchOpen) && (
                   <button
@@ -2233,7 +2432,7 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                             </select>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#1B1B1B] text-white font-semibold text-[11px] max-w-full truncate">
-                              <Tag className="w-2.5 h-2.5 text-[#E35E2D] shrink-0" />
+                              <Tag className="w-2.5 h-2.5 text-white shrink-0" />
                               <span className="truncate">{cleanBrandName(activeBrand) || '—'}</span>
                             </span>
                           )}
@@ -2385,15 +2584,15 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
           </div>
 
           {/* ============================================================== */}
-          {/* 4. RÈGLEMENT & VALIDATION — MÊME MODÈLE QUE LES AUTRES DIVS    */}
+          {/* 4. RÈGLEMENT & VALIDATION — PAIEMENT SIMPLE, MULTIPLE & DEVIS  */}
           {/* ============================================================== */}
-          <div className="card bg-white border border-[#E5E5E5] rounded-lg p-5 text-[#1B1B1B]">
-            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-5">
-              {/* Gauche : 4. Règlement & Validation + Modes de paiement */}
-              <div className="space-y-2.5">
+          <div className="card bg-white border border-[#E5E5E5] rounded-lg p-5 text-[#1B1B1B] space-y-4">
+            {/* Ligne supérieure : Modes de paiement + Bouton Paiement multiple */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+              <div className="space-y-2">
                 <h3
                   className="font-display text-sm sm:text-base font-bold text-[#1B1B1B]"
-                  title="Choisir le mode d'encaissement et valider la facture"
+                  title="Choisir le mode d'encaissement (simple ou multiple) puis valider la facture ou enregistrer en devis"
                 >
                   4. Règlement & Validation
                 </h3>
@@ -2407,7 +2606,7 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                       { id: 'CREDIT', label: 'Crédit', tip: 'Vente à crédit (imputée sur le compte du client)' },
                     ] as const
                   ).map((m) => {
-                    const isActive = activeSingleMethod === m.id;
+                    const isActive = !isMultiPaymentMode && activeSingleMethod === m.id;
                     return (
                       <button
                         key={m.id}
@@ -2417,19 +2616,181 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                         className={`px-3.5 py-2 rounded text-xs font-semibold border transition-colors cursor-pointer ${
                           isActive
                             ? 'bg-[#1B1B1B]! text-white! border-[#1B1B1B]!'
-                            : 'bg-[#F9FAFB]! hover:bg-white! text-[#1B1B1B]! border-[#E5E5E5] hover:border-[#E35E2D]'
+                            : 'bg-[#F9FAFB]! hover:bg-white! text-[#1B1B1B]! border-[#E5E5E5] hover:border-[#1B1B1B]'
                         }`}
                       >
                         {m.label}
                       </button>
                     );
                   })}
+
+                  <button
+                    type="button"
+                    onClick={handleToggleMultiPaymentMode}
+                    title="Répartir le paiement sur plusieurs modes (ex: une partie en Espèces et le reste en Wave)"
+                    className={`px-3.5 py-2 rounded text-xs font-semibold border transition-colors inline-flex items-center gap-1.5 cursor-pointer ${
+                      isMultiPaymentMode
+                        ? 'bg-[#1B1B1B]! text-white! border-[#1B1B1B]!'
+                        : 'bg-white! hover:bg-[#F9FAFB]! text-[#1B1B1B]! border-[#374151]'
+                    }`}
+                  >
+                    <Layers className="w-3.5 h-3.5" />
+                    <span>Paiement multiple</span>
+                  </button>
                 </div>
               </div>
 
-              {/* Centre : Montant reçu & Monnaie / Reste */}
+              {/* Total à payer en grand à droite */}
+              <div className="lg:text-right shrink-0">
+                <span className="block text-[11px] font-semibold uppercase tracking-wider text-[#1B1B1B]/60">
+                  Total à payer
+                </span>
+                <span className="text-xl sm:text-2xl font-extrabold font-mono text-[#1B1B1B] tabular-nums">
+                  {formatFCFA(netTotal)}
+                </span>
+              </div>
+            </div>
+
+            {/* Zone dynamique : Paiement Simple OU Paiement Multiple */}
+            {isMultiPaymentMode ? (
+              <div className="p-4 rounded-lg bg-[#F9FAFB] border border-[#E5E5E5] space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <span className="text-xs font-bold text-[#1B1B1B]">
+                      Répartition multi-règlements ({tenders.length} ligne{tenders.length > 1 ? 's' : ''})
+                    </span>
+                    <p className="text-[11px] text-[#4B5563]">
+                      Saisissez les montants encaissés par mode (ex : une partie en Espèces, le reste en Wave ou Orange Money). Tout reliquat non couvert sera porté en créance client.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddTenderRow}
+                    className="px-3 py-1.5 rounded bg-white border border-[#374151] hover:border-[#1B1B1B] text-[#1B1B1B] text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Ajouter un mode</span>
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {tenders.map((row, idx) => (
+                    <div
+                      key={`tender-row-${idx}`}
+                      className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center bg-white p-2.5 rounded border border-[#E5E5E5]"
+                    >
+                      <div className="sm:col-span-3">
+                        <label className="block text-[10px] font-semibold text-[#4B5563] mb-0.5">
+                          Mode #{idx + 1}
+                        </label>
+                        <select
+                          value={row.method === 'CREDIT' ? 'ESPECES' : row.method}
+                          onChange={(e) =>
+                            handleUpdateTenderRow(idx, {
+                              method: e.target.value as PaymentMethod,
+                            })
+                          }
+                          className="w-full px-2.5 py-1.5 rounded bg-[#F9FAFB] border border-[#E5E5E5] text-xs font-semibold text-[#1B1B1B]"
+                        >
+                          {MULTI_PAYMENT_METHODS.map((opt) => (
+                            <option key={opt.id} value={opt.id}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="sm:col-span-4">
+                        <div className="flex items-center justify-between mb-0.5">
+                          <label className="text-[10px] font-semibold text-[#4B5563]">
+                            Montant (FCFA)
+                          </label>
+                          {remainingBalanceDue > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => handleFillRemainingOnTender(idx)}
+                              className="text-[10px] font-semibold text-[#1B1B1B] underline hover:text-[#E35E2D] bg-transparent! border-0! p-0! cursor-pointer"
+                              title="Compléter automatiquement avec le solde restant"
+                            >
+                              Mettre le solde
+                            </button>
+                          )}
+                        </div>
+                        <NumericInput
+                          min={0}
+                          step={500}
+                          value={row.amount}
+                          onChange={(val) => handleUpdateTenderRow(idx, { amount: val })}
+                          placeholder="0"
+                          className="w-full px-3 py-1.5 rounded bg-[#F9FAFB] border border-[#E5E5E5] font-mono font-bold text-xs text-[#1B1B1B] text-right focus:bg-white"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-4">
+                        <label className="block text-[10px] font-semibold text-[#4B5563] mb-0.5">
+                          Référence / N° transaction (facultatif)
+                        </label>
+                        <input
+                          type="text"
+                          value={row.reference || ''}
+                          onChange={(e) =>
+                            handleUpdateTenderRow(idx, { reference: e.target.value })
+                          }
+                          placeholder="Ex: ID Wave, N° OM, Chèque..."
+                          className="w-full px-2.5 py-1.5 rounded bg-[#F9FAFB] border border-[#E5E5E5] text-xs text-[#1B1B1B]"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-1 flex justify-end sm:pt-4">
+                        {tenders.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveTenderRow(idx)}
+                            className="p-1.5 rounded border border-rose-200 bg-rose-50! text-rose-700! hover:bg-rose-100! cursor-pointer"
+                            title="Retirer cette ligne de règlement"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Synthèse du paiement multiple */}
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-[#E5E5E5] text-xs">
+                  <div className="flex flex-wrap items-center gap-4">
+                    <span>
+                      Total encaissé :{' '}
+                      <strong className="font-mono text-[#1B1B1B] tabular-nums">
+                        {formatFCFA(totalTendered)}
+                      </strong>
+                    </span>
+                    {remainingBalanceDue > 0 ? (
+                      <span className="text-rose-700 font-semibold">
+                        Reste en créance :{' '}
+                        <strong className="font-mono tabular-nums">
+                          {formatFCFA(remainingBalanceDue)}
+                        </strong>
+                      </span>
+                    ) : changeToReturn > 0 ? (
+                      <span className="text-emerald-700 font-semibold">
+                        Monnaie à rendre :{' '}
+                        <strong className="font-mono tabular-nums">
+                          {formatFCFA(changeToReturn)}
+                        </strong>
+                      </span>
+                    ) : (
+                      <span className="text-emerald-700 font-semibold">
+                        Solde couvert intégralement
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
               <div className="flex flex-wrap sm:flex-nowrap items-end gap-3">
-                <div className="w-40 sm:w-44">
+                <div className="w-44 sm:w-48">
                   <label className="block text-[11px] font-semibold text-[#1B1B1B]/60 mb-1">
                     Montant reçu
                   </label>
@@ -2467,31 +2828,33 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                   </div>
                 </div>
               </div>
+            )}
 
-              {/* Droite : TOTAL À PAYER + Bouton Valider */}
-              <div className="flex flex-wrap items-center justify-between sm:justify-end gap-4 pt-3 xl:pt-0 border-t xl:border-t-0 border-[#E5E5E5]">
-                <div className="text-right">
-                  <span className="block text-[11px] font-semibold uppercase tracking-wider text-[#1B1B1B]/60">
-                    Total à payer
-                  </span>
-                  <span className="text-xl sm:text-2xl font-extrabold font-mono text-[#1B1B1B] tabular-nums">
-                    {formatFCFA(netTotal)}
-                  </span>
-                </div>
+            {/* Ligne inférieure : Actions finales (Enregistrer en Devis/Proforma + Valider & Facturer) */}
+            <div className="flex flex-wrap items-center justify-end gap-3 pt-3 border-t border-[#E5E5E5]">
+              <button
+                type="button"
+                disabled={cart.length === 0 || isSubmitting}
+                onClick={handleSaveAsQuote}
+                title="Enregistrer cette liste de pièces en Devis / Facture Proforma (sans déduire le stock) et ouvrir l’aperçu d’impression"
+                className="px-4 py-2.5 rounded bg-white! hover:bg-[#F9FAFB]! disabled:opacity-50 text-[#1B1B1B]! font-semibold text-xs sm:text-sm border border-[#1B1B1B] transition-colors inline-flex items-center gap-2 cursor-pointer"
+              >
+                <FileText className="w-4 h-4 text-[#1B1B1B]" />
+                <span>Enregistrer en Devis / Proforma</span>
+              </button>
 
-                <button
-                  type="button"
-                  disabled={cart.length === 0 || isSubmitting}
-                  onClick={handleValidateSale}
-                  title="Valider la vente et afficher la facture pour impression"
-                  className="px-5 py-3 rounded bg-[#E35E2D]! hover:bg-[#C94D1E]! disabled:opacity-50 text-white! font-semibold text-xs sm:text-sm border-0! transition-colors inline-flex items-center gap-2 cursor-pointer"
-                >
-                  <CheckCircle2 className="w-4 h-4 text-white" />
-                  <span>
-                    {isSubmitting ? 'Validation...' : 'Valider & Facturer'}
-                  </span>
-                </button>
-              </div>
+              <button
+                type="button"
+                disabled={cart.length === 0 || isSubmitting}
+                onClick={handleValidateSale}
+                title="Valider la vente et afficher la facture pour impression"
+                className="px-5 py-2.5 rounded bg-[#E35E2D]! hover:bg-[#C94D1E]! disabled:opacity-50 text-white! font-semibold text-xs sm:text-sm border-0! transition-colors inline-flex items-center gap-2 cursor-pointer"
+              >
+                <CheckCircle2 className="w-4 h-4 text-white" />
+                <span>
+                  {isSubmitting ? 'Validation...' : 'Valider & Facturer'}
+                </span>
+              </button>
             </div>
           </div>
         </div>
@@ -2701,6 +3064,14 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
         }}
       />
 
+      {/* Saved Quote / Proforma Print Modal directly from POS */}
+      <QuotePrintModal
+        quote={createdQuoteForPrint}
+        onClose={() => {
+          setCreatedQuoteForPrint(null);
+        }}
+      />
+
       {/* Product Image Lightbox Modal */}
       {imagePreviewUrl && (
         <div
@@ -2879,6 +3250,29 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                   <span>Total à Payer :</span>
                   <span className="font-mono text-amber-600">{formatFCFA(netTotal)}</span>
                 </div>
+                {tenders.filter((t) => t.method !== 'CREDIT' && t.amount > 0).length > 0 && (
+                  <div className="py-1.5 px-2.5 rounded bg-white border border-slate-200 space-y-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                      {tenders.filter((t) => t.method !== 'CREDIT' && t.amount > 0).length > 1
+                        ? 'Détail des règlements (Paiement multiple)'
+                        : 'Mode de règlement'}
+                    </span>
+                    {tenders
+                      .filter((t) => t.method !== 'CREDIT' && t.amount > 0)
+                      .map((t, idx) => (
+                        <div
+                          key={`confirm-t-${idx}`}
+                          className="flex justify-between items-center text-xs text-slate-800"
+                        >
+                          <span>
+                            {formatPaymentMethodLabel(t.method)}
+                            {t.reference ? ` (${t.reference})` : ''}
+                          </span>
+                          <span className="font-mono font-bold">{formatFCFA(t.amount)}</span>
+                        </div>
+                      ))}
+                  </div>
+                )}
                 <div className="flex justify-between items-center">
                   <span className="text-slate-500">Montant encaissé :</span>
                   <span className="font-mono font-bold text-emerald-700">
