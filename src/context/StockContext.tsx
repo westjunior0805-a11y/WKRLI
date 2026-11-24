@@ -282,6 +282,11 @@ interface StockContextType {
   getSaleById: (id: string) => Sale | undefined;
   recordSale: (params: RecordSaleParams) => { success: boolean; error?: string; sale?: Sale };
   updateSale: (params: UpdateSaleParams) => { success: boolean; error?: string };
+  syncSaleToCashJournal: (
+    saleId: string,
+    cashSessionId: string,
+    method: PaymentMethod
+  ) => { success: boolean; error?: string; message?: string };
   cancelOrRefundSale: (params: {
     saleId: string;
     reason: string;
@@ -4248,7 +4253,58 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   };
 
+  // Helper: Find the cash session matching a sale date (for retroactive edits or synchronization)
+  const findBestCashSessionForDate = (
+    targetDateIso: string,
+    preferredSessionId?: string
+  ): CashSession | undefined => {
+    if (preferredSessionId) {
+      const exact = cashSessions.find((s) => s.id === preferredSessionId);
+      if (exact) return exact;
+    }
+
+    const toLocalDay = (iso: string): string => {
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return '';
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
+
+    const targetMs = new Date(targetDateIso).getTime();
+    if (!Number.isNaN(targetMs)) {
+      // 1. Exact time-window match (openedAt <= saleDate <= closedAt or still OPEN)
+      const spanning = cashSessions
+        .filter((s) => {
+          const openMs = new Date(s.openedAt).getTime();
+          if (Number.isNaN(openMs) || targetMs < openMs) return false;
+          if (s.status === 'OPEN') return true;
+          if (s.closedAt) {
+            const closeMs = new Date(s.closedAt).getTime();
+            return !Number.isNaN(closeMs) && targetMs <= closeMs;
+          }
+          return false;
+        })
+        .sort((a, b) => new Date(b.openedAt).getTime() - new Date(a.openedAt).getTime());
+      if (spanning.length > 0) return spanning[0];
+
+      // 2. Same local calendar day match
+      const targetDay = toLocalDay(targetDateIso);
+      const sameDay = cashSessions
+        .filter((s) => toLocalDay(s.openedAt) === targetDay)
+        .sort((a, b) => {
+          const diffA = Math.abs(new Date(a.openedAt).getTime() - targetMs);
+          const diffB = Math.abs(new Date(b.openedAt).getTime() - targetMs);
+          return diffA - diffB;
+        });
+      if (sameDay.length > 0) return sameDay[0];
+    }
+
+    // 3. Fallback: currently active open session
+    return cashSessions.find((s) => s.status === 'OPEN');
+  };
+
   // Operation: MODIFICATION D'UNE VENTE EXISTANTE (RÉSERVÉ ADMINISTRATEUR)
+  // Synchronise intégralement : vente, encaissements (payments), journal de caisse (cashMovements),
+  // solde théorique de la session de caisse, solde client et mouvements de stock.
   const updateSale = (params: UpdateSaleParams): { success: boolean; error?: string } => {
     const saleIndex = sales.findIndex((s) => s.id === params.saleId);
     if (saleIndex === -1) return { success: false, error: 'Vente introuvable.' };
@@ -4271,33 +4327,16 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const newCustomerPhone = params.customerPhone !== undefined ? params.customerPhone?.trim() : existingSale.customerPhone;
     const newNotes = params.notes !== undefined ? params.notes.trim() : existingSale.notes;
 
+    const netSaleAmount = Math.max(0, existingSale.totalAmount - (existingSale.refundedAmount || 0));
     let newTotalPaid = existingSale.totalPaid;
     let newRemainingDue = existingSale.remainingDue;
     let newPaymentStatus = existingSale.paymentStatus;
 
     if (params.totalPaid !== undefined) {
-      newTotalPaid = Math.max(0, params.totalPaid);
-      newRemainingDue = Math.max(0, existingSale.totalAmount - newTotalPaid);
-      newPaymentStatus = newTotalPaid >= existingSale.totalAmount ? 'PAID' : newTotalPaid > 0 ? 'PARTIALLY_PAID' : 'UNPAID';
-    }
-
-    // Customer balance delta adjustment
-    if (existingSale.customerId && existingSale.remainingDue !== newRemainingDue) {
-      const deltaDue = newRemainingDue - existingSale.remainingDue;
-      setCustomers((prev) =>
-        prev.map((c) => {
-          if (c.id === existingSale.customerId) {
-            const updated = {
-              ...c,
-              outstandingBalance: Math.max(0, (c.outstandingBalance || 0) + deltaDue),
-              updatedAt: new Date().toISOString(),
-            };
-            saveCustomerToFirebase(updated).catch(console.warn);
-            return updated;
-          }
-          return c;
-        })
-      );
+      newTotalPaid = Math.max(0, Math.min(existingSale.totalAmount, Number(params.totalPaid) || 0));
+      newRemainingDue = Math.max(0, netSaleAmount - newTotalPaid);
+      newPaymentStatus =
+        newRemainingDue <= 0 ? 'PAID' : newTotalPaid > 0 ? 'PARTIALLY_PAID' : 'UNPAID';
     }
 
     const updatedSale: Sale = {
@@ -4312,34 +4351,348 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       paymentStatus: newPaymentStatus,
     };
 
-    setSales((prev) => prev.map((s) => (s.id === params.saleId ? updatedSale : s)));
+    const nextSales = sales.map((s) => (s.id === params.saleId ? updatedSale : s));
+    setSales(nextSales);
+    safeSetLocalStorage('sales', nextSales);
+    saveSaleToFirebase(updatedSale).catch(console.warn);
 
-    // Synchronize dates of payments and movements (and persist to localStorage & Firestore)
+    // -----------------------------------------------------------------------
+    // 1. Synchronisation des paiements (PaymentRecord) & Journal de Caisse (CashMovement)
+    // -----------------------------------------------------------------------
+    const existingSalePayments = payments.filter((p) => p.saleId === existingSale.id);
+    const existingPaymentsTotal = existingSalePayments.reduce(
+      (sum, p) => sum + (Number(p.amount) || 0),
+      0
+    );
+
+    const isSaleCashInMvt = (m: CashMovement) =>
+      (m.saleId === existingSale.id || m.documentRef === existingSale.receiptNumber) &&
+      (m.type === 'VENTE_ESPECES' || m.type === 'VENTE_DIGITAL') &&
+      m.direction === 'IN';
+
+    const existingSaleCashInMvts = cashMovements.filter(isSaleCashInMvt);
+    const existingSaleCashInTotal = existingSaleCashInMvts.reduce(
+      (sum, m) => sum + (Number(m.amount) || 0),
+      0
+    );
+    const existingSaleCashOutRefundTotal = cashMovements
+      .filter(
+        (m) =>
+          (m.saleId === existingSale.id || m.documentRef === existingSale.receiptNumber) &&
+          m.type === 'REMBOURSEMENT' &&
+          m.direction === 'OUT'
+      )
+      .reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
+
+    const effectiveMethod: PaymentMethod =
+      params.paymentMethod ||
+      existingSalePayments[0]?.method ||
+      existingSaleCashInMvts[0]?.method ||
+      'ESPECES';
+
+    const preferredSessionId =
+      existingSaleCashInMvts[0]?.cashSessionId || existingSalePayments[0]?.cashSessionId;
+    const targetSession = findBestCashSessionForDate(newDate, preferredSessionId);
+
+    const needsPaymentSync =
+      existingPaymentsTotal !== newTotalPaid ||
+      params.paymentMethod !== undefined ||
+      newDate !== existingSale.date ||
+      newCustomerId !== existingSale.customerId ||
+      newCustomerName !== existingSale.customerName;
+
+    let nextPayments = payments;
+    if (needsPaymentSync && existingSale.status !== 'CANCELLED' && existingSale.status !== 'REFUNDED') {
+      const paymentsToSave: PaymentRecord[] = [];
+      const paymentIdsToDelete: string[] = [];
+
+      if (newTotalPaid <= 0) {
+        existingSalePayments.forEach((p) => paymentIdsToDelete.push(p.id));
+        nextPayments = payments.filter((p) => p.saleId !== existingSale.id);
+      } else if (existingSalePayments.length === 0) {
+        const createdPayment: PaymentRecord = {
+          id: generatePaymentId(),
+          date: newDate,
+          saleId: existingSale.id,
+          customerId: newCustomerId,
+          customerName: updatedSale.customerName,
+          cashSessionId: targetSession?.id,
+          warehouseId: existingSale.warehouseId,
+          method: effectiveMethod,
+          amount: newTotalPaid,
+          userId: currentUser.id,
+          userName: currentUser.name,
+          reference: existingSale.receiptNumber,
+          notes: `Encaissement vente ${existingSale.receiptNumber}`,
+        };
+        paymentsToSave.push(createdPayment);
+        nextPayments = [createdPayment, ...payments];
+      } else if (existingSalePayments.length === 1) {
+        const targetId = existingSalePayments[0].id;
+        nextPayments = payments.map((p) => {
+          if (p.id !== targetId) return p;
+          const updatedP: PaymentRecord = {
+            ...p,
+            date: newDate,
+            amount: newTotalPaid,
+            method: params.paymentMethod || p.method,
+            customerId: newCustomerId,
+            customerName: updatedSale.customerName,
+            cashSessionId: p.cashSessionId || targetSession?.id,
+          };
+          paymentsToSave.push(updatedP);
+          return updatedP;
+        });
+      } else {
+        // Multi-payment sale: update metadata on existing entries, then add delta or trim excess
+        let remainingToTrim = Math.max(0, existingPaymentsTotal - newTotalPaid);
+        const deltaToAdd = Math.max(0, newTotalPaid - existingPaymentsTotal);
+        const updatedList: PaymentRecord[] = [];
+
+        for (const p of payments) {
+          if (p.saleId !== existingSale.id) {
+            updatedList.push(p);
+            continue;
+          }
+          let amt = Number(p.amount) || 0;
+          if (remainingToTrim > 0) {
+            const cut = Math.min(amt, remainingToTrim);
+            amt -= cut;
+            remainingToTrim -= cut;
+          }
+          if (amt <= 0) {
+            paymentIdsToDelete.push(p.id);
+            continue;
+          }
+          const updatedP: PaymentRecord = {
+            ...p,
+            date: newDate,
+            amount: amt,
+            customerId: newCustomerId,
+            customerName: updatedSale.customerName,
+          };
+          paymentsToSave.push(updatedP);
+          updatedList.push(updatedP);
+        }
+
+        if (deltaToAdd > 0) {
+          const extraPay: PaymentRecord = {
+            id: generatePaymentId(),
+            date: newDate,
+            saleId: existingSale.id,
+            customerId: newCustomerId,
+            customerName: updatedSale.customerName,
+            cashSessionId: targetSession?.id,
+            warehouseId: existingSale.warehouseId,
+            method: effectiveMethod,
+            amount: deltaToAdd,
+            userId: currentUser.id,
+            userName: currentUser.name,
+            reference: existingSale.receiptNumber,
+            notes: `Complément encaissement vente ${existingSale.receiptNumber}`,
+          };
+          paymentsToSave.push(extraPay);
+          updatedList.unshift(extraPay);
+        }
+        nextPayments = updatedList;
+      }
+
+      setPayments(nextPayments);
+      safeSetLocalStorage('payments', nextPayments);
+      if (paymentIdsToDelete.length > 0) {
+        markIdsDeleted('payments', paymentIdsToDelete);
+        deletePaymentsFromFirebase(paymentIdsToDelete).catch(console.warn);
+      }
+      paymentsToSave.forEach((p) => savePaymentToFirebase(p).catch(console.warn));
+    }
+
+    // Synchronisation du Journal des flux de caisse (CashMovement) & Session(s) de caisse
+    const targetGrossCashIn = newTotalPaid + existingSaleCashOutRefundTotal;
+    const needsCashSync =
+      existingSaleCashInTotal !== targetGrossCashIn ||
+      params.paymentMethod !== undefined ||
+      newDate !== existingSale.date ||
+      newCustomerId !== existingSale.customerId;
+
+    if (needsCashSync && existingSale.status !== 'CANCELLED' && existingSale.status !== 'REFUNDED') {
+      const cashMvtsToSave: CashMovement[] = [];
+      const cashMvtIdsToDelete: string[] = [];
+      const affectedSessionIds = new Set<string>();
+      let nextCashMovements = cashMovements;
+
+      if (targetGrossCashIn <= 0) {
+        existingSaleCashInMvts.forEach((m) => {
+          cashMvtIdsToDelete.push(m.id);
+          affectedSessionIds.add(m.cashSessionId);
+        });
+        nextCashMovements = cashMovements.filter((m) => !isSaleCashInMvt(m));
+      } else if (existingSaleCashInMvts.length === 0) {
+        if (targetSession) {
+          const isCash = effectiveMethod === 'ESPECES';
+          const createdCashMvt: CashMovement = {
+            id: generateCashMovementId('CSM-SALE'),
+            cashSessionId: targetSession.id,
+            warehouseId: existingSale.warehouseId,
+            date: newDate,
+            type: isCash ? 'VENTE_ESPECES' : 'VENTE_DIGITAL',
+            method: effectiveMethod,
+            amount: targetGrossCashIn,
+            isCashInDrawer: isCash,
+            direction: 'IN',
+            reason: `Vente ${existingSale.receiptNumber} (${effectiveMethod})`,
+            saleId: existingSale.id,
+            customerId: newCustomerId,
+            documentRef: existingSale.receiptNumber,
+            userId: currentUser.id,
+            userName: currentUser.name,
+          };
+          cashMvtsToSave.push(createdCashMvt);
+          affectedSessionIds.add(targetSession.id);
+          nextCashMovements = [createdCashMvt, ...cashMovements];
+        }
+      } else if (existingSaleCashInMvts.length === 1) {
+        const targetMvtId = existingSaleCashInMvts[0].id;
+        nextCashMovements = cashMovements.map((m) => {
+          if (m.id !== targetMvtId) {
+            // Also keep any return refund date synced if date changed
+            if (
+              newDate !== existingSale.date &&
+              (m.saleId === existingSale.id || m.documentRef === existingSale.receiptNumber)
+            ) {
+              const syncedM = { ...m, date: newDate };
+              cashMvtsToSave.push(syncedM);
+              return syncedM;
+            }
+            return m;
+          }
+          const nextMethod = params.paymentMethod || m.method;
+          const isCash = nextMethod === 'ESPECES';
+          affectedSessionIds.add(m.cashSessionId);
+          const updatedM: CashMovement = {
+            ...m,
+            date: newDate,
+            amount: targetGrossCashIn,
+            method: nextMethod,
+            type: isCash ? 'VENTE_ESPECES' : 'VENTE_DIGITAL',
+            isCashInDrawer: isCash,
+            reason: `Vente ${existingSale.receiptNumber} (${nextMethod})`,
+            customerId: newCustomerId,
+          };
+          cashMvtsToSave.push(updatedM);
+          return updatedM;
+        });
+      } else {
+        // Multi-movement sale
+        let remainingToTrim = Math.max(0, existingSaleCashInTotal - targetGrossCashIn);
+        const deltaToAdd = Math.max(0, targetGrossCashIn - existingSaleCashInTotal);
+        const updatedList: CashMovement[] = [];
+
+        for (const m of cashMovements) {
+          if (!isSaleCashInMvt(m)) {
+            if (
+              newDate !== existingSale.date &&
+              (m.saleId === existingSale.id || m.documentRef === existingSale.receiptNumber)
+            ) {
+              const syncedM = { ...m, date: newDate };
+              cashMvtsToSave.push(syncedM);
+              updatedList.push(syncedM);
+            } else {
+              updatedList.push(m);
+            }
+            continue;
+          }
+          let amt = Number(m.amount) || 0;
+          affectedSessionIds.add(m.cashSessionId);
+          if (remainingToTrim > 0) {
+            const cut = Math.min(amt, remainingToTrim);
+            amt -= cut;
+            remainingToTrim -= cut;
+          }
+          if (amt <= 0) {
+            cashMvtIdsToDelete.push(m.id);
+            continue;
+          }
+          const updatedM: CashMovement = {
+            ...m,
+            date: newDate,
+            amount: amt,
+            customerId: newCustomerId,
+          };
+          cashMvtsToSave.push(updatedM);
+          updatedList.push(updatedM);
+        }
+
+        if (deltaToAdd > 0 && targetSession) {
+          const isCash = effectiveMethod === 'ESPECES';
+          const extraMvt: CashMovement = {
+            id: generateCashMovementId('CSM-SALE'),
+            cashSessionId: targetSession.id,
+            warehouseId: existingSale.warehouseId,
+            date: newDate,
+            type: isCash ? 'VENTE_ESPECES' : 'VENTE_DIGITAL',
+            method: effectiveMethod,
+            amount: deltaToAdd,
+            isCashInDrawer: isCash,
+            direction: 'IN',
+            reason: `Complément vente ${existingSale.receiptNumber} (${effectiveMethod})`,
+            saleId: existingSale.id,
+            customerId: newCustomerId,
+            documentRef: existingSale.receiptNumber,
+            userId: currentUser.id,
+            userName: currentUser.name,
+          };
+          cashMvtsToSave.push(extraMvt);
+          affectedSessionIds.add(targetSession.id);
+          updatedList.unshift(extraMvt);
+        }
+        nextCashMovements = updatedList;
+      }
+
+      if (cashMvtsToSave.length > 0 || cashMvtIdsToDelete.length > 0) {
+        setCashMovements(nextCashMovements);
+        safeSetLocalStorage('cash_movements', nextCashMovements);
+        if (cashMvtIdsToDelete.length > 0) {
+          markIdsDeleted('cashMovements', cashMvtIdsToDelete);
+          deleteCashMovementsFromFirebase(cashMvtIdsToDelete).catch(console.warn);
+        }
+        cashMvtsToSave.forEach((m) => saveCashMovementToFirebase(m).catch(console.warn));
+        if (affectedSessionIds.size > 0) {
+          syncCashSessionsTheoreticalBalance(affectedSessionIds, nextCashMovements);
+        }
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // 2. Recalcul strict du solde client (ancien et/ou nouveau client rattaché)
+    // -----------------------------------------------------------------------
+    const affectedCustomerIds = new Set<string>();
+    if (existingSale.customerId) affectedCustomerIds.add(existingSale.customerId);
+    if (newCustomerId) affectedCustomerIds.add(newCustomerId);
+
+    if (affectedCustomerIds.size > 0) {
+      const nowIso = new Date().toISOString();
+      setCustomers((prev) => {
+        const nextCusts = prev.map((c) => {
+          if (!affectedCustomerIds.has(c.id)) return c;
+          const summary = getCustomerCreditSummary(c, nextSales, nextPayments);
+          const updated: Customer = {
+            ...c,
+            outstandingBalance: summary.creance,
+            depositBalance: summary.avanceDisponible,
+            updatedAt: nowIso,
+          };
+          saveCustomerToFirebase(updated).catch(console.warn);
+          return updated;
+        });
+        safeSetLocalStorage('customers', nextCusts);
+        return nextCusts;
+      });
+    }
+
+    // -----------------------------------------------------------------------
+    // 3. Synchronisation de la date sur les mouvements de stock liés
+    // -----------------------------------------------------------------------
     if (newDate !== existingSale.date) {
-      setPayments((prev) => {
-        const next = prev.map((p) => {
-          if (p.saleId === existingSale.id) {
-            const updatedP = { ...p, date: newDate };
-            savePaymentToFirebase(updatedP).catch(console.warn);
-            return updatedP;
-          }
-          return p;
-        });
-        safeSetLocalStorage('payments', next);
-        return next;
-      });
-      setCashMovements((prev) => {
-        const next = prev.map((m) => {
-          if (m.saleId === existingSale.id || m.documentRef === existingSale.receiptNumber) {
-            const updatedM = { ...m, date: newDate };
-            saveCashMovementToFirebase(updatedM).catch(console.warn);
-            return updatedM;
-          }
-          return m;
-        });
-        safeSetLocalStorage('cash_movements', next);
-        return next;
-      });
       setMovements((prev) => {
         const next = prev.map((m) => {
           if (m.documentRef === existingSale.id) {
@@ -4354,8 +4707,105 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       });
     }
 
-    saveSaleToFirebase(updatedSale).catch(console.warn);
     return { success: true };
+  };
+
+  // Réconciliation manuelle 1-clic d'une vente encaissée absente du Journal Caisse
+  // (ex: vente à crédit modifiée précédemment avant la mise à jour)
+  const syncSaleToCashJournal = (
+    saleId: string,
+    cashSessionId: string,
+    method: PaymentMethod
+  ): { success: boolean; error?: string; message?: string } => {
+    const sale = sales.find((s) => s.id === saleId);
+    if (!sale) return { success: false, error: 'Vente introuvable.' };
+    if (sale.status === 'CANCELLED' || sale.status === 'REFUNDED') {
+      return { success: false, error: 'Impossible de synchroniser une vente annulée ou remboursée.' };
+    }
+
+    const session = cashSessions.find((s) => s.id === cashSessionId);
+    if (!session) return { success: false, error: 'Session de caisse introuvable.' };
+
+    const saleCashIn = cashMovements
+      .filter(
+        (m) =>
+          (m.saleId === sale.id || m.documentRef === sale.receiptNumber) &&
+          (m.type === 'VENTE_ESPECES' || m.type === 'VENTE_DIGITAL') &&
+          m.direction === 'IN'
+      )
+      .reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
+    const saleCashOut = cashMovements
+      .filter(
+        (m) =>
+          (m.saleId === sale.id || m.documentRef === sale.receiptNumber) &&
+          m.type === 'REMBOURSEMENT' &&
+          m.direction === 'OUT'
+      )
+      .reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
+
+    const netRecordedCash = Math.max(0, saleCashIn - saleCashOut);
+    const missingCashAmount = Math.max(0, (Number(sale.totalPaid) || 0) - netRecordedCash);
+    if (missingCashAmount <= 0) {
+      return { success: false, error: 'Cette vente est déjà entièrement enregistrée dans le journal de caisse.' };
+    }
+
+    const isCash = method === 'ESPECES';
+    const newCashMvt: CashMovement = {
+      id: generateCashMovementId('CSM-SALE'),
+      cashSessionId: session.id,
+      warehouseId: sale.warehouseId,
+      date: sale.date,
+      type: isCash ? 'VENTE_ESPECES' : 'VENTE_DIGITAL',
+      method,
+      amount: missingCashAmount,
+      isCashInDrawer: isCash,
+      direction: 'IN',
+      reason: `Vente ${sale.receiptNumber} (${method})`,
+      saleId: sale.id,
+      customerId: sale.customerId,
+      documentRef: sale.receiptNumber,
+      userId: currentUser.id,
+      userName: currentUser.name,
+    };
+
+    const nextCashMovements = [newCashMvt, ...cashMovements];
+    setCashMovements(nextCashMovements);
+    safeSetLocalStorage('cash_movements', nextCashMovements);
+    saveCashMovementToFirebase(newCashMvt).catch(console.warn);
+    syncCashSessionsTheoreticalBalance(new Set([session.id]), nextCashMovements);
+
+    // Créer également l'écriture PaymentRecord manquante si absente (pour la répartition par mode dans le Bilan Journalier)
+    const existingPaySum = payments
+      .filter((p) => p.saleId === sale.id)
+      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    const missingPayAmount = Math.max(0, (Number(sale.totalPaid) || 0) - existingPaySum);
+
+    if (missingPayAmount > 0) {
+      const newPayment: PaymentRecord = {
+        id: generatePaymentId(),
+        date: sale.date,
+        saleId: sale.id,
+        customerId: sale.customerId,
+        customerName: sale.customerName,
+        cashSessionId: session.id,
+        warehouseId: sale.warehouseId,
+        method,
+        amount: missingPayAmount,
+        userId: currentUser.id,
+        userName: currentUser.name,
+        reference: sale.receiptNumber,
+        notes: `Encaissement vente ${sale.receiptNumber}`,
+      };
+      const nextPayments = [newPayment, ...payments];
+      setPayments(nextPayments);
+      safeSetLocalStorage('payments', nextPayments);
+      savePaymentToFirebase(newPayment).catch(console.warn);
+    }
+
+    return {
+      success: true,
+      message: `La vente ${sale.receiptNumber} (${missingCashAmount.toLocaleString('fr-FR')} FCFA en ${method}) a été intégrée au journal de la session ${session.id}.`,
+    };
   };
 
   // Operation: RETOUR DE PIÈCES — REMBOURSEMENT CLIENT OU AVOIR CLIENT
@@ -9812,6 +10262,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         deleteCustomerDebtAdjustment,
         recordSale,
         updateSale,
+        syncSaleToCashJournal,
         cancelOrRefundSale,
         deleteSale,
         returns,

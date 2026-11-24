@@ -41,6 +41,7 @@ export const CashRegisterView: React.FC = () => {
     deleteCashMovement,
     recordCashExpense,
     transferElectronicToCashDrawer,
+    syncSaleToCashJournal,
     currentUser,
   } = useStock();
 
@@ -97,6 +98,8 @@ export const CashRegisterView: React.FC = () => {
 
   // Selected session ID for historical inspection (kept in sync with cashSessions updates)
   const [selectedSessionIdForDetail, setSelectedSessionIdForDetail] = useState<string | null>(null);
+  // Selected payment method per unsynced sale for 1-click integration into the cash ledger
+  const [syncMethodBySaleId, setSyncMethodBySaleId] = useState<Record<string, PaymentMethod>>({});
 
   // Active open session globally (independent of warehouses)
   const currentOpenSession = useMemo(() => {
@@ -149,6 +152,106 @@ export const CashRegisterView: React.FC = () => {
         return ledgerSortOrder === 'ASC' ? tA - tB : tB - tA;
       });
   }, [cashMovements, targetSession, sales, ledgerSortOrder]);
+
+  // Detect paid sales belonging to targetSession (by time window or same day) missing from cashMovements
+  // (e.g., credit sales whose totalPaid was edited directly before synchronization was added)
+  const unsyncedSalesForSession = useMemo(() => {
+    if (!targetSession) return [];
+
+    const toLocalDay = (iso: string): string => {
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return '';
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
+
+    // Index net cash recorded per sale across ALL sessions
+    const cashInBySaleKey = new Map<string, number>();
+    const cashOutBySaleKey = new Map<string, number>();
+    for (const m of cashMovements) {
+      const key = m.saleId || m.documentRef;
+      if (!key) continue;
+      if ((m.type === 'VENTE_ESPECES' || m.type === 'VENTE_DIGITAL') && m.direction === 'IN') {
+        if (m.saleId) cashInBySaleKey.set(m.saleId, (cashInBySaleKey.get(m.saleId) || 0) + (Number(m.amount) || 0));
+        if (m.documentRef) cashInBySaleKey.set(m.documentRef, (cashInBySaleKey.get(m.documentRef) || 0) + (Number(m.amount) || 0));
+      } else if (m.type === 'REMBOURSEMENT' && m.direction === 'OUT') {
+        if (m.saleId) cashOutBySaleKey.set(m.saleId, (cashOutBySaleKey.get(m.saleId) || 0) + (Number(m.amount) || 0));
+        if (m.documentRef) cashOutBySaleKey.set(m.documentRef, (cashOutBySaleKey.get(m.documentRef) || 0) + (Number(m.amount) || 0));
+      }
+    }
+
+    const matchSessionId = (saleDateIso: string): string | undefined => {
+      const ms = new Date(saleDateIso).getTime();
+      if (Number.isNaN(ms)) return undefined;
+      const spanning = cashSessions
+        .filter((s) => {
+          const openMs = new Date(s.openedAt).getTime();
+          if (Number.isNaN(openMs) || ms < openMs) return false;
+          if (s.status === 'OPEN') return true;
+          if (s.closedAt) {
+            const closeMs = new Date(s.closedAt).getTime();
+            return !Number.isNaN(closeMs) && ms <= closeMs;
+          }
+          return false;
+        })
+        .sort((a, b) => new Date(b.openedAt).getTime() - new Date(a.openedAt).getTime());
+      if (spanning.length > 0) return spanning[0].id;
+
+      const day = toLocalDay(saleDateIso);
+      const sameDay = cashSessions
+        .filter((s) => toLocalDay(s.openedAt) === day)
+        .sort(
+          (a, b) =>
+            Math.abs(new Date(a.openedAt).getTime() - ms) -
+            Math.abs(new Date(b.openedAt).getTime() - ms)
+        );
+      if (sameDay.length > 0) return sameDay[0].id;
+
+      return currentOpenSession?.id;
+    };
+
+    const missingList: { sale: (typeof sales)[number]; missingAmount: number }[] = [];
+    for (const s of sales) {
+      if (s.status === 'CANCELLED' || s.status === 'REFUNDED') continue;
+      const paid = Number(s.totalPaid) || 0;
+      if (paid <= 0) continue;
+
+      const recordedIn = Math.max(
+        cashInBySaleKey.get(s.id) || 0,
+        s.receiptNumber ? cashInBySaleKey.get(s.receiptNumber) || 0 : 0
+      );
+      const recordedOut = Math.max(
+        cashOutBySaleKey.get(s.id) || 0,
+        s.receiptNumber ? cashOutBySaleKey.get(s.receiptNumber) || 0 : 0
+      );
+      const netRecorded = Math.max(0, recordedIn - recordedOut);
+      const missingAmount = Math.max(0, paid - netRecorded);
+      if (missingAmount <= 0) continue;
+
+      const matchedId = matchSessionId(s.date);
+      if (matchedId === targetSession.id) {
+        missingList.push({ sale: s, missingAmount });
+      }
+    }
+
+    return missingList.sort((a, b) => new Date(a.sale.date).getTime() - new Date(b.sale.date).getTime());
+  }, [sales, cashMovements, cashSessions, targetSession, currentOpenSession]);
+
+  const handleSyncMissingSale = (saleId: string) => {
+    if (!targetSession) return;
+    const method = syncMethodBySaleId[saleId] || 'ESPECES';
+    const res = syncSaleToCashJournal(saleId, targetSession.id, method);
+    if (!res.success) {
+      setAdminBanner({
+        type: 'error',
+        message: res.error || 'Erreur lors de la synchronisation de la vente en caisse.',
+      });
+    } else {
+      setAdminBanner({
+        type: 'success',
+        message: res.message || 'Vente intégrée au journal de caisse avec succès.',
+      });
+    }
+  };
 
   // Calculations for target session
   const sessionStats = useMemo(() => {
@@ -846,6 +949,64 @@ export const CashRegisterView: React.FC = () => {
                 </button>
               </div>
             </div>
+
+            {unsyncedSalesForSession.length > 0 && (
+              <div className="p-3.5 bg-amber-50 border-b border-amber-200 space-y-2">
+                <div className="flex items-start gap-2 text-xs text-amber-950">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold">
+                      {unsyncedSalesForSession.length} vente{unsyncedSalesForSession.length > 1 ? 's' : ''} encaissée{unsyncedSalesForSession.length > 1 ? 's' : ''} non présente{unsyncedSalesForSession.length > 1 ? 's' : ''} dans ce journal de caisse
+                    </p>
+                    <p className="text-[11px] text-amber-800">
+                      Ces ventes apparaissent dans le bilan journalier mais n&apos;ont pas d&apos;écriture de caisse (ex : vente à crédit modifiée directement en encaissée). Choisissez le mode de paiement et cliquez sur « Intégrer » pour régulariser le journal de caisse.
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  {unsyncedSalesForSession.map(({ sale, missingAmount }) => (
+                    <div
+                      key={sale.id}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white px-3 py-2 rounded-lg border border-amber-200 text-xs"
+                    >
+                      <div className="min-w-0">
+                        <span className="font-mono font-bold text-slate-900">{sale.receiptNumber}</span>
+                        <span className="text-slate-600 ml-2">{sale.customerName}</span>
+                        <span className="text-[11px] text-slate-400 ml-2">({formatDateTime(sale.date)})</span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 shrink-0">
+                        <span className="font-mono font-bold text-emerald-700">
+                          + {formatFCFA(missingAmount)}
+                        </span>
+                        <select
+                          value={syncMethodBySaleId[sale.id] || 'ESPECES'}
+                          onChange={(e) =>
+                            setSyncMethodBySaleId((prev) => ({
+                              ...prev,
+                              [sale.id]: e.target.value as PaymentMethod,
+                            }))
+                          }
+                          className="px-2 py-1 text-[11px] font-semibold border border-slate-300 rounded-md bg-white text-slate-800"
+                        >
+                          <option value="ESPECES">Espèces</option>
+                          <option value="WAVE">Wave</option>
+                          <option value="ORANGE_MONEY">Orange Money</option>
+                          <option value="VIREMENT">Virement</option>
+                          <option value="CARTE">Carte</option>
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => handleSyncMissingSale(sale.id)}
+                          className="px-2.5 py-1 rounded-md bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-[11px] transition-colors cursor-pointer"
+                        >
+                          Intégrer en caisse
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="overflow-x-auto">
               {sessionMovements.length === 0 ? (

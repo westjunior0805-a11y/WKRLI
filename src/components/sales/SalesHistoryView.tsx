@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useDeferredValue } from 'react';
 import { useStock } from '../../context/StockContext';
-import { Sale } from '../../types';
+import { Sale, PaymentMethod } from '../../types';
 import { formatFCFA, formatDateTime, exportToCSV } from '../../utils/formatters';
 import { downloadElementAsPdf, printElementById } from '../../utils/pdfExporter';
 import { fuzzyMatch } from '../../utils/fuzzySearch';
@@ -51,6 +51,7 @@ type SaleSortField =
 export const SalesHistoryView: React.FC = () => {
   const {
     sales,
+    payments,
     warehouses,
     customers,
     companyInfo,
@@ -79,6 +80,7 @@ export const SalesHistoryView: React.FC = () => {
   const [editCustomerName, setEditCustomerName] = useState('');
   const [editCustomerPhone, setEditCustomerPhone] = useState('');
   const [editTotalPaid, setEditTotalPaid] = useState<number>(0);
+  const [editPaymentMethod, setEditPaymentMethod] = useState<PaymentMethod>('ESPECES');
   const [editNotes, setEditNotes] = useState('');
   const [editError, setEditError] = useState('');
 
@@ -261,6 +263,8 @@ export const SalesHistoryView: React.FC = () => {
     setEditCustomerName(sale.customerName || '');
     setEditCustomerPhone(sale.customerPhone || '');
     setEditTotalPaid(sale.totalPaid);
+    const existingPayment = payments.find((p) => p.saleId === sale.id);
+    setEditPaymentMethod(existingPayment?.method || 'ESPECES');
     setEditNotes(sale.notes || '');
     setEditError('');
   };
@@ -278,6 +282,7 @@ export const SalesHistoryView: React.FC = () => {
       customerPhone: editCustomerPhone.trim() || undefined,
       notes: editNotes.trim(),
       totalPaid: editTotalPaid,
+      paymentMethod: editTotalPaid > 0 ? editPaymentMethod : undefined,
     });
 
     if (!res.success) {
@@ -1028,20 +1033,45 @@ export const SalesHistoryView: React.FC = () => {
                   </span>
                 </div>
 
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                    Montant Encaissé (FCFA)
-                  </label>
-                  <NumericInput
-                    min={0}
-                    max={saleToEdit.totalAmount}
-                    step={500}
-                    value={editTotalPaid}
-                    onChange={(val) => setEditTotalPaid(val)}
-                    placeholder="0"
-                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 font-mono font-bold text-emerald-700 dark:text-emerald-400"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                      Montant Encaissé (FCFA)
+                    </label>
+                    <NumericInput
+                      min={0}
+                      max={saleToEdit.totalAmount}
+                      step={500}
+                      value={editTotalPaid}
+                      onChange={(val) => setEditTotalPaid(val)}
+                      placeholder="0"
+                      className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 font-mono font-bold text-emerald-700 dark:text-emerald-400"
+                    />
+                  </div>
+
+                  {editTotalPaid > 0 && (
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                        Mode d&apos;encaissement (Caisse)
+                      </label>
+                      <select
+                        value={editPaymentMethod}
+                        onChange={(e) => setEditPaymentMethod(e.target.value as PaymentMethod)}
+                        className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 font-semibold"
+                      >
+                        <option value="ESPECES">Espèces (Tiroir)</option>
+                        <option value="WAVE">Wave</option>
+                        <option value="ORANGE_MONEY">Orange Money</option>
+                        <option value="VIREMENT">Virement bancaire</option>
+                        <option value="CARTE">Carte bancaire (TPE)</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
+
+                <p className="text-[10px] text-slate-500">
+                  Le journal des flux de caisse, le solde de la session correspondante et le bilan journalier seront automatiquement synchronisés.
+                </p>
 
                 <div className="flex justify-between items-center text-xs pt-1 border-t border-slate-200 dark:border-slate-700">
                   <span className="text-slate-500 font-medium">Reste dû (Créance) :</span>
