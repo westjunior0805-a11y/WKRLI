@@ -39,6 +39,7 @@ import {
   subscribeToQuotaExceeded,
 } from '../../firebase';
 import { exportToCSV } from '../../utils/formatters';
+import { SortableTh, TablePagination, usePagination } from '../common/TablePagination';
 
 type DatabaseTab = 'tables' | 'sync' | 'backup' | 'schemas';
 
@@ -84,8 +85,17 @@ export const DatabaseArchitectureView: React.FC = () => {
   const [selectedTableKey, setSelectedTableKey] = useState<string>('articles');
   const [tableSearch, setTableSearch] = useState<string>('');
   const [inspectorViewMode, setInspectorViewMode] = useState<'table' | 'json'>('table');
-  const [inspectorPage, setInspectorPage] = useState<number>(1);
-  const ITEMS_PER_PAGE = 25;
+  const [inspectorSortBy, setInspectorSortBy] = useState<string>('');
+  const [inspectorSortDir, setInspectorSortDir] = useState<'asc' | 'desc'>('asc');
+
+  const handleInspectorSort = (colKey: string) => {
+    if (inspectorSortBy === colKey) {
+      setInspectorSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setInspectorSortBy(colKey);
+      setInspectorSortDir('asc');
+    }
+  };
 
   // Confirmation states for destructive actions
   const [confirmPurgeKey, setConfirmPurgeKey] = useState<string | null>(null);
@@ -569,24 +579,37 @@ export const DatabaseArchitectureView: React.FC = () => {
     [tables]
   );
 
-  // Filter rows in selected table inspector
+  // Filter & sort rows in selected table inspector
   const filteredInspectorRows = useMemo(() => {
     const q = tableSearch.trim().toLowerCase();
-    if (!q) return selectedTable.data;
-    return selectedTable.data.filter((row) =>
-      JSON.stringify(row).toLowerCase().includes(q)
-    );
-  }, [selectedTable, tableSearch]);
+    const list = !q
+      ? [...selectedTable.data]
+      : selectedTable.data.filter((row) =>
+          JSON.stringify(row).toLowerCase().includes(q)
+        );
+    if (inspectorSortBy) {
+      list.sort((a, b) => {
+        const va = a?.[inspectorSortBy];
+        const vb = b?.[inspectorSortBy];
+        let cmp = 0;
+        if (typeof va === 'number' && typeof vb === 'number') {
+          cmp = va - vb;
+        } else {
+          cmp = String(va ?? '').localeCompare(String(vb ?? ''), 'fr', { numeric: true });
+        }
+        return inspectorSortDir === 'asc' ? cmp : -cmp;
+      });
+    }
+    return list;
+  }, [selectedTable, tableSearch, inspectorSortBy, inspectorSortDir]);
 
-  const totalInspectorPages = Math.max(
-    1,
-    Math.ceil(filteredInspectorRows.length / ITEMS_PER_PAGE)
-  );
-  const currentInspectorPage = Math.min(inspectorPage, totalInspectorPages);
-  const paginatedInspectorRows = useMemo(() => {
-    const start = (currentInspectorPage - 1) * ITEMS_PER_PAGE;
-    return filteredInspectorRows.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredInspectorRows, currentInspectorPage]);
+  const {
+    currentPage: currentInspectorPage,
+    setCurrentPage: setInspectorPage,
+    pageSize: inspectorPageSize,
+    setPageSize: setInspectorPageSize,
+    paginatedItems: paginatedInspectorRows,
+  } = usePagination(filteredInspectorRows, 25);
 
   // Export single table as JSON
   const handleExportSingleTableJson = (table: TableDescriptor) => {
@@ -1307,14 +1330,19 @@ CREATE TABLE public.customers (
                 Aucun enregistrement trouvé dans la table <strong>{selectedTable.label}</strong>.
               </div>
             ) : inspectorViewMode === 'table' ? (
-              <div className="overflow-x-auto flex-1">
-                <table className="w-full text-left border-collapse text-xs">
+              <div className="flex-1 overflow-hidden">
+                <table className="w-full table-fixed text-left border-collapse text-xs">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500">
                       {selectedTable.columns.map((col) => (
-                        <th key={col.key} className="py-2.5 px-3 whitespace-nowrap">
-                          {col.label}
-                        </th>
+                        <SortableTh
+                          key={col.key}
+                          label={col.label}
+                          active={inspectorSortBy === col.key}
+                          direction={inspectorSortDir}
+                          onClick={() => handleInspectorSort(col.key)}
+                          className="py-2.5 px-2.5"
+                        />
                       ))}
                     </tr>
                   </thead>
@@ -1324,7 +1352,8 @@ CREATE TABLE public.customers (
                         {selectedTable.columns.map((col) => (
                           <td
                             key={col.key}
-                            className="py-2.5 px-3 text-slate-800 max-w-[220px] truncate font-mono text-[11px]"
+                            className="py-2.5 px-2.5 text-slate-800 truncate font-mono text-[11px]"
+                            title={row[col.key] !== undefined && row[col.key] !== null ? String(row[col.key]) : undefined}
                           >
                             {col.render
                               ? col.render(row)
@@ -1345,41 +1374,14 @@ CREATE TABLE public.customers (
             )}
 
             {/* Inspector Pagination Footer */}
-            {filteredInspectorRows.length > ITEMS_PER_PAGE && (
-              <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-600">
-                <span>
-                  Lignes {(currentInspectorPage - 1) * ITEMS_PER_PAGE + 1} à{' '}
-                  {Math.min(
-                    currentInspectorPage * ITEMS_PER_PAGE,
-                    filteredInspectorRows.length
-                  )}{' '}
-                  sur <strong>{filteredInspectorRows.length.toLocaleString('fr-FR')}</strong>
-                </span>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    disabled={currentInspectorPage <= 1}
-                    onClick={() => setInspectorPage((p) => Math.max(1, p - 1))}
-                    className="p-1 rounded border border-slate-200 bg-white disabled:opacity-40"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  <span className="font-mono text-xs px-2">
-                    Page {currentInspectorPage} / {totalInspectorPages}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={currentInspectorPage >= totalInspectorPages}
-                    onClick={() =>
-                      setInspectorPage((p) => Math.min(totalInspectorPages, p + 1))
-                    }
-                    className="p-1 rounded border border-slate-200 bg-white disabled:opacity-40"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            )}
+            <TablePagination
+              totalItems={filteredInspectorRows.length}
+              currentPage={currentInspectorPage}
+              pageSize={inspectorPageSize}
+              onPageChange={setInspectorPage}
+              onPageSizeChange={setInspectorPageSize}
+              itemLabel="lignes"
+            />
           </div>
         </div>
       )}

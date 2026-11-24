@@ -28,6 +28,16 @@ import {
   Pencil,
 } from 'lucide-react';
 import { NumericInput } from '../common/NumericInput';
+import { TablePagination, SortableTh, usePagination } from '../common/TablePagination';
+
+type CashSortField =
+  | 'date'
+  | 'type'
+  | 'method'
+  | 'reason'
+  | 'amount'
+  | 'isCashInDrawer'
+  | 'userName';
 
 export const CashRegisterView: React.FC = () => {
   const {
@@ -93,8 +103,18 @@ export const CashRegisterView: React.FC = () => {
   const [transferError, setTransferError] = useState('');
   const [transferSuccess, setTransferSuccess] = useState('');
 
-  // Chronological sort order for session ledger ('ASC' = chronological by transaction date, 'DESC' = reverse chronological)
+  // Column sort state for session ledger
+  const [ledgerSortField, setLedgerSortField] = useState<CashSortField>('date');
   const [ledgerSortOrder, setLedgerSortOrder] = useState<'ASC' | 'DESC'>('ASC');
+
+  const handleLedgerSort = (field: CashSortField) => {
+    if (ledgerSortField === field) {
+      setLedgerSortOrder((prev) => (prev === 'ASC' ? 'DESC' : 'ASC'));
+    } else {
+      setLedgerSortField(field);
+      setLedgerSortOrder(field === 'amount' || field === 'date' ? 'DESC' : 'ASC');
+    }
+  };
 
   // Selected session ID for historical inspection (kept in sync with cashSessions updates)
   const [selectedSessionIdForDetail, setSelectedSessionIdForDetail] = useState<string | null>(null);
@@ -147,11 +167,52 @@ export const CashRegisterView: React.FC = () => {
         return m;
       })
       .sort((a, b) => {
-        const tA = new Date(a.date).getTime();
-        const tB = new Date(b.date).getTime();
-        return ledgerSortOrder === 'ASC' ? tA - tB : tB - tA;
+        let cmp = 0;
+        switch (ledgerSortField) {
+          case 'date':
+            cmp = new Date(a.date).getTime() - new Date(b.date).getTime();
+            break;
+          case 'type':
+            cmp = (a.type || '').localeCompare(b.type || '', 'fr');
+            break;
+          case 'method':
+            cmp = (a.method || '').localeCompare(b.method || '', 'fr');
+            break;
+          case 'reason':
+            cmp = (a.reason || '').localeCompare(b.reason || '', 'fr');
+            break;
+          case 'amount': {
+            const vA = (a.direction === 'IN' ? 1 : -1) * (a.amount || 0);
+            const vB = (b.direction === 'IN' ? 1 : -1) * (b.amount || 0);
+            cmp = vA - vB;
+            break;
+          }
+          case 'isCashInDrawer':
+            cmp = Number(Boolean(a.isCashInDrawer)) - Number(Boolean(b.isCashInDrawer));
+            break;
+          case 'userName':
+            cmp = (a.userName || '').localeCompare(b.userName || '', 'fr');
+            break;
+        }
+        return ledgerSortOrder === 'ASC' ? cmp : -cmp;
       });
-  }, [cashMovements, targetSession, sales, ledgerSortOrder]);
+  }, [cashMovements, targetSession, sales, ledgerSortField, ledgerSortOrder]);
+
+  const {
+    currentPage: ledgerPage,
+    setCurrentPage: setLedgerPage,
+    pageSize: ledgerPageSize,
+    setPageSize: setLedgerPageSize,
+    paginatedItems: paginatedSessionMovements,
+  } = usePagination(sessionMovements, 20);
+
+  const {
+    currentPage: sessionsPage,
+    setCurrentPage: setSessionsPage,
+    pageSize: sessionsPageSize,
+    setPageSize: setSessionsPageSize,
+    paginatedItems: paginatedCashSessions,
+  } = usePagination(cashSessions, 10);
 
   // Detect paid sales belonging to targetSession (by time window or same day) missing from cashMovements
   // (e.g., credit sales whose totalPaid was edited directly before synchronization was added)
@@ -1008,27 +1069,27 @@ export const CashRegisterView: React.FC = () => {
               </div>
             )}
 
-            <div className="overflow-x-auto">
+            <div className="w-full">
               {sessionMovements.length === 0 ? (
                 <div className="text-center py-10 text-slate-400 text-xs">
                   Aucun mouvement enregistré pour cette session de caisse.
                 </div>
               ) : (
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50/60 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
+                <table className="w-full table-fixed text-left text-xs">
+                  <thead className="bg-slate-50/60 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold text-[10px]">
                     <tr>
-                      <th className="py-2.5 px-3">Date & Heure</th>
-                      <th className="py-2.5 px-3">Type d'opération</th>
-                      <th className="py-2.5 px-3">Mode</th>
-                      <th className="py-2.5 px-3">Motif & Justification</th>
-                      <th className="py-2.5 px-3 text-right">Montant</th>
-                      <th className="py-2.5 px-3 text-center">Tiroir Espèces</th>
-                      <th className="py-2.5 px-3">Caissier</th>
-                      {isAdmin && <th className="py-2.5 px-3 text-right">Correction</th>}
+                      <SortableTh label="Date" active={ledgerSortField === 'date'} direction={ledgerSortOrder === 'ASC' ? 'asc' : 'desc'} onClick={() => handleLedgerSort('date')} className="w-[12%]" />
+                      <SortableTh label="Opération" active={ledgerSortField === 'type'} direction={ledgerSortOrder === 'ASC' ? 'asc' : 'desc'} onClick={() => handleLedgerSort('type')} className="w-[15%]" />
+                      <SortableTh label="Mode" active={ledgerSortField === 'method'} direction={ledgerSortOrder === 'ASC' ? 'asc' : 'desc'} onClick={() => handleLedgerSort('method')} className="hidden md:table-cell w-[10%]" />
+                      <SortableTh label="Motif & Réf." active={ledgerSortField === 'reason'} direction={ledgerSortOrder === 'ASC' ? 'asc' : 'desc'} onClick={() => handleLedgerSort('reason')} className="w-[24%]" />
+                      <SortableTh label="Montant" active={ledgerSortField === 'amount'} direction={ledgerSortOrder === 'ASC' ? 'asc' : 'desc'} onClick={() => handleLedgerSort('amount')} align="right" className="w-[13%]" />
+                      <SortableTh label="Tiroir" active={ledgerSortField === 'isCashInDrawer'} direction={ledgerSortOrder === 'ASC' ? 'asc' : 'desc'} onClick={() => handleLedgerSort('isCashInDrawer')} align="center" className="hidden lg:table-cell w-[10%]" />
+                      <SortableTh label="Caissier" active={ledgerSortField === 'userName'} direction={ledgerSortOrder === 'ASC' ? 'asc' : 'desc'} onClick={() => handleLedgerSort('userName')} className="hidden xl:table-cell w-[10%]" />
+                      {isAdmin && <th className="py-2.5 px-2 text-right w-20">Action</th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {sessionMovements.map((m, idx) => {
+                    {paginatedSessionMovements.map((m, idx) => {
                       const mDateObj = new Date(m.date);
                       const datePart = mDateObj.toLocaleDateString('fr-FR', {
                         day: '2-digit',
@@ -1049,22 +1110,22 @@ export const CashRegisterView: React.FC = () => {
 
                       return (
                         <tr key={`${m.id}-${idx}`} className="hover:bg-slate-50/70">
-                          <td className="py-2.5 px-3 font-mono text-[11px] text-slate-700 whitespace-nowrap">
+                          <td className="py-2.5 px-2.5 font-mono text-[11px] text-slate-700 whitespace-nowrap">
                             <div className="flex flex-col gap-0.5">
-                              <div className="flex items-center gap-1.5 font-bold text-slate-900">
-                                <Calendar className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                              <div className="flex items-center gap-1 font-bold text-slate-900">
+                                <Calendar className="w-3 h-3 text-amber-500 shrink-0" />
                                 <span>{datePart}</span>
                               </div>
-                              <div className="flex items-center gap-1 text-[10px] text-slate-500 pl-5">
-                                <Clock className="w-3 h-3 text-slate-400 shrink-0" />
+                              <div className="flex items-center gap-1 text-[10px] text-slate-500 pl-4">
+                                <Clock className="w-2.5 h-2.5 text-slate-400 shrink-0" />
                                 <span>{timePart}</span>
                               </div>
                             </div>
                           </td>
 
-                          <td className="py-2.5 px-3 whitespace-nowrap">
+                          <td className="py-2.5 px-2">
                             <span
-                              className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold ${
+                              className={`inline-block max-w-full truncate px-1.5 py-0.5 rounded text-[10px] font-semibold ${
                                 m.type === 'TRANSFERT_ELECTRONIQUE_TIROIR'
                                   ? 'bg-amber-100 text-amber-900 border border-amber-300 font-bold'
                                   : m.type === 'VENTE_ESPECES' || m.type === 'APPORT_ESPECES'
@@ -1088,20 +1149,20 @@ export const CashRegisterView: React.FC = () => {
                             </span>
                           </td>
 
-                          <td className="py-2.5 px-3 font-medium text-slate-700 whitespace-nowrap">
+                          <td className="hidden md:table-cell py-2.5 px-2 font-medium text-slate-700 truncate">
                             {m.method}
                           </td>
 
-                          <td className="py-2.5 px-3 text-slate-800 max-w-xs truncate">
+                          <td className="py-2.5 px-2.5 text-slate-800 truncate" title={`${m.reason}${m.documentRef ? ` (${m.documentRef})` : ''}`}>
                             {m.reason}
                             {m.documentRef && (
-                              <span className="font-mono text-[10px] text-slate-400 ml-1.5">
+                              <span className="font-mono text-[10px] text-slate-400 ml-1">
                                 ({m.documentRef})
                               </span>
                             )}
                           </td>
 
-                          <td className="py-2.5 px-3 text-right font-mono font-bold whitespace-nowrap tabular-nums">
+                          <td className="py-2.5 px-2.5 text-right font-mono font-bold whitespace-nowrap tabular-nums">
                             <span
                               className={
                                 m.direction === 'IN' ? 'text-emerald-700' : 'text-rose-600'
@@ -1111,40 +1172,39 @@ export const CashRegisterView: React.FC = () => {
                             </span>
                           </td>
 
-                          <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                          <td className="hidden lg:table-cell py-2.5 px-2 text-center">
                             {m.isCashInDrawer ? (
-                              <span className="text-[10px] text-emerald-800 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                                Oui (Tiroir)
+                              <span className="text-[10px] text-emerald-800 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                Tiroir
                               </span>
                             ) : (
                               <span className="text-[10px] text-slate-400 font-medium">
-                                Non (Électronique)
+                                Électro.
                               </span>
                             )}
                           </td>
 
-                          <td className="py-2.5 px-3 whitespace-nowrap text-slate-600 text-[11px]">
+                          <td className="hidden xl:table-cell py-2.5 px-2 text-slate-600 text-[11px] truncate" title={m.userName}>
                             {m.userName}
                           </td>
 
                           {isAdmin && (
-                            <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                            <td className="py-2.5 px-2 text-right whitespace-nowrap">
                               {canDeleteManualMvt ? (
                                 <button
                                   type="button"
                                   onClick={() => handleDeleteMovement(m)}
-                                  className="px-2 py-1 rounded text-[10px] font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 inline-flex items-center gap-1 cursor-pointer"
+                                  className="px-1.5 py-1 rounded text-[10px] font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 inline-flex items-center gap-1 cursor-pointer"
                                   title="Supprimer cette écriture erronée et recalculer le solde de caisse"
                                 >
                                   <Trash2 className="w-3 h-3" />
-                                  <span>Supprimer</span>
                                 </button>
                               ) : isLinkedCustomerPayment ? (
                                 <span
                                   className="text-[10px] text-slate-400 italic"
                                   title="Modifiable ou supprimable depuis la fiche du client (synchronisation automatique avec la caisse et le bilan)"
                                 >
-                                  Fiche client
+                                  Client
                                 </span>
                               ) : (
                                 <span className="text-[10px] text-slate-400">—</span>
@@ -1158,6 +1218,14 @@ export const CashRegisterView: React.FC = () => {
                 </table>
               )}
             </div>
+            <TablePagination
+              currentPage={ledgerPage}
+              totalItems={sessionMovements.length}
+              pageSize={ledgerPageSize}
+              onPageChange={setLedgerPage}
+              onPageSizeChange={setLedgerPageSize}
+              itemLabel="mouvements de caisse"
+            />
           </div>
         </div>
       ) : (
@@ -1199,7 +1267,7 @@ export const CashRegisterView: React.FC = () => {
           )}
         </div>
         <div className="divide-y divide-slate-100 text-xs">
-          {cashSessions.map((session, idx) => (
+          {paginatedCashSessions.map((session, idx) => (
             <div
               key={`${session.id}-${idx}`}
               onClick={() => setSelectedSessionIdForDetail(session.id)}
@@ -1271,6 +1339,16 @@ export const CashRegisterView: React.FC = () => {
               </div>
             </div>
           ))}
+        </div>
+        <div className="-mx-4 -mb-4 mt-3">
+          <TablePagination
+            currentPage={sessionsPage}
+            totalItems={cashSessions.length}
+            pageSize={sessionsPageSize}
+            onPageChange={setSessionsPage}
+            onPageSizeChange={setSessionsPageSize}
+            itemLabel="sessions"
+          />
         </div>
       </div>
 

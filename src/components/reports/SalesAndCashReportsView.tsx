@@ -6,6 +6,7 @@ import { getCustomerCreditSummary } from '../../utils/customerAccount';
 import { downloadElementAsPdf, printElementById } from '../../utils/pdfExporter';
 import { ReceiptModal } from '../sales/ReceiptModal';
 import { PaymentReceiptModal } from '../customers/PaymentReceiptModal';
+import { TablePagination, SortableTh, usePagination } from '../common/TablePagination';
 import {
   TrendingUp,
   Calendar,
@@ -89,6 +90,41 @@ export const SalesAndCashReportsView: React.FC = () => {
     payment: PaymentRecord;
     customer: Customer | null;
   } | null>(null);
+
+  // Table sort states (all 4 report tables)
+  const [dailySaleSort, setDailySaleSort] = useState<{
+    field: 'date' | 'receiptNumber' | 'customerName' | 'items' | 'totalAmount' | 'status';
+    dir: 'asc' | 'desc';
+  }>({ field: 'date', dir: 'desc' });
+  const [custPaySort, setCustPaySort] = useState<{
+    field: 'date' | 'reference' | 'customerName' | 'type' | 'method' | 'amount';
+    dir: 'asc' | 'desc';
+  }>({ field: 'date', dir: 'desc' });
+  const [whPerfSort, setWhPerfSort] = useState<{
+    field: 'name' | 'count' | 'revenue' | 'collected';
+    dir: 'asc' | 'desc';
+  }>({ field: 'revenue', dir: 'desc' });
+  const [topPartSort, setTopPartSort] = useState<{
+    field: 'ref' | 'desig' | 'qty' | 'totalRev';
+    dir: 'asc' | 'desc';
+  }>({ field: 'qty', dir: 'desc' });
+
+  const toggleDailySaleSort = (field: typeof dailySaleSort.field) =>
+    setDailySaleSort((prev) =>
+      prev.field === field ? { field, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { field, dir: field === 'date' || field === 'totalAmount' ? 'desc' : 'asc' }
+    );
+  const toggleCustPaySort = (field: typeof custPaySort.field) =>
+    setCustPaySort((prev) =>
+      prev.field === field ? { field, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { field, dir: field === 'date' || field === 'amount' ? 'desc' : 'asc' }
+    );
+  const toggleWhPerfSort = (field: typeof whPerfSort.field) =>
+    setWhPerfSort((prev) =>
+      prev.field === field ? { field, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { field, dir: field === 'name' ? 'asc' : 'desc' }
+    );
+  const toggleTopPartSort = (field: typeof topPartSort.field) =>
+    setTopPartSort((prev) =>
+      prev.field === field ? { field, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { field, dir: field === 'ref' || field === 'desig' ? 'asc' : 'desc' }
+    );
 
   // Quick navigation day by day
   const handleShiftSingleDate = (days: number) => {
@@ -573,10 +609,139 @@ export const SalesAndCashReportsView: React.FC = () => {
       });
     });
 
-    return Array.from(map.values())
-      .sort((a, b) => b.qty - a.qty)
-      .slice(0, 8);
+    return Array.from(map.values()).sort((a, b) => b.qty - a.qty);
   }, [filteredSales]);
+
+  // Sorted & paginated collections for the 4 report tables
+  const displaySortedSales = useMemo(() => {
+    return [...sortedSales].sort((a, b) => {
+      let cmp = 0;
+      switch (dailySaleSort.field) {
+        case 'date':
+          cmp = new Date(a.date).getTime() - new Date(b.date).getTime();
+          break;
+        case 'receiptNumber':
+          cmp = (a.receiptNumber || '').localeCompare(b.receiptNumber || '', 'fr');
+          break;
+        case 'customerName':
+          cmp = (a.customerName || '').localeCompare(b.customerName || '', 'fr');
+          break;
+        case 'items':
+          cmp =
+            a.items.reduce((s, i) => s + i.quantity, 0) -
+            b.items.reduce((s, i) => s + i.quantity, 0);
+          break;
+        case 'totalAmount':
+          cmp = (a.totalAmount || 0) - (b.totalAmount || 0);
+          break;
+        case 'status':
+          cmp = (a.remainingDue || 0) - (b.remainingDue || 0);
+          break;
+      }
+      return dailySaleSort.dir === 'asc' ? cmp : -cmp;
+    });
+  }, [sortedSales, dailySaleSort]);
+
+  const {
+    currentPage: salesPage,
+    setCurrentPage: setSalesPage,
+    pageSize: salesPageSize,
+    setPageSize: setSalesPageSize,
+    paginatedItems: paginatedDailySales,
+  } = usePagination(displaySortedSales, 15);
+
+  const displaySortedCustPayments = useMemo(() => {
+    return [...standaloneCustomerPayments].sort((a, b) => {
+      let cmp = 0;
+      switch (custPaySort.field) {
+        case 'date':
+          cmp = new Date(a.date).getTime() - new Date(b.date).getTime();
+          break;
+        case 'reference':
+          cmp = (a.reference || a.id).localeCompare(b.reference || b.id, 'fr');
+          break;
+        case 'customerName':
+          cmp = (a.customerName || '').localeCompare(b.customerName || '', 'fr');
+          break;
+        case 'type':
+          cmp = (a.paymentType || '').localeCompare(b.paymentType || '', 'fr');
+          break;
+        case 'method':
+          cmp = (a.method || '').localeCompare(b.method || '', 'fr');
+          break;
+        case 'amount':
+          cmp = (Number(a.amount) || 0) - (Number(b.amount) || 0);
+          break;
+      }
+      return custPaySort.dir === 'asc' ? cmp : -cmp;
+    });
+  }, [standaloneCustomerPayments, custPaySort]);
+
+  const {
+    currentPage: custPayPage,
+    setCurrentPage: setCustPayPage,
+    pageSize: custPayPageSize,
+    setPageSize: setCustPayPageSize,
+    paginatedItems: paginatedCustPayments,
+  } = usePagination(displaySortedCustPayments, 15);
+
+  const displaySortedWhPerf = useMemo(() => {
+    return [...salesByWarehouse].sort((a, b) => {
+      let cmp = 0;
+      switch (whPerfSort.field) {
+        case 'name':
+          cmp = a.warehouse.name.localeCompare(b.warehouse.name, 'fr');
+          break;
+        case 'count':
+          cmp = a.count - b.count;
+          break;
+        case 'revenue':
+          cmp = a.revenue - b.revenue;
+          break;
+        case 'collected':
+          cmp = a.collected - b.collected;
+          break;
+      }
+      return whPerfSort.dir === 'asc' ? cmp : -cmp;
+    });
+  }, [salesByWarehouse, whPerfSort]);
+
+  const {
+    currentPage: whPerfPage,
+    setCurrentPage: setWhPerfPage,
+    pageSize: whPerfPageSize,
+    setPageSize: setWhPerfPageSize,
+    paginatedItems: paginatedWhPerf,
+  } = usePagination(displaySortedWhPerf, 10);
+
+  const displaySortedTopParts = useMemo(() => {
+    return [...topSellingArticles].sort((a, b) => {
+      let cmp = 0;
+      switch (topPartSort.field) {
+        case 'ref':
+          cmp = a.ref.localeCompare(b.ref, 'fr');
+          break;
+        case 'desig':
+          cmp = a.desig.localeCompare(b.desig, 'fr');
+          break;
+        case 'qty':
+          cmp = a.qty - b.qty;
+          break;
+        case 'totalRev':
+          cmp = a.totalRev - b.totalRev;
+          break;
+      }
+      return topPartSort.dir === 'asc' ? cmp : -cmp;
+    });
+  }, [topSellingArticles, topPartSort]);
+
+  const {
+    currentPage: topPartsPage,
+    setCurrentPage: setTopPartsPage,
+    pageSize: topPartsPageSize,
+    setPageSize: setTopPartsPageSize,
+    paginatedItems: paginatedTopParts,
+  } = usePagination(displaySortedTopParts, 10);
 
   return (
     <div className="space-y-5">
@@ -1057,21 +1222,21 @@ export const SalesAndCashReportsView: React.FC = () => {
                   </span>
                 </div>
               ) : (
-                <div className="overflow-x-auto border border-slate-200 rounded-xl">
-                  <table className="w-full text-left text-xs">
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <table className="w-full table-fixed text-left text-xs">
                     <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase text-[10px] font-bold">
                       <tr>
-                        <th className="py-2.5 px-3">Date & Heure</th>
-                        <th className="py-2.5 px-3">N° Reçu</th>
-                        <th className="py-2.5 px-3">Client</th>
-                        <th className="py-2.5 px-3">Pièces & Quantités</th>
-                        <th className="py-2.5 px-3 text-right">Montant Vente</th>
-                        <th className="py-2.5 px-3 text-center">Règlement</th>
-                        <th className="py-2.5 px-3 text-right print:hidden">Action</th>
+                        <SortableTh label="Date" active={dailySaleSort.field === 'date'} direction={dailySaleSort.dir} onClick={() => toggleDailySaleSort('date')} className="w-[12%]" />
+                        <SortableTh label="N° Reçu" active={dailySaleSort.field === 'receiptNumber'} direction={dailySaleSort.dir} onClick={() => toggleDailySaleSort('receiptNumber')} className="w-[13%]" />
+                        <SortableTh label="Client" active={dailySaleSort.field === 'customerName'} direction={dailySaleSort.dir} onClick={() => toggleDailySaleSort('customerName')} className="w-[17%]" />
+                        <SortableTh label="Pièces" active={dailySaleSort.field === 'items'} direction={dailySaleSort.dir} onClick={() => toggleDailySaleSort('items')} className="hidden lg:table-cell w-[23%]" />
+                        <SortableTh label="Montant" active={dailySaleSort.field === 'totalAmount'} direction={dailySaleSort.dir} onClick={() => toggleDailySaleSort('totalAmount')} align="right" className="w-[13%]" />
+                        <SortableTh label="Règlement" active={dailySaleSort.field === 'status'} direction={dailySaleSort.dir} onClick={() => toggleDailySaleSort('status')} align="center" className="w-[14%]" />
+                        <th className="py-2.5 px-2 text-right print:hidden w-16">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
-                      {sortedSales.map((s) => {
+                      {paginatedDailySales.map((s) => {
                         const saleDate = new Date(s.date);
                         const dateStr = saleDate.toLocaleDateString('fr-FR', {
                           day: '2-digit',
@@ -1087,48 +1252,45 @@ export const SalesAndCashReportsView: React.FC = () => {
                         return (
                           <tr key={s.id} className="hover:bg-amber-50/30 transition-colors">
                             {/* Date & Heure */}
-                            <td className="py-3 px-3 font-mono text-slate-900 whitespace-nowrap">
+                            <td className="py-2.5 px-2.5 font-mono text-slate-900 whitespace-nowrap text-[11px]">
                               <div className="flex flex-col gap-0.5">
                                 <span className="flex items-center gap-1 font-bold text-slate-900">
-                                  <Calendar className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                  <Calendar className="w-3 h-3 text-amber-500 shrink-0" />
                                   {dateStr}
                                 </span>
-                                <span className="flex items-center gap-1 text-[11px] text-slate-500 pl-4.5">
-                                  <Clock className="w-3 h-3 text-slate-400 shrink-0" />
+                                <span className="flex items-center gap-1 text-[10px] text-slate-500 pl-4">
+                                  <Clock className="w-2.5 h-2.5 text-slate-400 shrink-0" />
                                   {timeStr}
                                 </span>
                               </div>
                             </td>
 
                             {/* Receipt Number */}
-                            <td className="py-3 px-3 font-mono text-slate-600 whitespace-nowrap">
+                            <td className="py-2.5 px-2.5 font-mono text-slate-600 truncate text-[11px]" title={s.receiptNumber}>
                               {s.receiptNumber}
                             </td>
 
                             {/* Customer */}
-                            <td className="py-3 px-3">
-                              <div className="font-bold text-slate-900">{s.customerName}</div>
+                            <td className="py-2.5 px-2.5">
+                              <div className="font-bold text-slate-900 truncate" title={s.customerName}>{s.customerName}</div>
                               {s.customerPhone && (
-                                <div className="text-[10px] font-mono text-slate-400 flex items-center gap-1 mt-0.5">
-                                  <Phone className="w-2.5 h-2.5" />
-                                  {s.customerPhone}
+                                <div className="text-[10px] font-mono text-slate-400 flex items-center gap-1 mt-0.5 truncate">
+                                  <Phone className="w-2.5 h-2.5 shrink-0" />
+                                  <span className="truncate">{s.customerPhone}</span>
                                 </div>
                               )}
                             </td>
 
                             {/* Items */}
-                            <td className="py-3 px-3 max-w-xs">
-                              <div className="line-clamp-2 text-slate-700">
+                            <td className="hidden lg:table-cell py-2.5 px-2.5">
+                              <div className="line-clamp-2 text-slate-700 text-[11px]">
                                 {s.items.map((i, idx) => (
-                                  <span key={idx} className="mr-2 inline-block">
+                                  <span key={idx} className="mr-1.5 inline-block">
                                     <strong className="font-mono text-slate-950 font-bold">
                                       {i.quantity}x
                                     </strong>{' '}
                                     <span className="font-mono text-amber-800 font-semibold">
                                       {i.mainReference}
-                                    </span>{' '}
-                                    <span className="text-[11px] text-slate-500">
-                                      ({i.designation})
                                     </span>
                                   </span>
                                 ))}
@@ -1136,31 +1298,31 @@ export const SalesAndCashReportsView: React.FC = () => {
                             </td>
 
                             {/* Amount */}
-                            <td className="py-3 px-3 text-right font-mono font-extrabold text-sm text-slate-950 whitespace-nowrap">
+                            <td className="py-2.5 px-2.5 text-right font-mono font-extrabold text-xs text-slate-950 whitespace-nowrap">
                               {formatFCFA(s.totalAmount)}
                             </td>
 
                             {/* Settlement Status */}
-                            <td className="py-3 px-3 text-center whitespace-nowrap">
+                            <td className="py-2.5 px-2 text-center">
                               {isFullyPaid ? (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                  <span>Payé ({formatFCFA(s.totalPaid)})</span>
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 max-w-full truncate">
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                                  <span className="truncate">Payé</span>
                                 </span>
                               ) : (
-                                <div className="inline-flex flex-col items-center">
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-300">
-                                    <span>Partiel / Crédit</span>
+                                <div className="inline-flex flex-col items-center max-w-full">
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-300">
+                                    <span>Crédit</span>
                                   </span>
-                                  <span className="text-[10px] font-mono font-bold text-rose-600 mt-0.5">
-                                    Reste : {formatFCFA(s.remainingDue)}
+                                  <span className="text-[10px] font-mono font-bold text-rose-600 mt-0.5 truncate">
+                                    {formatFCFA(s.remainingDue)}
                                   </span>
                                 </div>
                               )}
                             </td>
 
                             {/* View Action */}
-                            <td className="py-3 px-3 text-right print:hidden whitespace-nowrap">
+                            <td className="py-2.5 px-2 text-right print:hidden whitespace-nowrap">
                               <button
                                 type="button"
                                 onClick={() => setActiveReceiptSale(s)}
@@ -1168,7 +1330,6 @@ export const SalesAndCashReportsView: React.FC = () => {
                                 title="Voir le reçu ou imprimer la facture de cette vente"
                               >
                                 <Eye className="w-3.5 h-3.5" />
-                                <span>Reçu</span>
                               </button>
                             </td>
                           </tr>
@@ -1176,6 +1337,16 @@ export const SalesAndCashReportsView: React.FC = () => {
                       })}
                     </tbody>
                   </table>
+                  <div className="print:hidden">
+                    <TablePagination
+                      currentPage={salesPage}
+                      totalItems={displaySortedSales.length}
+                      pageSize={salesPageSize}
+                      onPageChange={setSalesPage}
+                      onPageSizeChange={setSalesPageSize}
+                      itemLabel="ventes"
+                    />
+                  </div>
                 </div>
               )}
             </div>
@@ -1195,21 +1366,21 @@ export const SalesAndCashReportsView: React.FC = () => {
                   </span>
                 </div>
 
-                <div className="overflow-x-auto border border-indigo-200/80 rounded-xl">
-                  <table className="w-full text-left text-xs">
+                <div className="border border-indigo-200/80 rounded-xl overflow-hidden">
+                  <table className="w-full table-fixed text-left text-xs">
                     <thead className="bg-indigo-50/70 border-b border-indigo-200/80 text-indigo-950 uppercase text-[10px] font-bold">
                       <tr>
-                        <th className="py-2.5 px-3">Date & Heure</th>
-                        <th className="py-2.5 px-3">Réf. / Pièce</th>
-                        <th className="py-2.5 px-3">Client</th>
-                        <th className="py-2.5 px-3">Nature & Motif</th>
-                        <th className="py-2.5 px-3 text-center">Mode</th>
-                        <th className="py-2.5 px-3 text-right">Montant Encaissé</th>
-                        <th className="py-2.5 px-3 text-right print:hidden">Action</th>
+                        <SortableTh label="Date" active={custPaySort.field === 'date'} direction={custPaySort.dir} onClick={() => toggleCustPaySort('date')} className="w-[12%]" />
+                        <SortableTh label="Réf." active={custPaySort.field === 'reference'} direction={custPaySort.dir} onClick={() => toggleCustPaySort('reference')} className="hidden md:table-cell w-[14%]" />
+                        <SortableTh label="Client" active={custPaySort.field === 'customerName'} direction={custPaySort.dir} onClick={() => toggleCustPaySort('customerName')} className="w-[19%]" />
+                        <SortableTh label="Nature" active={custPaySort.field === 'type'} direction={custPaySort.dir} onClick={() => toggleCustPaySort('type')} className="hidden lg:table-cell w-[21%]" />
+                        <SortableTh label="Mode" active={custPaySort.field === 'method'} direction={custPaySort.dir} onClick={() => toggleCustPaySort('method')} align="center" className="w-[12%]" />
+                        <SortableTh label="Encaissé" active={custPaySort.field === 'amount'} direction={custPaySort.dir} onClick={() => toggleCustPaySort('amount')} align="right" className="w-[14%]" />
+                        <th className="py-2.5 px-2 text-right print:hidden w-14">Reçu</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
-                      {standaloneCustomerPayments.map((p) => {
+                      {paginatedCustPayments.map((p) => {
                         const pDate = new Date(p.date);
                         const dateStr = pDate.toLocaleDateString('fr-FR', {
                           day: '2-digit',
@@ -1229,60 +1400,51 @@ export const SalesAndCashReportsView: React.FC = () => {
 
                         return (
                           <tr key={p.id} className="hover:bg-indigo-50/30 transition-colors">
-                            <td className="py-3 px-3 font-mono text-slate-900 whitespace-nowrap">
+                            <td className="py-2.5 px-2.5 font-mono text-slate-900 whitespace-nowrap text-[11px]">
                               <div className="flex flex-col gap-0.5">
                                 <span className="flex items-center gap-1 font-bold text-slate-900">
-                                  <Calendar className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                                  <Calendar className="w-3 h-3 text-indigo-500 shrink-0" />
                                   {dateStr}
                                 </span>
-                                <span className="flex items-center gap-1 text-[11px] text-slate-500 pl-4.5">
-                                  <Clock className="w-3 h-3 text-slate-400 shrink-0" />
+                                <span className="flex items-center gap-1 text-[10px] text-slate-500 pl-4">
+                                  <Clock className="w-2.5 h-2.5 text-slate-400 shrink-0" />
                                   {timeStr}
                                 </span>
                               </div>
                             </td>
 
-                            <td className="py-3 px-3 font-mono text-slate-700 whitespace-nowrap">
-                              <div className="font-semibold">{p.reference || p.id}</div>
-                              {p.reference && p.reference !== p.id && (
-                                <div className="text-[10px] text-slate-400">{p.id}</div>
-                              )}
+                            <td className="hidden md:table-cell py-2.5 px-2.5 font-mono text-slate-700 text-[11px]">
+                              <div className="font-semibold truncate" title={p.reference || p.id}>{p.reference || p.id}</div>
                             </td>
 
-                            <td className="py-3 px-3">
-                              <div className="font-bold text-slate-900">{displayCustomerName}</div>
-                              <div className="text-[10px] font-mono text-slate-400 flex items-center gap-2 mt-0.5">
-                                {customerObj?.phone && (
-                                  <span className="inline-flex items-center gap-0.5">
-                                    <Phone className="w-2.5 h-2.5" />
-                                    {customerObj.phone}
-                                  </span>
-                                )}
-                                {whName && <span>· {whName}</span>}
+                            <td className="py-2.5 px-2.5">
+                              <div className="font-bold text-slate-900 truncate" title={displayCustomerName}>{displayCustomerName}</div>
+                              <div className="text-[10px] font-mono text-slate-400 truncate">
+                                {whName || customerObj?.phone || ''}
                               </div>
                             </td>
 
-                            <td className="py-3 px-3 max-w-xs">
+                            <td className="hidden lg:table-cell py-2.5 px-2.5">
                               <span
-                                className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold mb-1 ${
+                                className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${
                                   isAcompte
                                     ? 'bg-sky-50 text-sky-800 border border-sky-200'
                                     : 'bg-indigo-50 text-indigo-800 border border-indigo-200'
                                 }`}
                               >
-                                {isAcompte ? 'Acompte Client' : 'Règlement Créance'}
+                                {isAcompte ? 'Acompte' : 'Règlement'}
                               </span>
                               {p.notes && (
-                                <div className="text-[11px] text-slate-600 line-clamp-2">
+                                <div className="text-[10px] text-slate-600 truncate mt-0.5" title={p.notes}>
                                   {p.notes}
                                 </div>
                               )}
                             </td>
 
-                            <td className="py-3 px-3 text-center whitespace-nowrap">
-                              <span className="inline-flex items-center px-2 py-0.5 rounded bg-slate-100 text-slate-800 font-semibold text-[10px] uppercase">
+                            <td className="py-2.5 px-2 text-center">
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-800 font-semibold text-[10px] uppercase truncate max-w-full">
                                 {p.method === 'ORANGE_MONEY'
-                                  ? 'Orange Money'
+                                  ? 'OM'
                                   : p.method === 'ESPECES'
                                   ? 'Espèces'
                                   : p.method === 'VIREMENT'
@@ -1293,11 +1455,11 @@ export const SalesAndCashReportsView: React.FC = () => {
                               </span>
                             </td>
 
-                            <td className="py-3 px-3 text-right font-mono font-extrabold text-sm text-emerald-700 whitespace-nowrap tabular-nums">
+                            <td className="py-2.5 px-2.5 text-right font-mono font-extrabold text-xs text-emerald-700 whitespace-nowrap tabular-nums">
                               +{formatFCFA(p.amount)}
                             </td>
 
-                            <td className="py-3 px-3 text-right print:hidden whitespace-nowrap">
+                            <td className="py-2.5 px-2 text-right print:hidden whitespace-nowrap">
                               <button
                                 type="button"
                                 onClick={() =>
@@ -1310,7 +1472,6 @@ export const SalesAndCashReportsView: React.FC = () => {
                                 title="Voir ou imprimer le reçu de cet acompte / règlement"
                               >
                                 <Eye className="w-3.5 h-3.5" />
-                                <span>Reçu</span>
                               </button>
                             </td>
                           </tr>
@@ -1320,15 +1481,25 @@ export const SalesAndCashReportsView: React.FC = () => {
                     <tfoot className="bg-emerald-50/60 border-t border-indigo-200/80 text-xs font-bold">
                       <tr>
                         <td colSpan={5} className="py-2.5 px-3 text-right text-slate-700 uppercase text-[11px]">
-                          Total Acomptes & Règlements Clients :
+                          Total Acomptes & Règlements :
                         </td>
-                        <td className="py-2.5 px-3 text-right font-mono font-extrabold text-emerald-800 tabular-nums whitespace-nowrap">
+                        <td className="py-2.5 px-2.5 text-right font-mono font-extrabold text-emerald-800 tabular-nums whitespace-nowrap">
                           +{formatFCFA(totalCustomerPaymentsCollected)}
                         </td>
                         <td className="print:hidden" />
                       </tr>
                     </tfoot>
                   </table>
+                  <div className="print:hidden">
+                    <TablePagination
+                      currentPage={custPayPage}
+                      totalItems={displaySortedCustPayments.length}
+                      pageSize={custPayPageSize}
+                      onPageChange={setCustPayPage}
+                      onPageSizeChange={setCustPayPageSize}
+                      itemLabel="encaissements"
+                    />
+                  </div>
                 </div>
               </div>
             )}
@@ -1426,40 +1597,40 @@ export const SalesAndCashReportsView: React.FC = () => {
           {/* 2-Column Split: Sales by Warehouse & Top Selling Articles */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Left: Performance by warehouse */}
-            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
+            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs overflow-hidden">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-3">
                 Performance commerciale par magasin
               </h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="border-b border-slate-200 text-slate-400 uppercase">
+              <div className="w-full">
+                <table className="w-full table-fixed text-left text-xs">
+                  <thead className="border-b border-slate-200 text-slate-400 uppercase text-[10px]">
                     <tr>
-                      <th className="py-2">Magasin</th>
-                      <th className="py-2 text-center">Ventes</th>
-                      <th className="py-2 text-right">CA (FCFA)</th>
-                      <th className="py-2 text-right">Encaissé</th>
+                      <SortableTh label="Magasin" active={whPerfSort.field === 'name'} direction={whPerfSort.dir} onClick={() => toggleWhPerfSort('name')} className="w-[34%]" />
+                      <SortableTh label="Ventes" active={whPerfSort.field === 'count'} direction={whPerfSort.dir} onClick={() => toggleWhPerfSort('count')} align="center" className="w-[14%]" />
+                      <SortableTh label="CA" active={whPerfSort.field === 'revenue'} direction={whPerfSort.dir} onClick={() => toggleWhPerfSort('revenue')} align="right" className="w-[26%]" />
+                      <SortableTh label="Encaissé" active={whPerfSort.field === 'collected'} direction={whPerfSort.dir} onClick={() => toggleWhPerfSort('collected')} align="right" className="w-[26%]" />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {salesByWarehouse.map((w) => (
+                    {paginatedWhPerf.map((w) => (
                       <tr key={w.warehouse.id}>
-                        <td className="py-2.5 font-semibold text-slate-800">
-                          {w.warehouse.name}
+                        <td className="py-2.5 px-2 font-semibold text-slate-800">
+                          <span className="block truncate" title={w.warehouse.name}>{w.warehouse.name}</span>
                           <span className="block text-[10px] font-mono text-slate-400">
                             {w.warehouse.code}
                           </span>
                         </td>
-                        <td className="py-2.5 text-center font-mono font-bold text-slate-700">
+                        <td className="py-2.5 px-2 text-center font-mono font-bold text-slate-700">
                           {w.count}
                         </td>
-                        <td className="py-2.5 text-right font-mono font-bold text-slate-900">
+                        <td className="py-2.5 px-2 text-right font-mono font-bold text-slate-900 truncate">
                           {formatFCFA(w.revenue)}
                         </td>
-                        <td className="py-2.5 text-right font-mono text-emerald-700 font-bold">
-                          {formatFCFA(w.collected)}
+                        <td className="py-2.5 px-2 text-right font-mono text-emerald-700 font-bold">
+                          <span className="block truncate">{formatFCFA(w.collected)}</span>
                           {w.customerPaymentsCollected > 0 && (
-                            <span className="block text-[10px] font-normal text-indigo-700">
-                              dont +{formatFCFA(w.customerPaymentsCollected)} acomptes/règl.
+                            <span className="block text-[10px] font-normal text-indigo-700 truncate">
+                              +{formatFCFA(w.customerPaymentsCollected)} règ.
                             </span>
                           )}
                         </td>
@@ -1468,44 +1639,54 @@ export const SalesAndCashReportsView: React.FC = () => {
                   </tbody>
                 </table>
               </div>
+              <div className="-mx-4 -mb-4 mt-2">
+                <TablePagination
+                  currentPage={whPerfPage}
+                  totalItems={displaySortedWhPerf.length}
+                  pageSize={whPerfPageSize}
+                  onPageChange={setWhPerfPage}
+                  onPageSizeChange={setWhPerfPageSize}
+                  itemLabel="magasins"
+                />
+              </div>
             </div>
 
             {/* Right: Top Selling Parts */}
-            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
+            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs overflow-hidden">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-3">
                 Pièces détachées les plus vendues
               </h3>
-              <div className="overflow-x-auto">
-                {topSellingArticles.length === 0 ? (
+              <div className="w-full">
+                {displaySortedTopParts.length === 0 ? (
                   <div className="text-center py-8 text-slate-400 text-xs">
                     Aucune vente enregistrée sur cette période.
                   </div>
                 ) : (
-                  <table className="w-full text-left text-xs">
-                    <thead className="border-b border-slate-200 text-slate-400 uppercase">
+                  <table className="w-full table-fixed text-left text-xs">
+                    <thead className="border-b border-slate-200 text-slate-400 uppercase text-[10px]">
                       <tr>
-                        <th className="py-2">Réf. Constructeur</th>
-                        <th className="py-2">Désignation</th>
-                        <th className="py-2 text-right">Qté Vendue</th>
-                        <th className="py-2 text-right">Total CA</th>
+                        <SortableTh label="Référence" active={topPartSort.field === 'ref'} direction={topPartSort.dir} onClick={() => toggleTopPartSort('ref')} className="w-[26%]" />
+                        <SortableTh label="Désignation" active={topPartSort.field === 'desig'} direction={topPartSort.dir} onClick={() => toggleTopPartSort('desig')} className="w-[34%]" />
+                        <SortableTh label="Qté" active={topPartSort.field === 'qty'} direction={topPartSort.dir} onClick={() => toggleTopPartSort('qty')} align="right" className="w-[14%]" />
+                        <SortableTh label="Total CA" active={topPartSort.field === 'totalRev'} direction={topPartSort.dir} onClick={() => toggleTopPartSort('totalRev')} align="right" className="w-[26%]" />
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {topSellingArticles.map((it, idx) => (
+                      {paginatedTopParts.map((it, idx) => (
                         <tr key={idx}>
-                          <td className="py-2.5 font-mono font-bold text-slate-900">
-                            {it.ref}
-                            <span className="block text-[10px] font-sans text-slate-400 font-normal">
+                          <td className="py-2.5 px-2 font-mono font-bold text-slate-900">
+                            <span className="block truncate" title={it.ref}>{it.ref}</span>
+                            <span className="block text-[10px] font-sans text-slate-400 font-normal truncate">
                               {it.brand}
                             </span>
                           </td>
-                          <td className="py-2.5 text-slate-700 max-w-[160px] truncate">
+                          <td className="py-2.5 px-2 text-slate-700 truncate" title={it.desig}>
                             {it.desig}
                           </td>
-                          <td className="py-2.5 text-right font-mono font-bold text-slate-900">
+                          <td className="py-2.5 px-2 text-right font-mono font-bold text-slate-900">
                             {it.qty}
                           </td>
-                          <td className="py-2.5 text-right font-mono font-bold text-slate-900">
+                          <td className="py-2.5 px-2 text-right font-mono font-bold text-slate-900 truncate">
                             {formatFCFA(it.totalRev)}
                           </td>
                         </tr>
@@ -1513,6 +1694,16 @@ export const SalesAndCashReportsView: React.FC = () => {
                     </tbody>
                   </table>
                 )}
+              </div>
+              <div className="-mx-4 -mb-4 mt-2">
+                <TablePagination
+                  currentPage={topPartsPage}
+                  totalItems={displaySortedTopParts.length}
+                  pageSize={topPartsPageSize}
+                  onPageChange={setTopPartsPage}
+                  onPageSizeChange={setTopPartsPageSize}
+                  itemLabel="pièces"
+                />
               </div>
             </div>
           </div>

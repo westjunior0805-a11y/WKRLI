@@ -23,6 +23,17 @@ import { ReceiptModal } from '../sales/ReceiptModal';
 import { PaymentReceiptModal } from './PaymentReceiptModal';
 import { ImportCustomersModal } from './ImportCustomersModal';
 import { NumericInput } from '../common/NumericInput';
+import { TablePagination, SortableTh, usePagination } from '../common/TablePagination';
+import { RowActionsMenu } from '../common/RowActionsMenu';
+
+type CustomerSortField =
+  | 'code'
+  | 'name'
+  | 'contact'
+  | 'totalPurchases'
+  | 'totalAcomptes'
+  | 'creance'
+  | 'status';
 
 function getTodayDateInput(): string {
   const d = new Date();
@@ -63,6 +74,17 @@ export const CustomerListView: React.FC = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterDebtOnly, setFilterDebtOnly] = useState(false);
+  const [sortField, setSortField] = useState<CustomerSortField>('name');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  const handleSort = (field: CustomerSortField) => {
+    if (sortField === field) {
+      setSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDir(field === 'creance' || field === 'totalPurchases' || field === 'totalAcomptes' ? 'desc' : 'asc');
+    }
+  };
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
 
@@ -145,7 +167,7 @@ export const CustomerListView: React.FC = () => {
       if (filterDebtOnly && creance <= 0) return false;
       return true;
     });
-    return fuzzyFilter(base, searchQuery, (c) => [
+    const matched = fuzzyFilter(base, searchQuery, (c) => [
       c.code,
       c.name,
       c.phone,
@@ -153,7 +175,46 @@ export const CustomerListView: React.FC = () => {
       c.email,
       c.notes,
     ]);
-  }, [customers, customerSummaryMap, filterDebtOnly, searchQuery]);
+    return [...matched].sort((a, b) => {
+      const sA = customerSummaryMap.get(a.id);
+      const sB = customerSummaryMap.get(b.id);
+      let cmp = 0;
+      switch (sortField) {
+        case 'code':
+          cmp = (a.code || '').localeCompare(b.code || '', 'fr');
+          break;
+        case 'name':
+          cmp = (a.name || '').localeCompare(b.name || '', 'fr');
+          break;
+        case 'contact':
+          cmp = (a.phone || a.address || '').localeCompare(b.phone || b.address || '', 'fr');
+          break;
+        case 'totalPurchases':
+          cmp = (sA?.totalPurchases || 0) - (sB?.totalPurchases || 0);
+          break;
+        case 'totalAcomptes':
+          cmp = (sA?.totalAcomptes || 0) - (sB?.totalAcomptes || 0);
+          break;
+        case 'creance':
+          cmp = (sA?.creance || 0) - (sB?.creance || 0);
+          break;
+        case 'status': {
+          const rank = (s: typeof sA) => (s && s.creance > 0 ? 2 : s && s.avanceDisponible > 0 ? 1 : 0);
+          cmp = rank(sA) - rank(sB);
+          break;
+        }
+      }
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [customers, customerSummaryMap, filterDebtOnly, searchQuery, sortField, sortDir]);
+
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    paginatedItems: paginatedCustomers,
+  } = usePagination(filteredCustomers, 15);
 
   // Global totals across all customers
   const globalTotals = useMemo(() => {
@@ -574,33 +635,27 @@ export const CustomerListView: React.FC = () => {
 
       {/* Customers Table */}
       <div className="bg-white border border-[#E5E5E5] rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="w-full">
           {filteredCustomers.length === 0 ? (
             <div className="text-center py-12 px-4 text-[#1B1B1B]/40 text-xs">
               Aucun compte client ne correspond à votre recherche.
             </div>
           ) : (
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#F8F7F4] border-b border-[#E5E5E5] text-[#1B1B1B]/60 uppercase tracking-wider font-semibold">
+            <table className="w-full table-fixed text-left text-xs">
+              <thead className="bg-[#F8F7F4] border-b border-[#E5E5E5] text-[#1B1B1B]/60 uppercase tracking-wider font-semibold text-[10px]">
                 <tr>
-                  <th className="py-3 px-3">Code</th>
-                  <th className="py-3 px-3">Client</th>
-                  <th className="py-3 px-3">Contact</th>
-                  <th className="py-3 px-3 text-right" title="Somme des achats non payés directement">
-                    Somme des Achats
-                  </th>
-                  <th className="py-3 px-3 text-right" title="Somme des acomptes et règlements versés">
-                    Somme des Acomptes
-                  </th>
-                  <th className="py-3 px-3 text-right" title="Différence : Somme des Achats − Somme des Acomptes">
-                    Montant Créance
-                  </th>
-                  <th className="py-3 px-3 text-center">Statut</th>
-                  <th className="py-3 px-3 text-right">Actions</th>
+                  <SortableTh label="Code" active={sortField === 'code'} direction={sortDir} onClick={() => handleSort('code')} className="w-[10%]" />
+                  <SortableTh label="Client" active={sortField === 'name'} direction={sortDir} onClick={() => handleSort('name')} className="w-[20%]" />
+                  <SortableTh label="Contact" active={sortField === 'contact'} direction={sortDir} onClick={() => handleSort('contact')} className="hidden lg:table-cell w-[15%]" />
+                  <SortableTh label="Achats" active={sortField === 'totalPurchases'} direction={sortDir} onClick={() => handleSort('totalPurchases')} align="right" className="hidden md:table-cell w-[13%]" />
+                  <SortableTh label="Acomptes" active={sortField === 'totalAcomptes'} direction={sortDir} onClick={() => handleSort('totalAcomptes')} align="right" className="hidden md:table-cell w-[13%]" />
+                  <SortableTh label="Créance" active={sortField === 'creance'} direction={sortDir} onClick={() => handleSort('creance')} align="right" className="w-[13%]" />
+                  <SortableTh label="Statut" active={sortField === 'status'} direction={sortDir} onClick={() => handleSort('status')} align="center" className="w-[10%]" />
+                  <th className="py-2.5 px-2 text-right w-14">Opt.</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E5E5E5]">
-                {filteredCustomers.map((c, idx) => {
+                {paginatedCustomers.map((c, idx) => {
                   const summary = customerSummaryMap.get(c.id);
                   const totalPurchases = summary ? summary.totalPurchases : 0;
                   const totalAcomptes = summary ? summary.totalAcomptes : 0;
@@ -614,135 +669,116 @@ export const CustomerListView: React.FC = () => {
                       key={`${c.id}-${idx}`}
                       className="hover:bg-[#F8F7F4]/60 transition-colors"
                     >
-                      <td className="py-3 px-3 font-mono font-bold text-[#1B1B1B] whitespace-nowrap">
+                      <td className="py-2.5 px-2.5 font-mono font-bold text-[#1B1B1B] truncate">
                         {c.code}
                       </td>
 
-                      <td className="py-3 px-3 font-semibold text-[#1B1B1B] max-w-xs truncate">
+                      <td className="py-2.5 px-2.5 font-semibold text-[#1B1B1B]">
                         <button
                           type="button"
                           onClick={() => {
                             setInspectingCustomer(c);
                             setActiveHistoryTab('SALES');
                           }}
-                          className="text-left hover:text-[#E35E2D] transition-colors cursor-pointer"
-                          title="Voir le détail des achats à crédit et des acomptes"
+                          className="text-left hover:text-[#E35E2D] transition-colors cursor-pointer block truncate w-full"
+                          title={c.name}
                         >
                           {c.name}
                         </button>
                       </td>
 
-                      <td className="py-3 px-3 text-[#1B1B1B]/70">
-                        {c.phone && <div className="font-mono">{c.phone}</div>}
+                      <td className="hidden lg:table-cell py-2.5 px-2.5 text-[#1B1B1B]/70">
+                        {c.phone && <div className="font-mono truncate">{c.phone}</div>}
                         {c.address && (
-                          <div className="text-[11px] text-[#1B1B1B]/50 truncate">{c.address}</div>
+                          <div className="text-[11px] text-[#1B1B1B]/50 truncate" title={c.address}>{c.address}</div>
                         )}
                       </td>
 
-                      <td className="py-3 px-3 text-right font-mono font-semibold text-[#1B1B1B] whitespace-nowrap tabular-nums">
-                        <div>{formatFCFA(totalPurchases)}</div>
+                      <td className="hidden md:table-cell py-2.5 px-2.5 text-right font-mono font-semibold text-[#1B1B1B] tabular-nums">
+                        <div className="truncate">{formatFCFA(totalPurchases)}</div>
                         {summary && summary.totalAdjustments !== 0 && (
-                          <span className="block text-[10px] font-medium text-[#1B1B1B]/55">
-                            dont ajust. {summary.totalAdjustments > 0 ? '+' : ''}
+                          <span className="block text-[10px] font-medium text-[#1B1B1B]/55 truncate">
+                            ajust. {summary.totalAdjustments > 0 ? '+' : ''}
                             {formatFCFA(summary.totalAdjustments)}
                           </span>
                         )}
                       </td>
 
-                      <td className="py-3 px-3 text-right font-mono font-semibold text-emerald-700 whitespace-nowrap tabular-nums">
-                        <div>{formatFCFA(totalAcomptes)}</div>
+                      <td className="hidden md:table-cell py-2.5 px-2.5 text-right font-mono font-semibold text-emerald-700 tabular-nums">
+                        <div className="truncate">{formatFCFA(totalAcomptes)}</div>
                         {summary && summary.acomptePayments.length > 0 && (
-                          <span className="block text-[10px] font-normal text-[#1B1B1B]/55">
-                            Dernier : {formatDate(summary.acomptePayments[0].date)}
+                          <span className="block text-[10px] font-normal text-[#1B1B1B]/55 truncate">
+                            {formatDate(summary.acomptePayments[0].date)}
                           </span>
                         )}
                       </td>
 
-                      <td className="py-3 px-3 text-right font-mono font-bold whitespace-nowrap tabular-nums">
-                        <span className={hasDebt ? 'text-[#E35E2D] text-sm' : 'text-[#1B1B1B]/40'}>
+                      <td className="py-2.5 px-2.5 text-right font-mono font-bold tabular-nums">
+                        <span className={`block truncate ${hasDebt ? 'text-[#E35E2D] text-xs' : 'text-[#1B1B1B]/40'}`}>
                           {formatFCFA(creance)}
                         </span>
                         {hasAvance && (
-                          <span className="block text-[10px] font-semibold text-emerald-700">
-                            Avance : +{formatFCFA(avance)}
+                          <span className="block text-[10px] font-semibold text-emerald-700 truncate">
+                            +{formatFCFA(avance)}
                           </span>
                         )}
                       </td>
 
-                      <td className="py-3 px-3 text-center whitespace-nowrap">
+                      <td className="py-2.5 px-2 text-center">
                         {hasDebt ? (
-                          <span className="inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-[#E35E2D]/10 text-[#E35E2D]">
-                            Créance en cours
+                          <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[#E35E2D]/10 text-[#E35E2D]">
+                            Créance
                           </span>
                         ) : hasAvance ? (
-                          <span className="inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800">
-                            Avance disponible
+                          <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800">
+                            Avance
                           </span>
                         ) : (
-                          <span className="inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-[#F8F7F4] text-[#1B1B1B]/60 border border-[#E5E5E5]">
+                          <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[#F8F7F4] text-[#1B1B1B]/60 border border-[#E5E5E5]">
                             À jour
                           </span>
                         )}
                       </td>
 
-                      <td className="py-3 px-3 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenSettleModal(c)}
-                            className={`px-2.5 py-1 text-xs font-semibold rounded inline-flex items-center gap-1 transition-colors cursor-pointer ${
-                              hasDebt
-                                ? 'bg-[#E35E2D] text-white hover:bg-[#1B1B1B]'
-                                : 'bg-[#F8F7F4] text-[#1B1B1B] hover:bg-[#E5E5E5] border border-[#E5E5E5]'
-                            }`}
-                            title="Enregistrer un acompte ou un règlement client (avec date)"
-                          >
-                            <DollarSign className="w-3.5 h-3.5" />
-                            <span>{hasDebt ? 'Verser acompte' : 'Acompte'}</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleOpenAdjustDebtModal(c)}
-                            className="px-2 py-1 text-xs font-semibold text-[#1B1B1B]/80 hover:text-[#E35E2D] bg-white hover:bg-[#F8F7F4] border border-[#E5E5E5] rounded inline-flex items-center gap-1 transition-colors cursor-pointer"
-                            title="Ajuster la créance du client (solde antérieur, régularisation ou remise)"
-                          >
-                            <SlidersHorizontal className="w-3.5 h-3.5 text-[#E35E2D]" />
-                            <span className="hidden xl:inline">Ajuster</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setInspectingCustomer(c);
-                              setActiveHistoryTab('SALES');
-                            }}
-                            className="p-1.5 text-[#1B1B1B]/60 hover:text-[#1B1B1B] hover:bg-[#F8F7F4] border border-transparent hover:border-[#E5E5E5] rounded cursor-pointer"
-                            title="Voir le détail des achats à crédit et des acomptes"
-                          >
-                            <History className="w-3.5 h-3.5" />
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEditModal(c)}
-                            className="p-1.5 text-[#1B1B1B]/60 hover:text-[#1B1B1B] hover:bg-[#F8F7F4] border border-transparent hover:border-[#E5E5E5] rounded cursor-pointer"
-                            title="Modifier les coordonnées du client"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-
-                          {(currentUser.role === 'ADMIN' || currentUser.role === 'RESPONSABLE') && (
-                            <button
-                              type="button"
-                              onClick={() => setCustomerToDelete(c)}
-                              className="p-1.5 text-[#1B1B1B]/40 hover:text-rose-600 hover:bg-rose-50 rounded cursor-pointer"
-                              title="Supprimer ce client"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
+                      <td className="py-2.5 px-2 text-right whitespace-nowrap">
+                        <RowActionsMenu
+                          actions={[
+                            {
+                              label: hasDebt ? 'Verser un acompte / règlement' : 'Enregistrer un acompte',
+                              icon: <DollarSign className="w-3.5 h-3.5" />,
+                              tone: 'success',
+                              onClick: () => handleOpenSettleModal(c),
+                            },
+                            {
+                              label: 'Ajuster la créance',
+                              icon: <SlidersHorizontal className="w-3.5 h-3.5" />,
+                              tone: 'warning',
+                              onClick: () => handleOpenAdjustDebtModal(c),
+                            },
+                            {
+                              label: 'Historique achats & acomptes',
+                              icon: <History className="w-3.5 h-3.5" />,
+                              onClick: () => {
+                                setInspectingCustomer(c);
+                                setActiveHistoryTab('SALES');
+                              },
+                            },
+                            {
+                              label: 'Modifier la fiche client',
+                              icon: <Edit2 className="w-3.5 h-3.5" />,
+                              tone: 'primary',
+                              onClick: () => handleOpenEditModal(c),
+                            },
+                            {
+                              label: 'Supprimer ce client',
+                              icon: <Trash2 className="w-3.5 h-3.5" />,
+                              tone: 'danger',
+                              dividerBefore: true,
+                              hidden: !(currentUser.role === 'ADMIN' || currentUser.role === 'RESPONSABLE'),
+                              onClick: () => setCustomerToDelete(c),
+                            },
+                          ]}
+                        />
                       </td>
                     </tr>
                   );
@@ -751,6 +787,14 @@ export const CustomerListView: React.FC = () => {
             </table>
           )}
         </div>
+        <TablePagination
+          currentPage={currentPage}
+          totalItems={filteredCustomers.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="clients"
+        />
       </div>
 
       {/* Customer Create / Edit Modal */}

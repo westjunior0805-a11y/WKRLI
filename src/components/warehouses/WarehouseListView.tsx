@@ -42,6 +42,7 @@ import { ArticleDetailModal } from '../catalog/ArticleDetailModal';
 import { ArticleFormModal } from '../catalog/ArticleFormModal';
 import { QuickStockEditModal } from '../catalog/QuickStockEditModal';
 import { ImportCatalogModal } from '../catalog/ImportCatalogModal';
+import { RowActionsMenu } from '../common/RowActionsMenu';
 import { scoreArticleByScope } from '../../utils/fuzzySearch';
 import {
   cleanBrandName,
@@ -1092,21 +1093,21 @@ export const WarehouseListView: React.FC<WarehouseListViewProps> = ({
             )}
           </div>
         ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50/70 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold text-[11px]">
+        <div className="w-full">
+          <table className="w-full table-fixed text-left text-xs">
+            <thead className="bg-slate-50/70 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold text-[10px]">
               <tr>
-                <th className="py-2.5 px-3">
+                <th className="py-2.5 px-2 w-[12%]">
                   <button
                     type="button"
                     onClick={() => handleToggleSort('reference')}
                     className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors cursor-pointer uppercase tracking-wider font-semibold"
                   >
-                    <span>Référence</span>
+                    <span>Réf.</span>
                     {renderSortIcon('reference')}
                   </button>
                 </th>
-                <th className="py-2.5 px-3">
+                <th className="py-2.5 px-2 w-[17%]">
                   <button
                     type="button"
                     onClick={() => handleToggleSort('designation')}
@@ -1116,7 +1117,7 @@ export const WarehouseListView: React.FC<WarehouseListViewProps> = ({
                     {renderSortIcon('designation')}
                   </button>
                 </th>
-                <th className="py-2.5 px-3">
+                <th className="py-2.5 px-2 w-[10%]">
                   <button
                     type="button"
                     onClick={() => handleToggleSort('brand')}
@@ -1126,67 +1127,67 @@ export const WarehouseListView: React.FC<WarehouseListViewProps> = ({
                     {renderSortIcon('brand')}
                   </button>
                 </th>
-                <th className="py-2.5 px-3 text-right">
+                <th className="py-2.5 px-2 text-right w-[8%]">
                   <button
                     type="button"
                     onClick={() => handleToggleSort('quantity')}
                     className="inline-flex items-center justify-end gap-1 ml-auto hover:text-slate-900 transition-colors cursor-pointer uppercase tracking-wider font-semibold"
                   >
-                    <span>Quantité disponible</span>
+                    <span>Qté</span>
                     {renderSortIcon('quantity')}
                   </button>
                 </th>
-                <th className="py-2.5 px-3">
+                <th className="hidden lg:table-cell py-2.5 px-2 w-[11%]">
                   <button
                     type="button"
                     onClick={() => handleToggleSort('location')}
                     className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors cursor-pointer uppercase tracking-wider font-semibold"
                   >
-                    <span>Emplacement</span>
+                    <span>Empl.</span>
                     {renderSortIcon('location')}
                   </button>
                 </th>
-                <th className="py-2.5 px-3">
+                <th className="hidden xl:table-cell py-2.5 px-2 w-[9%]">
                   <button
                     type="button"
                     onClick={() => handleToggleSort('invoiceNumber')}
                     className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors cursor-pointer uppercase tracking-wider font-semibold"
                   >
-                    <span>Numéro de facture</span>
+                    <span>Facture</span>
                     {renderSortIcon('invoiceNumber')}
                   </button>
                 </th>
-                <th className="py-2.5 px-3 text-right">
+                <th className="hidden md:table-cell py-2.5 px-2 text-right w-[10%]">
                   <button
                     type="button"
                     onClick={() => handleToggleSort('purchasePrice')}
                     className="inline-flex items-center justify-end gap-1 ml-auto hover:text-slate-900 transition-colors cursor-pointer uppercase tracking-wider font-semibold"
                   >
-                    <span>Prix d'achat unitaire</span>
+                    <span>P. Achat</span>
                     {renderSortIcon('purchasePrice')}
                   </button>
                 </th>
-                <th className="py-2.5 px-3 text-right">
+                <th className="py-2.5 px-2 text-right w-[10%]">
                   <button
                     type="button"
                     onClick={() => handleToggleSort('salePrice')}
                     className="inline-flex items-center justify-end gap-1 ml-auto hover:text-slate-900 transition-colors cursor-pointer uppercase tracking-wider font-semibold"
                   >
-                    <span>Prix de vente unitaire</span>
+                    <span>P. Vente</span>
                     {renderSortIcon('salePrice')}
                   </button>
                 </th>
-                <th className="py-2.5 px-3 text-center">
+                <th className="hidden sm:table-cell py-2.5 px-2 text-center w-[7%]">
                   <button
                     type="button"
                     onClick={() => handleToggleSort('minStockThreshold')}
                     className="inline-flex items-center justify-center gap-1 mx-auto hover:text-slate-900 transition-colors cursor-pointer uppercase tracking-wider font-semibold"
                   >
-                    <span>Seuil minimum</span>
+                    <span>Seuil</span>
                     {renderSortIcon('minStockThreshold')}
                   </button>
                 </th>
-                <th className="py-2.5 px-3 text-right">Actions Stock / Prix</th>
+                <th className="py-2.5 px-2 text-right w-14">Opt.</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -1331,7 +1332,7 @@ export const WarehouseListView: React.FC<WarehouseListViewProps> = ({
                       </td>
 
                       {/* 5. Emplacement */}
-                      <td className="py-2.5 px-3 align-top font-mono text-[11px] text-slate-700">
+                      <td className="hidden lg:table-cell py-2.5 px-2 align-top font-mono text-[11px] text-slate-700">
                         <div className="space-y-1">
                           {offersToRender.map((offer, idx) => {
                             const loc = getBrandLocation(
@@ -1347,7 +1348,7 @@ export const WarehouseListView: React.FC<WarehouseListViewProps> = ({
                                 className="h-6 flex items-center"
                               >
                                 <span
-                                  className="px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded text-slate-700 truncate max-w-[200px]"
+                                  className="px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded text-slate-700 truncate max-w-full"
                                   title={loc}
                                 >
                                   {loc}
@@ -1359,7 +1360,7 @@ export const WarehouseListView: React.FC<WarehouseListViewProps> = ({
                       </td>
 
                       {/* 6. Numéro de facture */}
-                      <td className="py-2.5 px-3 align-top font-mono text-[11px] text-slate-600">
+                      <td className="hidden xl:table-cell py-2.5 px-2 align-top font-mono text-[11px] text-slate-600">
                         <div className="space-y-1">
                           {offersToRender.map((offer, idx) => {
                             const inv = getBrandInvoiceNumber(
@@ -1373,7 +1374,7 @@ export const WarehouseListView: React.FC<WarehouseListViewProps> = ({
                                 key={`${art.id}-inv-${idx}`}
                                 className="h-6 flex items-center"
                               >
-                                <span className="truncate max-w-[120px]">{inv}</span>
+                                <span className="truncate max-w-full" title={inv}>{inv}</span>
                               </div>
                             );
                           })}
@@ -1381,12 +1382,12 @@ export const WarehouseListView: React.FC<WarehouseListViewProps> = ({
                       </td>
 
                       {/* 7. Prix d'achat unitaire */}
-                      <td className="py-2.5 px-3 align-top text-right font-mono tabular-nums text-slate-700">
+                      <td className="hidden md:table-cell py-2.5 px-2 align-top text-right font-mono tabular-nums text-[11px] text-slate-700">
                         <div className="space-y-1">
                           {offersToRender.map((offer, idx) => (
                             <div
                               key={`${art.id}-pa-${idx}`}
-                              className="h-6 flex items-center justify-end"
+                              className="h-6 flex items-center justify-end truncate"
                             >
                               {formatFCFA(offer.purchasePrice)}
                             </div>
@@ -1395,12 +1396,12 @@ export const WarehouseListView: React.FC<WarehouseListViewProps> = ({
                       </td>
 
                       {/* 8. Prix de vente unitaire */}
-                      <td className="py-2.5 px-3 align-top text-right font-mono font-bold tabular-nums text-slate-900">
+                      <td className="py-2.5 px-2 align-top text-right font-mono font-bold tabular-nums text-[11px] text-slate-900">
                         <div className="space-y-1">
                           {offersToRender.map((offer, idx) => (
                             <div
                               key={`${art.id}-pv-${idx}`}
-                              className="h-6 flex items-center justify-end text-emerald-700"
+                              className="h-6 flex items-center justify-end text-emerald-700 truncate"
                             >
                               {formatFCFA(offer.salePrice)}
                             </div>
@@ -1409,9 +1410,9 @@ export const WarehouseListView: React.FC<WarehouseListViewProps> = ({
                       </td>
 
                       {/* 9. Seuil minimum */}
-                      <td className="py-2.5 px-3 align-top text-center font-mono">
+                      <td className="hidden sm:table-cell py-2.5 px-2 align-top text-center font-mono">
                         <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold ${
+                          className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold ${
                             isOut
                               ? 'bg-rose-50 text-rose-700 border border-rose-200'
                               : isLow
@@ -1425,101 +1426,70 @@ export const WarehouseListView: React.FC<WarehouseListViewProps> = ({
 
                       {/* 10. Actions Stock / Prix */}
                       <td
-                        className="py-2.5 px-3 align-top text-right whitespace-nowrap"
+                        className="py-2.5 px-2 align-top text-right whitespace-nowrap"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <div className="flex items-center justify-end gap-1">
-                          {(() => {
-                            const activeOrder = getActiveOrderForArticle(art.id);
-                            if (activeOrder) {
-                              return (
-                                <div className="inline-flex items-center gap-1 mr-1">
-                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold">
-                                    <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
-                                    Commandé
-                                  </span>
-                                  {onNavigateToPurchaseOrder && (
-                                    <button
-                                      type="button"
-                                      onClick={() => onNavigateToPurchaseOrder(activeOrder.id)}
-                                      className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-[10px] font-semibold transition-colors cursor-pointer"
-                                      title={`Ouvrir la liste de commande ${activeOrder.orderNumber}`}
-                                    >
-                                      <span>{activeOrder.orderNumber}</span>
-                                      <ExternalLink className="w-2.5 h-2.5" />
-                                    </button>
-                                  )}
-                                </div>
-                              );
-                            }
-                            return null;
-                          })()}
-
-                          {onOpenPurchaseOrder && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                onOpenPurchaseOrder(art.id, offersToRender[0]?.brand || art.brand)
-                              }
-                              className="p-1.5 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-md transition-colors cursor-pointer"
-                              title="Commander cette pièce (ajouter à une commande existante ou créer une nouvelle liste)"
-                            >
-                              <ShoppingBag className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setQuickEditTarget({
-                                article: art,
-                                brand: offersToRender[0]?.brand || art.brand,
-                              })
-                            }
-                            className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors cursor-pointer"
-                            title="Modifier le stock, l'emplacement et les prix"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => onOpenStockIn(art.id)}
-                            className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors cursor-pointer"
-                            title="Entrée de stock"
-                          >
-                            <ArrowDownLeft className="w-3.5 h-3.5" />
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => onOpenStockOut(art.id)}
-                            className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-md transition-colors cursor-pointer"
-                            title="Sortie de stock"
-                          >
-                            <ArrowUpRight className="w-3.5 h-3.5" />
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => setSelectedArticleDetail(art)}
-                            className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors cursor-pointer"
-                            title="Voir la fiche complète"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                          </button>
-
-                          {(currentUser.role === 'ADMIN' || currentUser.role === 'RESPONSABLE') && (
-                            <button
-                              type="button"
-                              onClick={() => setArticleToDelete(art)}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors cursor-pointer"
-                              title="Supprimer cette référence"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
+                        {(() => {
+                          const activeOrder = getActiveOrderForArticle(art.id);
+                          return (
+                            <RowActionsMenu
+                              actions={[
+                                {
+                                  label: 'Modifier stock / prix / empl.',
+                                  icon: <Edit2 className="w-3.5 h-3.5" />,
+                                  tone: 'primary',
+                                  onClick: () =>
+                                    setQuickEditTarget({
+                                      article: art,
+                                      brand: offersToRender[0]?.brand || art.brand,
+                                    }),
+                                },
+                                {
+                                  label: 'Entrée de stock',
+                                  icon: <ArrowDownLeft className="w-3.5 h-3.5" />,
+                                  tone: 'success',
+                                  onClick: () => onOpenStockIn(art.id),
+                                },
+                                {
+                                  label: 'Sortie de stock',
+                                  icon: <ArrowUpRight className="w-3.5 h-3.5" />,
+                                  tone: 'warning',
+                                  onClick: () => onOpenStockOut(art.id),
+                                },
+                                {
+                                  label: 'Voir la fiche complète',
+                                  icon: <Eye className="w-3.5 h-3.5" />,
+                                  onClick: () => setSelectedArticleDetail(art),
+                                },
+                                {
+                                  label: activeOrder
+                                    ? `Commande ${activeOrder.orderNumber}`
+                                    : 'Ouvrir commande',
+                                  icon: <ExternalLink className="w-3.5 h-3.5" />,
+                                  tone: 'success',
+                                  hidden: !activeOrder || !onNavigateToPurchaseOrder,
+                                  onClick: () => activeOrder && onNavigateToPurchaseOrder?.(activeOrder.id),
+                                },
+                                {
+                                  label: 'Commander cette pièce',
+                                  icon: <ShoppingBag className="w-3.5 h-3.5" />,
+                                  tone: 'warning',
+                                  hidden: !onOpenPurchaseOrder,
+                                  onClick: () =>
+                                    onOpenPurchaseOrder?.(art.id, offersToRender[0]?.brand || art.brand),
+                                },
+                                {
+                                  label: 'Supprimer cette référence',
+                                  icon: <Trash2 className="w-3.5 h-3.5" />,
+                                  tone: 'danger',
+                                  dividerBefore: true,
+                                  hidden: !(currentUser.role === 'ADMIN' || currentUser.role === 'RESPONSABLE'),
+                                  onClick: () => setArticleToDelete(art),
+                                },
+                              ]}
+                            />
+                          );
+                        })()}
                       </td>
                     </tr>
                   );

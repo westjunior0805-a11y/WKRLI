@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { useStock } from '../../context/StockContext';
 import { formatFCFA, formatDateTime } from '../../utils/formatters';
 import {
@@ -20,6 +20,8 @@ import {
   ExternalLink,
   Plus,
 } from 'lucide-react';
+import { TablePagination, SortableTh, usePagination } from '../common/TablePagination';
+import { RowActionsMenu } from '../common/RowActionsMenu';
 
 interface DashboardViewProps {
   onNavigateToCatalog: () => void;
@@ -75,8 +77,88 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const outOfStockAlerts = alerts.filter((a) => a.alertType === 'RUPTURE');
   const lowStockAlerts = alerts.filter((a) => a.alertType === 'SOUS_SEUIL');
 
-  // Recent 6 movements
-  const recentMovements = movements.slice(0, 6);
+  const [alertSort, setAlertSort] = useState<{
+    field: 'ref' | 'designation' | 'stock' | 'status';
+    dir: 'asc' | 'desc';
+  }>({ field: 'stock', dir: 'asc' });
+
+  const [mvtSort, setMvtSort] = useState<{
+    field: 'type' | 'ref' | 'quantity' | 'documentRef' | 'date';
+    dir: 'asc' | 'desc';
+  }>({ field: 'date', dir: 'desc' });
+
+  const toggleAlertSort = (field: typeof alertSort.field) =>
+    setAlertSort((prev) =>
+      prev.field === field ? { field, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { field, dir: 'asc' }
+    );
+  const toggleMvtSort = (field: typeof mvtSort.field) =>
+    setMvtSort((prev) =>
+      prev.field === field ? { field, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { field, dir: field === 'date' || field === 'quantity' ? 'desc' : 'asc' }
+    );
+
+  const sortedAlerts = useMemo(() => {
+    return [...alerts].sort((a, b) => {
+      let cmp = 0;
+      switch (alertSort.field) {
+        case 'ref':
+          cmp = (a.mainReference || '').localeCompare(b.mainReference || '', 'fr');
+          break;
+        case 'designation':
+          cmp = (a.designation || '').localeCompare(b.designation || '', 'fr');
+          break;
+        case 'stock':
+          cmp = a.currentStock - b.currentStock;
+          break;
+        case 'status':
+          cmp = (a.alertType || '').localeCompare(b.alertType || '', 'fr');
+          break;
+      }
+      return alertSort.dir === 'asc' ? cmp : -cmp;
+    });
+  }, [alerts, alertSort]);
+
+  const {
+    currentPage: alertPage,
+    setCurrentPage: setAlertPage,
+    pageSize: alertPageSize,
+    setPageSize: setAlertPageSize,
+    paginatedItems: paginatedAlerts,
+  } = usePagination(sortedAlerts, 6);
+
+  const sortedDashboardMovements = useMemo(() => {
+    return [...movements].sort((a, b) => {
+      let cmp = 0;
+      switch (mvtSort.field) {
+        case 'type':
+          cmp = (a.type || '').localeCompare(b.type || '', 'fr');
+          break;
+        case 'ref': {
+          const rA = getArticleById(a.articleId)?.mainReference || '';
+          const rB = getArticleById(b.articleId)?.mainReference || '';
+          cmp = rA.localeCompare(rB, 'fr');
+          break;
+        }
+        case 'quantity':
+          cmp = (a.quantity || 0) - (b.quantity || 0);
+          break;
+        case 'documentRef':
+          cmp = (a.documentRef || '').localeCompare(b.documentRef || '', 'fr');
+          break;
+        case 'date':
+          cmp = new Date(a.date).getTime() - new Date(b.date).getTime();
+          break;
+      }
+      return mvtSort.dir === 'asc' ? cmp : -cmp;
+    });
+  }, [movements, mvtSort, getArticleById]);
+
+  const {
+    currentPage: mvtPage,
+    setCurrentPage: setMvtPage,
+    pageSize: mvtPageSize,
+    setPageSize: setMvtPageSize,
+    paginatedItems: paginatedDashboardMovements,
+  } = usePagination(sortedDashboardMovements, 6);
 
   // Per warehouse breakdown
   const warehouseStats = warehouses.map((wh) => {
@@ -303,109 +385,99 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </button>
           </div>
 
-          <div className="flex-1 overflow-x-auto">
-            {alerts.length === 0 ? (
+          <div className="flex-1 w-full">
+            {sortedAlerts.length === 0 ? (
               <div className="text-center py-10 text-[#1B1B1B]/40 text-sm">
                 Tous les niveaux de stock sont conformes aux seuils minimaux.
               </div>
             ) : (
-              <table className="data-table text-xs">
-                <thead>
-                  <tr>
-                    <th>Référence</th>
-                    <th>Désignation</th>
-                    <th className="text-right">Disponibilité</th>
-                    <th className="text-center">Statut</th>
-                    <th className="text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {alerts.slice(0, 6).map((alert) => (
-                    <tr key={alert.articleId} className="hover:bg-[#F9FAFB]">
-                      <td className="ref">
-                        {alert.mainReference}
-                        <span className="block meta font-normal">
-                          {alert.brand}
-                        </span>
-                      </td>
-                      <td className="text-[#1B1B1B] font-medium truncate max-w-[180px]">
-                        {alert.designation}
-                      </td>
-                      <td className="text-right mono font-semibold text-[#1B1B1B] tabular-nums">
-                        {alert.currentStock}{' '}
-                        <span className="meta font-normal">
-                          / {alert.minThreshold}
-                        </span>
-                      </td>
-                      <td className="text-center">
-                        <span
-                          className={`font-mono font-semibold text-[10px] uppercase tracking-wider ${
-                            alert.alertType === 'RUPTURE'
-                              ? 'text-rose-600'
-                              : 'text-[#E35E2D]'
-                          }`}
-                        >
-                          {alert.alertType === 'RUPTURE' ? 'RUPTURE' : 'SOUS SEUIL'}
-                        </span>
-                      </td>
-                      <td className="text-right whitespace-nowrap">
-                        {(() => {
-                          const linkedOrder = getActiveOrderForArticle(alert.articleId);
-                          if (linkedOrder) {
-                            return (
-                              <div className="inline-flex items-center justify-end gap-1">
-                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded font-semibold text-[10px]">
-                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                  Commandé
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    onNavigateToPurchaseOrder
+              <>
+                <table className="data-table w-full table-fixed text-xs">
+                  <thead>
+                    <tr>
+                      <SortableTh label="Réf." active={alertSort.field === 'ref'} direction={alertSort.dir} onClick={() => toggleAlertSort('ref')} className="w-[23%]" />
+                      <SortableTh label="Désignation" active={alertSort.field === 'designation'} direction={alertSort.dir} onClick={() => toggleAlertSort('designation')} className="w-[31%]" />
+                      <SortableTh label="Dispo." active={alertSort.field === 'stock'} direction={alertSort.dir} onClick={() => toggleAlertSort('stock')} align="right" className="w-[16%]" />
+                      <SortableTh label="Statut" active={alertSort.field === 'status'} direction={alertSort.dir} onClick={() => toggleAlertSort('status')} align="center" className="w-[18%]" />
+                      <th className="text-right py-2 px-1.5 w-12">Opt.</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedAlerts.map((alert) => {
+                      const linkedOrder = getActiveOrderForArticle(alert.articleId);
+                      return (
+                        <tr key={alert.articleId} className="hover:bg-[#F9FAFB]">
+                          <td className="ref truncate" title={alert.mainReference}>
+                            <span className="block truncate">{alert.mainReference}</span>
+                            <span className="block meta font-normal truncate">
+                              {alert.brand}
+                            </span>
+                          </td>
+                          <td className="text-[#1B1B1B] font-medium truncate" title={alert.designation}>
+                            {alert.designation}
+                          </td>
+                          <td className="text-right mono font-semibold text-[#1B1B1B] tabular-nums whitespace-nowrap">
+                            {alert.currentStock}{' '}
+                            <span className="meta font-normal">
+                              /{alert.minThreshold}
+                            </span>
+                          </td>
+                          <td className="text-center">
+                            <span
+                              className={`font-mono font-semibold text-[10px] uppercase tracking-wider ${
+                                alert.alertType === 'RUPTURE'
+                                  ? 'text-rose-600'
+                                  : 'text-[#E35E2D]'
+                              }`}
+                            >
+                              {alert.alertType === 'RUPTURE' ? 'RUPTURE' : 'BAS'}
+                            </span>
+                          </td>
+                          <td className="text-right whitespace-nowrap">
+                            <RowActionsMenu
+                              actions={[
+                                {
+                                  label: linkedOrder
+                                    ? `Commande ${linkedOrder.orderNumber}`
+                                    : 'Ouvrir commande',
+                                  icon: <ExternalLink className="w-3.5 h-3.5" />,
+                                  tone: 'success',
+                                  hidden: !linkedOrder,
+                                  onClick: () =>
+                                    linkedOrder &&
+                                    (onNavigateToPurchaseOrder
                                       ? onNavigateToPurchaseOrder(linkedOrder.id)
-                                      : onOpenPurchaseOrder?.(alert.articleId)
-                                  }
-                                  className="px-2 py-0.5 bg-white hover:border-[#E35E2D] text-[#1B1B1B] border border-[#E5E5E5] rounded font-mono font-semibold text-[10px] inline-flex items-center gap-1 cursor-pointer"
-                                  title={`Voir la liste de commande ${linkedOrder.orderNumber}`}
-                                >
-                                  <span>{linkedOrder.orderNumber}</span>
-                                  <ExternalLink className="w-2.5 h-2.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() =>
+                                      : onOpenPurchaseOrder?.(alert.articleId)),
+                                },
+                                {
+                                  label: linkedOrder ? 'Commander à nouveau' : 'Commander cette pièce',
+                                  icon: <Truck className="w-3.5 h-3.5" />,
+                                  tone: 'warning',
+                                  onClick: () =>
                                     onOpenPurchaseOrder
                                       ? onOpenPurchaseOrder(alert.articleId)
-                                      : onOpenStockIn(alert.articleId)
-                                  }
-                                  className="p-0.5 bg-white hover:border-[#E35E2D] border border-[#E5E5E5] rounded text-[#1B1B1B] cursor-pointer"
-                                  title="Ajouter sur une autre liste"
-                                >
-                                  <Plus className="w-3 h-3" />
-                                </button>
-                              </div>
-                            );
-                          }
-                          return (
-                            <button
-                              onClick={() =>
-                                onOpenPurchaseOrder
-                                  ? onOpenPurchaseOrder(alert.articleId)
-                                  : onOpenStockIn(alert.articleId)
-                              }
-                              className="px-2.5 py-1 text-[11px] font-semibold text-[#1B1B1B] bg-white hover:border-[#E35E2D] border border-[#E5E5E5] rounded inline-flex items-center gap-1 cursor-pointer transition-colors"
-                              title="Commander cette pièce"
-                            >
-                              <Truck className="w-3 h-3 text-[#E35E2D]" />
-                              <span>Commander</span>
-                            </button>
-                          );
-                        })()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                                      : onOpenStockIn(alert.articleId),
+                                },
+                              ]}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                <div className="-mx-6 mt-2">
+                  <TablePagination
+                    currentPage={alertPage}
+                    totalItems={sortedAlerts.length}
+                    pageSize={alertPageSize}
+                    onPageChange={setAlertPage}
+                    onPageSizeChange={setAlertPageSize}
+                    pageSizeOptions={[6, 10, 20]}
+                    itemLabel="alertes"
+                  />
+                </div>
+              </>
             )}
           </div>
 
@@ -437,76 +509,89 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </button>
           </div>
 
-          <div className="flex-1 overflow-x-auto">
-            {recentMovements.length === 0 ? (
+          <div className="flex-1 w-full">
+            {sortedDashboardMovements.length === 0 ? (
               <div className="text-center py-10 text-[#1B1B1B]/40 text-sm">
                 Aucun mouvement enregistré pour le moment.
               </div>
             ) : (
-              <table className="data-table text-xs">
-                <thead>
-                  <tr>
-                    <th>Type</th>
-                    <th>Réf. & Pièce</th>
-                    <th className="text-right">Quantité</th>
-                    <th>Document</th>
-                    <th className="text-right">Date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentMovements.map((mvt, idx) => {
-                    const art = getArticleById(mvt.articleId);
-                    let statusColor = 'text-[#1B1B1B]';
-                    let label: string = mvt.type;
-                    let sign = '+';
+              <>
+                <table className="data-table w-full table-fixed text-xs">
+                  <thead>
+                    <tr>
+                      <SortableTh label="Type" active={mvtSort.field === 'type'} direction={mvtSort.dir} onClick={() => toggleMvtSort('type')} className="w-[17%]" />
+                      <SortableTh label="Réf. & Pièce" active={mvtSort.field === 'ref'} direction={mvtSort.dir} onClick={() => toggleMvtSort('ref')} className="w-[31%]" />
+                      <SortableTh label="Qté" active={mvtSort.field === 'quantity'} direction={mvtSort.dir} onClick={() => toggleMvtSort('quantity')} align="right" className="w-[12%]" />
+                      <SortableTh label="Doc." active={mvtSort.field === 'documentRef'} direction={mvtSort.dir} onClick={() => toggleMvtSort('documentRef')} className="hidden sm:table-cell w-[18%]" />
+                      <SortableTh label="Date" active={mvtSort.field === 'date'} direction={mvtSort.dir} onClick={() => toggleMvtSort('date')} align="right" className="w-[22%]" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedDashboardMovements.map((mvt, idx) => {
+                      const art = getArticleById(mvt.articleId);
+                      let statusColor = 'text-[#1B1B1B]';
+                      let label: string = mvt.type;
+                      let sign = '+';
 
-                    if (mvt.type === 'ENTREE') {
-                      statusColor = 'text-emerald-600';
-                      label = 'ENTRÉE';
-                      sign = '+';
-                    } else if (mvt.type === 'SORTIE') {
-                      statusColor = 'text-rose-600';
-                      label = 'SORTIE';
-                      sign = '-';
-                    } else if (mvt.type === 'TRANSFERT') {
-                      statusColor = 'text-[#E35E2D]';
-                      label = 'TRANSFERT';
-                      sign = '↔';
-                    } else if (mvt.type === 'AJUSTEMENT') {
-                      statusColor = 'text-[#E35E2D]';
-                      label = 'AJUSTEMENT';
-                      sign = '±';
-                    }
+                      if (mvt.type === 'ENTREE') {
+                        statusColor = 'text-emerald-600';
+                        label = 'ENTRÉE';
+                        sign = '+';
+                      } else if (mvt.type === 'SORTIE') {
+                        statusColor = 'text-rose-600';
+                        label = 'SORTIE';
+                        sign = '-';
+                      } else if (mvt.type === 'TRANSFERT') {
+                        statusColor = 'text-[#E35E2D]';
+                        label = 'TRANSF.';
+                        sign = '↔';
+                      } else if (mvt.type === 'AJUSTEMENT') {
+                        statusColor = 'text-[#E35E2D]';
+                        label = 'AJUST.';
+                        sign = '±';
+                      }
 
-                    return (
-                      <tr key={`${mvt.id}-${idx}`} className="hover:bg-[#F9FAFB]">
-                        <td>
-                          <span className={`font-mono font-semibold text-[10px] uppercase tracking-wider ${statusColor}`}>
-                            {label}
-                          </span>
-                        </td>
-                        <td>
-                          <span className="ref block">
-                            {art?.mainReference || 'Réf inconnue'}
-                          </span>
-                          <span className="meta truncate block max-w-[140px]">
-                            {art?.designation || ''}
-                          </span>
-                        </td>
-                        <td className="text-right mono font-semibold text-[#1B1B1B] tabular-nums">
-                          {sign} {mvt.quantity}
-                        </td>
-                        <td className="meta truncate max-w-[110px]">
-                          {mvt.documentRef}
-                        </td>
-                        <td className="text-right meta whitespace-nowrap">
-                          {formatDateTime(mvt.date)}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                      return (
+                        <tr key={`${mvt.id}-${idx}`} className="hover:bg-[#F9FAFB]">
+                          <td>
+                            <span className={`font-mono font-semibold text-[10px] uppercase tracking-wider ${statusColor}`}>
+                              {label}
+                            </span>
+                          </td>
+                          <td>
+                            <span className="ref block truncate" title={art?.mainReference || ''}>
+                              {art?.mainReference || 'Réf inconnue'}
+                            </span>
+                            <span className="meta truncate block" title={art?.designation || ''}>
+                              {art?.designation || ''}
+                            </span>
+                          </td>
+                          <td className="text-right mono font-semibold text-[#1B1B1B] tabular-nums whitespace-nowrap">
+                            {sign}{mvt.quantity}
+                          </td>
+                          <td className="hidden sm:table-cell meta truncate" title={mvt.documentRef}>
+                            {mvt.documentRef}
+                          </td>
+                          <td className="text-right meta truncate text-[10px]" title={formatDateTime(mvt.date)}>
+                            {formatDateTime(mvt.date)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                <div className="-mx-6 mt-2">
+                  <TablePagination
+                    currentPage={mvtPage}
+                    totalItems={sortedDashboardMovements.length}
+                    pageSize={mvtPageSize}
+                    onPageChange={setMvtPage}
+                    onPageSizeChange={setMvtPageSize}
+                    pageSizeOptions={[6, 10, 20]}
+                    itemLabel="mouvements"
+                  />
+                </div>
+              </>
             )}
           </div>
 

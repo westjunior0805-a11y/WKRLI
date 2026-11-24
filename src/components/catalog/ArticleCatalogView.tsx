@@ -41,6 +41,8 @@ import { ArticleFormModal } from './ArticleFormModal';
 import { ImportCatalogModal } from './ImportCatalogModal';
 import { QuickStockEditModal } from './QuickStockEditModal';
 import { MachineWhereUsedModal } from './MachineWhereUsedModal';
+import { SortableTh } from '../common/TablePagination';
+import { RowActionsMenu } from '../common/RowActionsMenu';
 import {
   scoreArticleByScope,
   SearchTargetScope,
@@ -95,8 +97,38 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [selectedBrand, setSelectedBrand] = useState<string>('ALL');
   const [stockStatusFilter, setStockStatusFilter] = useState<'ALL' | 'IN_STOCK' | 'LOW' | 'OUT'>('ALL');
-  const [sortBy, setSortBy] = useState<'ref' | 'designation' | 'stock' | 'price'>('ref');
+  const [sortBy, setSortBy] = useState<
+    | 'ref'
+    | 'designation'
+    | 'description'
+    | 'whereUsed'
+    | 'equivalences'
+    | 'category'
+    | 'minStockThreshold'
+    | 'stock'
+    | 'price'
+  >('ref');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  const handleToggleSort = (
+    field:
+      | 'ref'
+      | 'designation'
+      | 'description'
+      | 'whereUsed'
+      | 'equivalences'
+      | 'category'
+      | 'minStockThreshold'
+      | 'stock'
+      | 'price'
+  ) => {
+    if (sortBy === field) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortBy(field);
+      setSortDirection('asc');
+    }
+  };
 
   // Layout Mode (Ligne vs Grille) & Pagination / Continuous List state
   const [layoutMode, setLayoutMode] = useState<'LINE' | 'GRID'>(() => {
@@ -279,9 +311,23 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
         : getTotalStockForArticle(b.id);
 
       if (sortBy === 'ref') {
-        comparison = a.mainReference.localeCompare(b.mainReference);
+        comparison = a.mainReference.localeCompare(b.mainReference, 'fr');
       } else if (sortBy === 'designation') {
-        comparison = a.designation.localeCompare(b.designation);
+        comparison = a.designation.localeCompare(b.designation, 'fr');
+      } else if (sortBy === 'description') {
+        comparison = (a.description || a.notes || '').localeCompare(b.description || b.notes || '', 'fr');
+      } else if (sortBy === 'whereUsed') {
+        const wuA = a.machineApplications?.[0]?.model || a.compatibleMachines?.[0] || '';
+        const wuB = b.machineApplications?.[0]?.model || b.compatibleMachines?.[0] || '';
+        comparison = wuA.localeCompare(wuB, 'fr');
+      } else if (sortBy === 'equivalences') {
+        const eqA = (a.equivalentReferences || []).join(', ');
+        const eqB = (b.equivalentReferences || []).join(', ');
+        comparison = eqA.localeCompare(eqB, 'fr');
+      } else if (sortBy === 'category') {
+        comparison = (a.category || '').localeCompare(b.category || '', 'fr');
+      } else if (sortBy === 'minStockThreshold') {
+        comparison = (a.minStockThreshold || 0) - (b.minStockThreshold || 0);
       } else if (sortBy === 'stock') {
         comparison = stockA - stockB;
       } else if (sortBy === 'price') {
@@ -835,7 +881,7 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
 
       {/* Main Table */}
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
-        <div className="overflow-x-auto">
+        <div className="w-full">
           {sortedArticles.length === 0 ? (
             <div className="text-center py-16 px-4">
               <Boxes className="w-12 h-12 text-slate-300 mx-auto mb-3" />
@@ -1068,10 +1114,10 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
           ) : (
             <>
               {/* Desktop & Tablet Catalogue Table */}
-              <table className="hidden md:table w-full text-left text-xs">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold text-[11px]">
+              <table className="hidden md:table w-full table-fixed text-left text-xs">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold text-[10px]">
                   <tr>
-                    <th className="py-2.5 px-3 w-8 text-center">
+                    <th className="py-2.5 px-2 w-9 text-center">
                       <input
                         type="checkbox"
                         checked={isAllSelected}
@@ -1085,14 +1131,14 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
                         title="Sélectionner ou désélectionner tous les produits affichés"
                       />
                     </th>
-                    <th className="py-2.5 px-3">Référence</th>
-                    <th className="py-2.5 px-3">Désignation</th>
-                    <th className="py-2.5 px-3">Description</th>
-                    <th className="py-2.5 px-3">Where Used (SIS 2.0)</th>
-                    <th className="py-2.5 px-3">Équivalences</th>
-                    <th className="py-2.5 px-3">Catégorie</th>
-                    <th className="py-2.5 px-3 text-right">Seuil minimum</th>
-                    <th className="py-2.5 px-3 text-right">Actions Catalogue</th>
+                    <SortableTh label="Référence" active={sortBy === 'ref'} direction={sortDirection} onClick={() => handleToggleSort('ref')} className="w-[14%]" />
+                    <SortableTh label="Désignation" active={sortBy === 'designation'} direction={sortDirection} onClick={() => handleToggleSort('designation')} className="w-[18%]" />
+                    <SortableTh label="Description" active={sortBy === 'description'} direction={sortDirection} onClick={() => handleToggleSort('description')} className="hidden lg:table-cell w-[15%]" />
+                    <SortableTh label="Where Used" active={sortBy === 'whereUsed'} direction={sortDirection} onClick={() => handleToggleSort('whereUsed')} className="w-[14%]" />
+                    <SortableTh label="Équivalences" active={sortBy === 'equivalences'} direction={sortDirection} onClick={() => handleToggleSort('equivalences')} className="hidden xl:table-cell w-[13%]" />
+                    <SortableTh label="Catégorie" active={sortBy === 'category'} direction={sortDirection} onClick={() => handleToggleSort('category')} className="w-[11%]" />
+                    <SortableTh label="Seuil" active={sortBy === 'minStockThreshold'} direction={sortDirection} onClick={() => handleToggleSort('minStockThreshold')} align="right" className="w-[7%]" />
+                    <th className="py-2.5 px-2 text-right w-14">Opt.</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -1151,7 +1197,7 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
                         </td>
 
                         {/* 3. Description */}
-                        <td className="py-2.5 px-3 max-w-[260px]">
+                        <td className="hidden lg:table-cell py-2.5 px-2.5">
                           {article.description || article.notes ? (
                             <div
                               className="text-xs text-slate-600 truncate"
@@ -1166,7 +1212,7 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
 
                         {/* Where Used (SIS 2.0) */}
                         <td
-                          className="py-2.5 px-3 max-w-[210px]"
+                          className="py-2.5 px-2.5"
                           onClick={(e) => {
                             e.stopPropagation();
                             setWhereUsedArticle(article);
@@ -1179,18 +1225,13 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
                                 e.stopPropagation();
                                 setWhereUsedArticle(article);
                               }}
-                              className="inline-flex items-center gap-1.5 px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-md font-mono text-[11px] font-bold transition-colors cursor-pointer"
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-md font-mono text-[10px] font-bold transition-colors cursor-pointer max-w-full"
                               title="Cliquer pour ouvrir le tableau d'affectation Where Used complet"
                             >
-                              <Tractor className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                              <span>{article.machineApplications[0].model}</span>
-                              {article.machineApplications[0].serialPrefix && (
-                                <span className="text-[10px] bg-amber-200/70 px-1 rounded font-bold">
-                                  {article.machineApplications[0].serialPrefix}
-                                </span>
-                              )}
+                              <Tractor className="w-3 h-3 text-amber-600 shrink-0" />
+                              <span className="truncate">{article.machineApplications[0].model}</span>
                               {article.machineApplications.length > 1 && (
-                                <span className="text-[10px] text-amber-700 font-semibold">
+                                <span className="text-[10px] text-amber-700 font-semibold shrink-0">
                                   +{article.machineApplications.length - 1}
                                 </span>
                               )}
@@ -1202,13 +1243,13 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
                                 e.stopPropagation();
                                 setWhereUsedArticle(article);
                               }}
-                              className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[11px] font-medium transition-colors cursor-pointer"
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] font-medium transition-colors cursor-pointer max-w-full"
                               title="Cliquer pour gérer les affectations Where Used"
                             >
-                              <Tractor className="w-3 h-3 text-slate-500" />
-                              <span className="truncate max-w-[120px]">{article.compatibleMachines[0]}</span>
+                              <Tractor className="w-3 h-3 text-slate-500 shrink-0" />
+                              <span className="truncate">{article.compatibleMachines[0]}</span>
                               {article.compatibleMachines.length > 1 && (
-                                <span className="text-[10px] text-slate-500 font-bold">
+                                <span className="text-[10px] text-slate-500 font-bold shrink-0">
                                   +{article.compatibleMachines.length - 1}
                                 </span>
                               )}
@@ -1223,30 +1264,30 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
                               className="text-slate-400 hover:text-amber-700 text-[11px] inline-flex items-center gap-1 transition-colors cursor-pointer"
                               title="Ajouter des machines compatibles"
                             >
-                              <Tractor className="w-3 h-3 opacity-40" />
-                              <span className="italic">+ Affecter</span>
+                              <Tractor className="w-3 h-3 opacity-40 shrink-0" />
+                              <span className="italic truncate">+ Affecter</span>
                             </button>
                           )}
                         </td>
 
                         {/* 4. Équivalences */}
-                        <td className="py-2.5 px-3 max-w-[220px]">
+                        <td className="hidden xl:table-cell py-2.5 px-2.5">
                           {article.equivalentReferences && article.equivalentReferences.length > 0 ? (
                             <div className="flex flex-wrap gap-1">
-                              {article.equivalentReferences.slice(0, 3).map((eq, eqIdx) => (
+                              {article.equivalentReferences.slice(0, 2).map((eq, eqIdx) => (
                                 <span
                                   key={`${eq}-${eqIdx}`}
-                                  className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 font-mono text-[10px] font-semibold text-slate-700"
+                                  className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 font-mono text-[10px] font-semibold text-slate-700 truncate max-w-full"
                                 >
                                   {eq}
                                 </span>
                               ))}
-                              {article.equivalentReferences.length > 3 && (
+                              {article.equivalentReferences.length > 2 && (
                                 <span
                                   className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 font-mono text-[10px] font-semibold"
                                   title={article.equivalentReferences.join(', ')}
                                 >
-                                  +{article.equivalentReferences.length - 3}
+                                  +{article.equivalentReferences.length - 2}
                                 </span>
                               )}
                             </div>
@@ -1256,92 +1297,76 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
                         </td>
 
                         {/* 5. Catégorie */}
-                        <td className="py-2.5 px-3 whitespace-nowrap">
-                          <span className="text-[11px] font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
+                        <td className="py-2.5 px-2.5">
+                          <span className="block truncate text-[11px] font-medium text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded" title={article.category}>
                             {article.category}
                           </span>
                         </td>
 
                         {/* 6. Seuil minimum */}
-                        <td className="py-2.5 px-3 text-right whitespace-nowrap">
-                          <span className="font-mono font-bold text-xs text-slate-800 bg-slate-100 px-2 py-0.5 rounded">
+                        <td className="py-2.5 px-2.5 text-right whitespace-nowrap">
+                          <span className="font-mono font-bold text-xs text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded">
                             {article.minStockThreshold}
                           </span>
                         </td>
 
                         {/* 7. Actions Catalogue */}
                         <td
-                          className="py-2.5 px-3 text-right whitespace-nowrap"
+                          className="py-2.5 px-2 text-right whitespace-nowrap"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <div className="inline-flex items-center justify-end gap-1">
-                            {(() => {
-                              const activeOrder = getActiveOrderForArticle(article.id);
-                              if (activeOrder) {
-                                return (
-                                  <div className="inline-flex items-center gap-1 mr-1">
-                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold">
-                                      <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
-                                      Commandé
-                                    </span>
-                                    {onNavigateToPurchaseOrder && (
-                                      <button
-                                        type="button"
-                                        onClick={() => onNavigateToPurchaseOrder(activeOrder.id)}
-                                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-[10px] font-semibold transition-colors cursor-pointer"
-                                        title={`Ouvrir la liste de commande ${activeOrder.orderNumber}`}
-                                      >
-                                        <span>{activeOrder.orderNumber}</span>
-                                        <ExternalLink className="w-2.5 h-2.5" />
-                                      </button>
-                                    )}
-                                  </div>
-                                );
-                              }
-                              return null;
-                            })()}
-                            {onOpenPurchaseOrder && (
-                              <button
-                                type="button"
-                                onClick={() => onOpenPurchaseOrder(article.id, article.brand)}
-                                className="p-1.5 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-md transition-colors cursor-pointer"
-                                title="Commander cette pièce (ajouter à une commande existante ou créer une nouvelle liste)"
-                              >
-                                <ShoppingBag className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingArticle(article);
-                                setIsFormOpen(true);
-                              }}
-                              className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors cursor-pointer"
-                              title="Modifier cette référence"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => setViewingArticle(article)}
-                              className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors cursor-pointer"
-                              title="Voir la fiche complète"
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                            </button>
-
-                            {canDelete && (
-                              <button
-                                type="button"
-                                onClick={() => setArticleToDelete(article)}
-                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors cursor-pointer"
-                                title="Archiver ou supprimer cette référence"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
+                          {(() => {
+                            const activeOrder = getActiveOrderForArticle(article.id);
+                            return (
+                              <RowActionsMenu
+                                actions={[
+                                  {
+                                    label: 'Voir la fiche complète',
+                                    icon: <Eye className="w-3.5 h-3.5" />,
+                                    onClick: () => setViewingArticle(article),
+                                  },
+                                  {
+                                    label: 'Modifier cette référence',
+                                    icon: <Edit2 className="w-3.5 h-3.5" />,
+                                    tone: 'primary',
+                                    onClick: () => {
+                                      setEditingArticle(article);
+                                      setIsFormOpen(true);
+                                    },
+                                  },
+                                  {
+                                    label: 'Affectations Where Used',
+                                    icon: <Tractor className="w-3.5 h-3.5" />,
+                                    onClick: () => setWhereUsedArticle(article),
+                                  },
+                                  {
+                                    label: activeOrder
+                                      ? `Voir commande ${activeOrder.orderNumber}`
+                                      : 'Ouvrir la commande active',
+                                    icon: <ExternalLink className="w-3.5 h-3.5" />,
+                                    tone: 'success',
+                                    hidden: !activeOrder || !onNavigateToPurchaseOrder,
+                                    onClick: () => activeOrder && onNavigateToPurchaseOrder?.(activeOrder.id),
+                                  },
+                                  {
+                                    label: 'Commander cette pièce',
+                                    icon: <ShoppingBag className="w-3.5 h-3.5" />,
+                                    tone: 'warning',
+                                    hidden: !onOpenPurchaseOrder,
+                                    onClick: () => onOpenPurchaseOrder?.(article.id, article.brand),
+                                  },
+                                  {
+                                    label: 'Supprimer cette référence',
+                                    icon: <Trash2 className="w-3.5 h-3.5" />,
+                                    tone: 'danger',
+                                    dividerBefore: true,
+                                    hidden: !canDelete,
+                                    onClick: () => setArticleToDelete(article),
+                                  },
+                                ]}
+                              />
+                            );
+                          })()}
                         </td>
                       </tr>
                     );

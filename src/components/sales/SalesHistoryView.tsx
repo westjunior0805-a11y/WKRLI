@@ -36,6 +36,8 @@ import {
 } from '../../utils/customerAccount';
 import { ReceiptModal } from './ReceiptModal';
 import { DeliveryNotePrintModal } from './DeliveryNotePrintModal';
+import { TablePagination, usePagination } from '../common/TablePagination';
+import { RowActionsMenu } from '../common/RowActionsMenu';
 
 type SaleSortField =
   | 'receiptNumber'
@@ -191,6 +193,14 @@ export const SalesHistoryView: React.FC = () => {
       return sortDir === 'asc' ? cmp : -cmp;
     });
   }, [sales, selectedWarehouseFilter, selectedPaymentStatus, selectedCustomerFilter, deferredSearchQuery, sortField, sortDir]);
+
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    paginatedItems: paginatedSales,
+  } = usePagination(filteredSales, 15);
 
   const handleExportCSV = () => {
     const headers = [
@@ -476,74 +486,74 @@ export const SalesHistoryView: React.FC = () => {
 
       {/* Sales Table */}
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
-        <div className="overflow-x-auto">
+        <div>
           {filteredSales.length === 0 ? (
             <div className="text-center py-12 px-4 text-slate-400 text-xs">
               Aucune vente ne correspond aux critères de recherche actuels.
             </div>
           ) : (
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
+            <table className="w-full table-fixed text-left text-xs">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold text-[10px]">
                 <tr>
                   <th
                     onClick={() => toggleSort('receiptNumber')}
-                    className="py-3 px-3 cursor-pointer hover:text-slate-900 select-none whitespace-nowrap"
+                    className="py-2.5 px-2 cursor-pointer hover:text-slate-900 select-none w-[14%]"
                   >
-                    N° Vente & Reçu {renderSortIcon('receiptNumber')}
+                    N° Reçu {renderSortIcon('receiptNumber')}
                   </th>
                   <th
                     onClick={() => toggleSort('date')}
-                    className="py-3 px-3 cursor-pointer hover:text-slate-900 select-none whitespace-nowrap"
+                    className="py-2.5 px-2 cursor-pointer hover:text-slate-900 select-none w-[11%]"
                   >
                     Date {renderSortIcon('date')}
                   </th>
                   <th
                     onClick={() => toggleSort('warehouseName')}
-                    className="py-3 px-3 cursor-pointer hover:text-slate-900 select-none whitespace-nowrap"
+                    className="py-2.5 px-2 cursor-pointer hover:text-slate-900 select-none w-[10%] hidden xl:table-cell"
                   >
                     Magasin {renderSortIcon('warehouseName')}
                   </th>
                   <th
                     onClick={() => toggleSort('customerName')}
-                    className="py-3 px-3 cursor-pointer hover:text-slate-900 select-none whitespace-nowrap"
+                    className="py-2.5 px-2 cursor-pointer hover:text-slate-900 select-none w-[13%]"
                   >
                     Client {renderSortIcon('customerName')}
                   </th>
                   <th
                     onClick={() => toggleSort('itemsCount')}
-                    className="py-3 px-3 cursor-pointer hover:text-slate-900 select-none whitespace-nowrap"
+                    className="py-2.5 px-2 cursor-pointer hover:text-slate-900 select-none w-[15%] hidden lg:table-cell"
                   >
                     Articles {renderSortIcon('itemsCount')}
                   </th>
                   <th
                     onClick={() => toggleSort('totalAmount')}
-                    className="py-3 px-3 text-right cursor-pointer hover:text-slate-900 select-none whitespace-nowrap"
+                    className="py-2.5 px-2 text-right cursor-pointer hover:text-slate-900 select-none w-[10%]"
                   >
-                    Net à Payer {renderSortIcon('totalAmount')}
+                    Net {renderSortIcon('totalAmount')}
                   </th>
                   <th
                     onClick={() => toggleSort('totalPaid')}
-                    className="py-3 px-3 text-right cursor-pointer hover:text-slate-900 select-none whitespace-nowrap"
+                    className="py-2.5 px-2 text-right cursor-pointer hover:text-slate-900 select-none w-[10%] hidden sm:table-cell"
                   >
                     Encaissé {renderSortIcon('totalPaid')}
                   </th>
                   <th
                     onClick={() => toggleSort('remainingDue')}
-                    className="py-3 px-3 text-right cursor-pointer hover:text-slate-900 select-none whitespace-nowrap"
+                    className="py-2.5 px-2 text-right cursor-pointer hover:text-slate-900 select-none w-[10%] hidden md:table-cell"
                   >
-                    Reste Dû {renderSortIcon('remainingDue')}
+                    Reste {renderSortIcon('remainingDue')}
                   </th>
                   <th
                     onClick={() => toggleSort('paymentStatus')}
-                    className="py-3 px-3 text-center cursor-pointer hover:text-slate-900 select-none whitespace-nowrap"
+                    className="py-2.5 px-2 text-center cursor-pointer hover:text-slate-900 select-none w-[8%]"
                   >
-                    Paiement {renderSortIcon('paymentStatus')}
+                    Statut {renderSortIcon('paymentStatus')}
                   </th>
-                  <th className="py-3 px-3 text-right">Actions</th>
+                  <th className="py-2.5 px-2 text-right w-[5%]">Opt.</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredSales.map((sale, idx) => {
+                {paginatedSales.map((sale, idx) => {
                   const isCancelled = sale.status === 'CANCELLED';
                   const isPaid = sale.paymentStatus === 'PAID';
                   const isPartial = sale.paymentStatus === 'PARTIALLY_PAID';
@@ -558,205 +568,169 @@ export const SalesHistoryView: React.FC = () => {
                       }`}
                     >
                       {/* VTE & Receipt */}
-                      <td className="py-3 px-3 font-mono font-bold whitespace-nowrap">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-slate-900">{sale.receiptNumber}</span>
+                      <td className="py-2.5 px-2 font-mono font-bold min-w-0">
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <span className="text-slate-900 truncate">{sale.receiptNumber}</span>
                           {sale.isHistoricalFrozen && (
-                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-sky-100 text-sky-800" title="Vente enregistrée avec le stock gelé (saisie historique sans déduction)">
+                            <span
+                              className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-bold bg-sky-100 text-sky-800"
+                              title="Vente enregistrée avec le stock gelé (saisie historique sans déduction)"
+                            >
                               <Snowflake className="w-2.5 h-2.5" />
-                              <span>Gelé</span>
                             </span>
                           )}
-                          {returnBreakdown.reimbursedAmount > 0 && (
-                            <span
-                              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-100 text-rose-800"
-                              title="Montant remboursé directement au client suite à un retour de pièce (non comptabilisé en avoir)"
-                            >
-                              <Undo2 className="w-2.5 h-2.5" />
-                              <span>Remboursé: -{formatFCFA(returnBreakdown.reimbursedAmount)}</span>
-                            </span>
-                          )}
-                          {returnBreakdown.avoirAmount > 0 && (
-                            <span
-                              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-100 text-indigo-800"
-                              title="Montant comptabilisé en avoir sur le compte du client"
-                            >
-                              <Undo2 className="w-2.5 h-2.5" />
-                              <span>Avoir: -{formatFCFA(returnBreakdown.avoirAmount)}</span>
-                            </span>
-                          )}
-                          {returnBreakdown.debtDeductedAmount > 0 && (
-                            <span
-                              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800"
-                              title="Montant déduit de la créance sur cette vente suite à un retour de pièce"
-                            >
-                              <Undo2 className="w-2.5 h-2.5" />
-                              <span>Déduit créance: -{formatFCFA(returnBreakdown.debtDeductedAmount)}</span>
-                            </span>
-                          )}
-                          {returnBreakdown.totalReturned > 0 &&
-                            returnBreakdown.reimbursedAmount === 0 &&
-                            returnBreakdown.avoirAmount === 0 &&
-                            returnBreakdown.debtDeductedAmount === 0 && (
-                              <span
-                                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-700"
-                                title="Retour stock seul sans remboursement ni avoir"
-                              >
-                                <Undo2 className="w-2.5 h-2.5" />
-                                <span>Retour: -{formatFCFA(returnBreakdown.totalReturned)}</span>
-                              </span>
-                            )}
                         </div>
-                        <span className="text-[10px] text-slate-400 font-normal block">
+                        <span className="text-[10px] text-slate-400 font-normal block truncate">
                           {sale.id}
                         </span>
+                        {returnBreakdown.reimbursedAmount > 0 && (
+                          <span className="inline-flex items-center gap-0.5 mt-0.5 px-1 py-0.2 rounded text-[9px] font-bold bg-rose-100 text-rose-800">
+                            Remb: -{formatFCFA(returnBreakdown.reimbursedAmount)}
+                          </span>
+                        )}
+                        {returnBreakdown.avoirAmount > 0 && (
+                          <span className="inline-flex items-center gap-0.5 mt-0.5 px-1 py-0.2 rounded text-[9px] font-bold bg-indigo-100 text-indigo-800">
+                            Avoir: -{formatFCFA(returnBreakdown.avoirAmount)}
+                          </span>
+                        )}
+                        {returnBreakdown.debtDeductedAmount > 0 && (
+                          <span className="inline-flex items-center gap-0.5 mt-0.5 px-1 py-0.2 rounded text-[9px] font-bold bg-amber-100 text-amber-800">
+                            Déduit: -{formatFCFA(returnBreakdown.debtDeductedAmount)}
+                          </span>
+                        )}
                       </td>
 
                       {/* Date */}
-                      <td className="py-3 px-3 whitespace-nowrap text-slate-600 text-[11px]">
-                        {formatDateTime(sale.date)}
-                        <span className="block text-[10px] text-slate-400">{sale.userName}</span>
+                      <td className="py-2.5 px-2 text-slate-600 text-[11px] min-w-0">
+                        <span className="block truncate">{formatDateTime(sale.date)}</span>
+                        <span className="block text-[10px] text-slate-400 truncate">{sale.userName}</span>
                       </td>
 
                       {/* Warehouse */}
-                      <td className="py-3 px-3 whitespace-nowrap text-slate-700 font-medium">
+                      <td className="py-2.5 px-2 text-slate-700 font-medium truncate hidden xl:table-cell">
                         {sale.warehouseName}
                       </td>
 
                       {/* Customer */}
-                      <td className="py-3 px-3 font-medium text-slate-800 max-w-[140px] truncate">
-                        {sale.customerName}
+                      <td className="py-2.5 px-2 font-medium text-slate-800 min-w-0">
+                        <span className="block truncate">{sale.customerName}</span>
                         {sale.customerPhone && (
-                          <span className="block text-[10px] text-slate-400">
+                          <span className="block text-[10px] text-slate-400 truncate">
                             {sale.customerPhone}
                           </span>
                         )}
                       </td>
 
                       {/* Items summary */}
-                      <td className="py-3 px-3 text-slate-600 max-w-xs truncate">
+                      <td
+                        className="py-2.5 px-2 text-slate-600 truncate hidden lg:table-cell"
+                        title={sale.items.map((i) => `${i.quantity}x ${i.mainReference}`).join(', ')}
+                      >
                         {sale.items.map((i) => `${i.quantity}x ${i.mainReference}`).join(', ')}
                       </td>
 
                       {/* Net Amount */}
-                      <td className="py-3 px-3 text-right font-mono font-bold text-slate-900 tabular-nums whitespace-nowrap">
-                        {formatFCFA(netSaleTotal)}
+                      <td className="py-2.5 px-2 text-right font-mono font-bold text-slate-900 tabular-nums text-[11px]">
+                        <span className="block truncate">{formatFCFA(netSaleTotal)}</span>
                         {returnBreakdown.totalReturned > 0 && (
-                          <span className="block text-[10px] text-slate-400 font-normal line-through">
+                          <span className="block text-[9px] text-slate-400 font-normal line-through truncate">
                             {formatFCFA(sale.totalAmount)}
                           </span>
                         )}
                       </td>
 
                       {/* Paid */}
-                      <td className="py-3 px-3 text-right font-mono font-bold text-emerald-700 tabular-nums whitespace-nowrap">
-                        {formatFCFA(sale.totalPaid)}
+                      <td className="py-2.5 px-2 text-right font-mono font-bold text-emerald-700 tabular-nums text-[11px] hidden sm:table-cell">
+                        <span className="block truncate">{formatFCFA(sale.totalPaid)}</span>
                       </td>
 
                       {/* Remaining due */}
-                      <td className="py-3 px-3 text-right font-mono font-bold tabular-nums whitespace-nowrap">
+                      <td className="py-2.5 px-2 text-right font-mono font-bold tabular-nums text-[11px] hidden md:table-cell">
                         {sale.remainingDue > 0 ? (
-                          <span className="text-rose-600">{formatFCFA(sale.remainingDue)}</span>
+                          <span className="text-rose-600 block truncate">{formatFCFA(sale.remainingDue)}</span>
                         ) : (
-                          <span className="text-slate-400">0 FCFA</span>
+                          <span className="text-slate-400">0</span>
                         )}
                       </td>
 
                       {/* Payment Status */}
-                      <td className="py-3 px-3 text-center whitespace-nowrap">
+                      <td className="py-2.5 px-2 text-center">
                         {isCancelled ? (
-                          <span className="inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-200 text-slate-700">
+                          <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-200 text-slate-700">
                             Annulée
                           </span>
                         ) : sale.status === 'REFUNDED' ? (
-                          <span className="inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-100 text-rose-800">
+                          <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold bg-rose-100 text-rose-800">
                             {returnBreakdown.avoirAmount > 0 && returnBreakdown.reimbursedAmount === 0
-                              ? 'Retourné (Avoir)'
-                              : 'Remboursé'}
+                              ? 'Avoir'
+                              : 'Remb.'}
                           </span>
                         ) : isPaid ? (
-                          <span className="inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800">
+                          <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800">
                             Payé
                           </span>
                         ) : isPartial ? (
-                          <span className="inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800">
+                          <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800">
                             Partiel
                           </span>
                         ) : (
-                          <span className="inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-100 text-rose-800">
-                            À crédit
+                          <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold bg-rose-100 text-rose-800">
+                            Crédit
                           </span>
                         )}
                       </td>
 
-                      {/* Actions */}
-                      <td className="py-3 px-3 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-1">
-                          {/* Bouton Modifier Vente (Admin uniquement) */}
-                          {currentUser.role === 'ADMIN' && !isCancelled && (
-                            <button
-                              type="button"
-                              onClick={() => handleOpenEditModal(sale)}
-                              className="p-1.5 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded"
-                              title="Modifier cette vente (Admin : date, client, règlement)"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-
-                          {/* Bouton Retour de Pièce / Remboursement ou Avoir */}
-                          {!isCancelled && (
-                            <button
-                              type="button"
-                              onClick={() => handleOpenReturnModal(sale)}
-                              className="p-1.5 text-sky-600 hover:text-sky-800 hover:bg-sky-50 rounded"
-                              title="Retour de pièce (Remboursement ou Avoir client)"
-                            >
-                              <Undo2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-
-                          <button
-                            onClick={() => setActiveReceiptSale(sale)}
-                            className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded"
-                            title="Imprimer Facture / Ticket (80mm & A4)"
-                          >
-                            <Printer className="w-3.5 h-3.5" />
-                          </button>
-
-                          <button
-                            onClick={() => setActiveDeliveryNoteSale(sale)}
-                            className="p-1.5 text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 rounded"
-                            title="Imprimer le Bon de Livraison (BL) avec emplacements de préparation"
-                          >
-                            <FileCheck className="w-3.5 h-3.5" />
-                          </button>
-
-                          {!isCancelled && currentUser.role !== 'MAGASINIER' && (
-                            <button
-                              onClick={() => {
+                      {/* Actions via Options Menu */}
+                      <td className="py-2.5 px-2 text-right">
+                        <RowActionsMenu
+                          actions={[
+                            {
+                              label: 'Imprimer Facture / Ticket',
+                              icon: <Printer className="w-3.5 h-3.5" />,
+                              onClick: () => setActiveReceiptSale(sale),
+                            },
+                            {
+                              label: 'Bon de Livraison (BL)',
+                              icon: <FileCheck className="w-3.5 h-3.5" />,
+                              tone: 'primary',
+                              onClick: () => setActiveDeliveryNoteSale(sale),
+                            },
+                            {
+                              label: 'Modifier la vente',
+                              icon: <Edit2 className="w-3.5 h-3.5" />,
+                              tone: 'warning',
+                              hidden: !(currentUser.role === 'ADMIN' && !isCancelled),
+                              onClick: () => handleOpenEditModal(sale),
+                            },
+                            {
+                              label: 'Retour pièce / Avoir',
+                              icon: <Undo2 className="w-3.5 h-3.5" />,
+                              tone: 'primary',
+                              hidden: isCancelled,
+                              onClick: () => handleOpenReturnModal(sale),
+                            },
+                            {
+                              label: 'Annuler & remettre en stock',
+                              icon: <RotateCcw className="w-3.5 h-3.5" />,
+                              tone: 'danger',
+                              dividerBefore: true,
+                              hidden: !(!isCancelled && currentUser.role !== 'MAGASINIER'),
+                              onClick: () => {
                                 setSaleToCancel(sale);
                                 setCancelReason('');
                                 setCancelError('');
-                              }}
-                              className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded"
-                              title="Annuler la vente et remettre en stock"
-                            >
-                              <RotateCcw className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-
-                          {currentUser.role !== 'MAGASINIER' && (
-                            <button
-                              type="button"
-                              onClick={() => setSaleToDelete(sale)}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
-                              title="Supprimer définitivement cette vente"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
+                              },
+                            },
+                            {
+                              label: 'Supprimer définitivement',
+                              icon: <Trash2 className="w-3.5 h-3.5" />,
+                              tone: 'danger',
+                              dividerBefore: isCancelled,
+                              hidden: currentUser.role === 'MAGASINIER',
+                              onClick: () => setSaleToDelete(sale),
+                            },
+                          ]}
+                        />
                       </td>
                     </tr>
                   );
@@ -765,7 +739,14 @@ export const SalesHistoryView: React.FC = () => {
             </table>
           )}
         </div>
-
+        <TablePagination
+          currentPage={currentPage}
+          totalItems={filteredSales.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="ventes"
+        />
         {/* Footer info */}
         <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
           <span>

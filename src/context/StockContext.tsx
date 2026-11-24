@@ -594,6 +594,25 @@ interface StockContextType {
     notes?: string;
     terms?: string;
   }) => { success: boolean; error?: string; quote?: Quote };
+  updateQuote: (
+    quoteId: string,
+    params: {
+      customerId?: string;
+      customerName: string;
+      customerPhone?: string;
+      customerEmail?: string;
+      warehouseId: string;
+      validUntil?: string;
+      items: Array<{
+        articleId: string;
+        quantity: number;
+        unitPrice?: number;
+        discountPercent?: number;
+      }>;
+      notes?: string;
+      terms?: string;
+    }
+  ) => { success: boolean; error?: string; quote?: Quote };
   updateQuoteStatus: (quoteId: string, status: QuoteStatus) => { success: boolean; error?: string };
   convertQuoteToSale: (quoteId: string, paymentMethod: PaymentMethod) => { success: boolean; error?: string; saleId?: string };
   deleteQuote: (quoteId: string) => { success: boolean; error?: string; message?: string };
@@ -9011,17 +9030,111 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return { success: true, quote: newQuote };
   };
 
+  const updateQuote = (
+    quoteId: string,
+    params: {
+      customerId?: string;
+      customerName: string;
+      customerPhone?: string;
+      customerEmail?: string;
+      warehouseId: string;
+      validUntil?: string;
+      items: Array<{
+        articleId: string;
+        quantity: number;
+        unitPrice?: number;
+        discountPercent?: number;
+      }>;
+      notes?: string;
+      terms?: string;
+    }
+  ): { success: boolean; error?: string; quote?: Quote } => {
+    const existing = quotes.find((q) => q.id === quoteId);
+    if (!existing) {
+      return { success: false, error: 'Devis introuvable.' };
+    }
+    if (existing.status === 'CONVERTED') {
+      return {
+        success: false,
+        error: 'Ce devis a déjà été validé et converti en vente. Il ne peut plus être modifié.',
+      };
+    }
+    if (!params.customerName.trim()) {
+      return { success: false, error: 'Veuillez indiquer le nom du client.' };
+    }
+    if (!params.items || params.items.length === 0) {
+      return { success: false, error: 'Veuillez conserver au moins une pièce dans le devis.' };
+    }
+
+    const wh = warehouses.find((w) => w.id === params.warehouseId) || warehouses[0];
+
+    const quoteItems: QuoteItem[] = params.items.map((it) => {
+      const art = articles.find((a) => a.id === it.articleId);
+      const prevItem = existing.items.find((old) => old.articleId === it.articleId);
+      const unitCost = art?.purchasePrice ?? prevItem?.unitCost ?? 0;
+      const catalogPrice = art?.salePrice ?? prevItem?.catalogUnitPrice ?? 0;
+      const unitPrice = it.unitPrice !== undefined ? it.unitPrice : catalogPrice;
+      const discPct = it.discountPercent || 0;
+      const discAmt = (unitPrice * it.quantity * discPct) / 100;
+      const totalLine = unitPrice * it.quantity - discAmt;
+
+      return {
+        articleId: it.articleId,
+        mainReference: art?.mainReference || prevItem?.mainReference || '',
+        designation: art?.designation || prevItem?.designation || '',
+        brand: art?.brand || prevItem?.brand || '',
+        unit: art?.unit || prevItem?.unit || 'Unité',
+        quantity: it.quantity,
+        unitCost,
+        catalogUnitPrice: catalogPrice,
+        unitPrice,
+        discountPercent: discPct,
+        discountAmount: discAmt,
+        totalLine,
+      };
+    });
+
+    const subtotal = quoteItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+    const totalDiscount = quoteItems.reduce((sum, item) => sum + item.discountAmount, 0);
+    const totalAmount = subtotal - totalDiscount;
+
+    const updatedQuote: Quote = {
+      ...existing,
+      validUntil: params.validUntil || existing.validUntil,
+      customerId: params.customerId,
+      customerName: params.customerName.trim(),
+      customerPhone: params.customerPhone?.trim(),
+      customerEmail: params.customerEmail?.trim(),
+      warehouseId: wh?.id || existing.warehouseId,
+      warehouseName: wh?.name || existing.warehouseName,
+      items: quoteItems,
+      subtotal,
+      totalDiscount,
+      totalAmount,
+      notes: params.notes?.trim(),
+      terms: params.terms?.trim() || existing.terms,
+    };
+
+    const nextQuotes = quotes.map((q) => (q.id === quoteId ? updatedQuote : q));
+    setQuotes(nextQuotes);
+    safeSetLocalStorage('quotes', nextQuotes);
+    saveQuoteToFirebase(updatedQuote).catch(console.warn);
+    return { success: true, quote: updatedQuote };
+  };
+
   const updateQuoteStatus = (quoteId: string, status: QuoteStatus) => {
-    setQuotes((prev) =>
-      prev.map((q) => {
+    setQuotes((prev) => {
+      const next = prev.map((q) => {
         if (q.id === quoteId) {
           const updated = { ...q, status };
           saveQuoteToFirebase(updated).catch(console.warn);
           return updated;
         }
         return q;
-      })
-    );
+      });
+      safeSetLocalStorage('quotes', next);
+      return next;
+    });
     return { success: true };
   };
 
@@ -10288,6 +10401,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         deleteSupplier,
         getActiveOrderForArticle,
         createQuote,
+        updateQuote,
         updateQuoteStatus,
         deleteQuote,
         convertQuoteToSale,

@@ -33,6 +33,7 @@ import {
 import { ConfirmModal } from '../common/ConfirmModal';
 import { cleanBrandName, getBrandLocation, stripWarehousePrefix } from '../../utils/articleHelpers';
 import { NumericInput } from '../common/NumericInput';
+import { TablePagination, usePagination } from '../common/TablePagination';
 
 interface InventorySessionViewProps {
   session: InventorySession;
@@ -49,7 +50,8 @@ type SortField =
   | 'THEORETICAL'
   | 'COUNTED'
   | 'VARIANCE_QTY'
-  | 'VARIANCE_VAL';
+  | 'VARIANCE_VAL'
+  | 'NOTES';
 
 type SortDirection = 'ASC' | 'DESC';
 
@@ -498,6 +500,8 @@ export const InventorySessionView: React.FC<InventorySessionViewProps> = ({
           if (aVal !== bVal) return (aVal - bVal) * dirMultiplier;
           return Math.abs(bVal) - Math.abs(aVal);
         }
+        case 'NOTES':
+          return (a.notes || '').localeCompare(b.notes || '', 'fr') * dirMultiplier;
         default:
           return 0;
       }
@@ -514,6 +518,14 @@ export const InventorySessionView: React.FC<InventorySessionViewProps> = ({
     sortDirection,
   ]);
 
+  const {
+    currentPage: invPage,
+    setCurrentPage: setInvPage,
+    pageSize: invPageSize,
+    setPageSize: setInvPageSize,
+    paginatedItems: paginatedInventoryRows,
+  } = usePagination(filteredAndSortedRows, 25);
+
   // Group rows if groupByMode !== 'NONE'
   const groupedSections = useMemo(() => {
     if (groupByMode === 'NONE') {
@@ -521,13 +533,13 @@ export const InventorySessionView: React.FC<InventorySessionViewProps> = ({
         {
           groupKey: 'ALL',
           groupTitle: 'Toutes les lignes affichées',
-          rows: filteredAndSortedRows,
+          rows: paginatedInventoryRows,
         },
       ];
     }
 
     const groups = new Map<string, EnrichedInventoryRow[]>();
-    for (const row of filteredAndSortedRows) {
+    for (const row of paginatedInventoryRows) {
       const key =
         groupByMode === 'LOCATION'
           ? row.pureLocation
@@ -544,7 +556,7 @@ export const InventorySessionView: React.FC<InventorySessionViewProps> = ({
       groupTitle: groupKey,
       rows,
     }));
-  }, [filteredAndSortedRows, groupByMode]);
+  }, [paginatedInventoryRows, groupByMode]);
 
   const handleToggleSort = (field: SortField) => {
     if (sortField === field) {
@@ -1555,65 +1567,70 @@ export const InventorySessionView: React.FC<InventorySessionViewProps> = ({
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-100/90 dark:bg-slate-800 border-b border-slate-200 text-slate-600 uppercase tracking-wider font-bold select-none">
+          <div className="w-full">
+            <table className="w-full table-fixed text-left text-xs">
+              <thead className="bg-slate-100/90 dark:bg-slate-800 border-b border-slate-200 text-slate-600 uppercase tracking-wider font-bold text-[10px] select-none">
                 <tr>
                   <th
                     onClick={() => handleToggleSort('LOCATION')}
-                    className="py-3 px-3 cursor-pointer hover:bg-slate-200/70 transition-colors whitespace-nowrap"
+                    className="hidden lg:table-cell py-2.5 px-2 cursor-pointer hover:bg-slate-200/70 transition-colors w-[10%]"
                   >
-                    Emplacement {renderSortIcon('LOCATION')}
+                    Empl. {renderSortIcon('LOCATION')}
                   </th>
                   <th
                     onClick={() => handleToggleSort('REFERENCE')}
-                    className="py-3 px-3 cursor-pointer hover:bg-slate-200/70 transition-colors whitespace-nowrap"
+                    className="py-2.5 px-2 cursor-pointer hover:bg-slate-200/70 transition-colors w-[11%]"
                   >
-                    Référence {renderSortIcon('REFERENCE')}
+                    Réf. {renderSortIcon('REFERENCE')}
                   </th>
                   <th
                     onClick={() => handleToggleSort('BRAND')}
-                    className="py-3 px-3 cursor-pointer hover:bg-slate-200/70 transition-colors whitespace-nowrap"
+                    className="py-2.5 px-2 cursor-pointer hover:bg-slate-200/70 transition-colors w-[9%]"
                   >
                     Marque {renderSortIcon('BRAND')}
                   </th>
                   <th
                     onClick={() => handleToggleSort('DESIGNATION')}
-                    className="py-3 px-3 cursor-pointer hover:bg-slate-200/70 transition-colors"
+                    className="py-2.5 px-2 cursor-pointer hover:bg-slate-200/70 transition-colors w-[15%]"
                   >
-                    Désignation & Catégorie {renderSortIcon('DESIGNATION')}
+                    Désignation {renderSortIcon('DESIGNATION')}
                   </th>
                   {!blindCountMode && (
                     <th
                       onClick={() => handleToggleSort('THEORETICAL')}
-                      className="py-3 px-3 text-right cursor-pointer hover:bg-slate-200/70 transition-colors whitespace-nowrap"
+                      className="py-2.5 px-2 text-right cursor-pointer hover:bg-slate-200/70 transition-colors w-[8%]"
                     >
-                      Stock Théo {renderSortIcon('THEORETICAL')}
+                      Théo {renderSortIcon('THEORETICAL')}
                     </th>
                   )}
                   <th
                     onClick={() => handleToggleSort('COUNTED')}
-                    className="py-3 px-3 text-center cursor-pointer hover:bg-slate-200/70 transition-colors whitespace-nowrap w-56"
+                    className="py-2.5 px-2 text-center cursor-pointer hover:bg-slate-200/70 transition-colors w-[17%]"
                   >
-                    Stock Compté (Marque) {renderSortIcon('COUNTED')}
+                    Compté {renderSortIcon('COUNTED')}
                   </th>
                   {!blindCountMode && (
                     <>
                       <th
                         onClick={() => handleToggleSort('VARIANCE_QTY')}
-                        className="py-3 px-3 text-right cursor-pointer hover:bg-slate-200/70 transition-colors whitespace-nowrap"
+                        className="py-2.5 px-2 text-right cursor-pointer hover:bg-slate-200/70 transition-colors w-[9%]"
                       >
                         Écart {renderSortIcon('VARIANCE_QTY')}
                       </th>
                       <th
                         onClick={() => handleToggleSort('VARIANCE_VAL')}
-                        className="py-3 px-3 text-right cursor-pointer hover:bg-slate-200/70 transition-colors whitespace-nowrap"
+                        className="hidden xl:table-cell py-2.5 px-2 text-right cursor-pointer hover:bg-slate-200/70 transition-colors w-[10%]"
                       >
-                        Valeur Écart {renderSortIcon('VARIANCE_VAL')}
+                        Val. Écart {renderSortIcon('VARIANCE_VAL')}
                       </th>
                     </>
                   )}
-                  <th className="py-3 px-3 min-w-[200px]">Motif / Observation</th>
+                  <th
+                    onClick={() => handleToggleSort('NOTES')}
+                    className="hidden md:table-cell py-2.5 px-2 cursor-pointer hover:bg-slate-200/70 transition-colors w-[11%]"
+                  >
+                    Motif {renderSortIcon('NOTES')}
+                  </th>
                 </tr>
               </thead>
 
@@ -1693,7 +1710,7 @@ export const InventorySessionView: React.FC<InventorySessionViewProps> = ({
                             }`}
                           >
                             {/* 1. EMPLACEMENT (Par marque, filtrable et modifiable en 1 clic) */}
-                            <td className="py-2.5 px-3 font-mono text-[11px] whitespace-nowrap">
+                            <td className="hidden lg:table-cell py-2.5 px-2 font-mono text-[11px]">
                               {editingLocationLineKey === row.lineKey && !isValidated ? (
                                 <div className="flex items-center gap-1">
                                   <input
@@ -1967,7 +1984,7 @@ export const InventorySessionView: React.FC<InventorySessionViewProps> = ({
 
                             {/* 8. VALEUR FINANCIÈRE DE L'ÉCART & PRIX UNITAIRE */}
                             {!blindCountMode && (
-                              <td className="py-2.5 px-3 text-right whitespace-nowrap font-mono tabular-nums">
+                              <td className="hidden xl:table-cell py-2.5 px-2 text-right whitespace-nowrap font-mono tabular-nums">
                                 {editingCostLineKey === row.lineKey && !isValidated ? (
                                   <div className="flex items-center justify-end gap-1">
                                     <NumericInput
@@ -1976,7 +1993,7 @@ export const InventorySessionView: React.FC<InventorySessionViewProps> = ({
                                       value={costInputVal}
                                       onChange={(val) => setCostInputVal(val)}
                                       placeholder="Coût"
-                                      className="w-24 px-1.5 py-0.5 text-xs font-mono text-right border border-amber-500 rounded bg-white"
+                                      className="w-20 px-1.5 py-0.5 text-xs font-mono text-right border border-amber-500 rounded bg-white"
                                     />
                                     <button
                                       type="button"
@@ -1989,7 +2006,7 @@ export const InventorySessionView: React.FC<InventorySessionViewProps> = ({
                                 ) : (
                                   <div>
                                     <div
-                                      className={`font-bold text-xs ${
+                                      className={`font-bold text-xs truncate ${
                                         !hasCounted || variance === 0
                                           ? 'text-slate-400'
                                           : isPositive
@@ -2010,7 +2027,7 @@ export const InventorySessionView: React.FC<InventorySessionViewProps> = ({
                                           setCostInputVal(row.unitCost);
                                         }
                                       }}
-                                      className="text-[10px] text-slate-400 hover:text-amber-700 cursor-pointer"
+                                      className="text-[10px] text-slate-400 hover:text-amber-700 cursor-pointer truncate"
                                       title="Cliquer pour ajuster le coût d'achat unitaire de cette marque"
                                     >
                                       PU: {formatFCFA(row.unitCost)}
@@ -2021,9 +2038,9 @@ export const InventorySessionView: React.FC<InventorySessionViewProps> = ({
                             )}
 
                             {/* 9. MOTIF / OBSERVATION D'ÉCART */}
-                            <td className="py-2.5 px-3">
+                            <td className="hidden md:table-cell py-2.5 px-2">
                               {isValidated ? (
-                                <span className="text-slate-600 text-[11px]">
+                                <span className="text-slate-600 text-[11px] block truncate">
                                   {row.notes || '-'}
                                 </span>
                               ) : (
@@ -2040,10 +2057,10 @@ export const InventorySessionView: React.FC<InventorySessionViewProps> = ({
                                     }
                                     placeholder={
                                       hasCounted && variance !== 0
-                                        ? 'Justifier l’écart (ex: erreur marque)...'
-                                        : 'Note / Observation...'
+                                        ? 'Justifier…'
+                                        : 'Note…'
                                     }
-                                    className={`w-full px-2 py-1 text-xs border rounded-lg focus:outline-none ${
+                                    className={`w-full px-1.5 py-1 text-xs border rounded-lg focus:outline-none ${
                                       hasCounted && variance !== 0 && !row.notes
                                         ? 'border-amber-300 bg-amber-50/40'
                                         : 'border-slate-200 bg-white'
@@ -2062,7 +2079,7 @@ export const InventorySessionView: React.FC<InventorySessionViewProps> = ({
                                               reason
                                             )
                                           }
-                                          className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-slate-900 cursor-pointer"
+                                          className="text-[9px] px-1 py-0.5 rounded bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-slate-900 cursor-pointer truncate max-w-full"
                                         >
                                           + {reason}
                                         </button>
@@ -2080,6 +2097,14 @@ export const InventorySessionView: React.FC<InventorySessionViewProps> = ({
                 })}
               </tbody>
             </table>
+            <TablePagination
+              currentPage={invPage}
+              totalItems={filteredAndSortedRows.length}
+              pageSize={invPageSize}
+              onPageChange={setInvPage}
+              onPageSizeChange={setInvPageSize}
+              itemLabel="lignes d'inventaire"
+            />
           </div>
         )}
 

@@ -32,6 +32,10 @@ import {
   CheckCircle2,
   Sliders,
 } from 'lucide-react';
+import { TablePagination, SortableTh, usePagination } from '../common/TablePagination';
+import { RowActionsMenu } from '../common/RowActionsMenu';
+
+type UserSortField = 'name' | 'role' | 'warehouse' | 'phone' | 'status';
 
 interface PermissionMeta {
   key: keyof UserPermissions;
@@ -176,9 +180,20 @@ export const AuthManagementView: React.FC = () => {
   // Tabs: 'company' | 'directory' | 'matrix'
   const [activeTab, setActiveTab] = useState<'company' | 'directory' | 'matrix'>('directory');
 
-  // Search and Filter for User Directory
+  // Search, Filter & Sort for User Directory
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<'ALL' | UserRole>('ALL');
+  const [userSortField, setUserSortField] = useState<UserSortField>('name');
+  const [userSortDir, setUserSortDir] = useState<'asc' | 'desc'>('asc');
+
+  const handleUserSort = (field: UserSortField) => {
+    if (userSortField === field) {
+      setUserSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setUserSortField(field);
+      setUserSortDir('asc');
+    }
+  };
 
   // Selected user in the Permissions Configurator ('matrix' tab)
   const [selectedUserIdForPerms, setSelectedUserIdForPerms] = useState<string>(
@@ -230,14 +245,47 @@ export const AuthManagementView: React.FC = () => {
 
   const [isAuthLoading, setIsAuthLoading] = useState(false);
 
-  const filteredUsers = users.filter((u) => {
-    const matchesSearch =
-      u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (u.phone && u.phone.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesRole = roleFilter === 'ALL' || u.role === roleFilter;
-    return matchesSearch && matchesRole;
-  });
+  const filteredUsers = users
+    .filter((u) => {
+      const matchesSearch =
+        u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (u.phone && u.phone.toLowerCase().includes(searchQuery.toLowerCase()));
+      const matchesRole = roleFilter === 'ALL' || u.role === roleFilter;
+      return matchesSearch && matchesRole;
+    })
+    .sort((a, b) => {
+      let cmp = 0;
+      switch (userSortField) {
+        case 'name':
+          cmp = (a.name || '').localeCompare(b.name || '', 'fr');
+          break;
+        case 'role':
+          cmp = (a.role || '').localeCompare(b.role || '', 'fr');
+          break;
+        case 'warehouse': {
+          const wA = warehouses.find((w) => w.id === a.assignedWarehouseId)?.name || 'Global';
+          const wB = warehouses.find((w) => w.id === b.assignedWarehouseId)?.name || 'Global';
+          cmp = wA.localeCompare(wB, 'fr');
+          break;
+        }
+        case 'phone':
+          cmp = (a.phone || '').localeCompare(b.phone || '', 'fr');
+          break;
+        case 'status':
+          cmp = Number(a.isActive !== false) - Number(b.isActive !== false);
+          break;
+      }
+      return userSortDir === 'asc' ? cmp : -cmp;
+    });
+
+  const {
+    currentPage: usersPage,
+    setCurrentPage: setUsersPage,
+    pageSize: usersPageSize,
+    setPageSize: setUsersPageSize,
+    paginatedItems: paginatedUsers,
+  } = usePagination(filteredUsers, 15);
 
   const getRoleBadge = (role: UserRole) => {
     switch (role) {
@@ -971,19 +1019,19 @@ export const AuthManagementView: React.FC = () => {
 
           {/* User Directory Table */}
           <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+            <div className="w-full">
+              <table className="w-full table-fixed text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs font-bold uppercase tracking-wider">
-                    <th className="py-3 px-4">Utilisateur</th>
-                    <th className="py-3 px-4">Rôle & Droits Actifs</th>
-                    <th className="py-3 px-4">Affectation Magasin</th>
-                    <th className="py-3 px-4">Contact</th>
-                    <th className="py-3 px-4">Statut</th>
-                    <th className="py-3 px-4 text-right">Actions</th>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] font-bold uppercase tracking-wider">
+                    <SortableTh label="Utilisateur" active={userSortField === 'name'} direction={userSortDir} onClick={() => handleUserSort('name')} className="w-[28%]" />
+                    <SortableTh label="Rôle & Droits" active={userSortField === 'role'} direction={userSortDir} onClick={() => handleUserSort('role')} className="w-[20%]" />
+                    <SortableTh label="Magasin" active={userSortField === 'warehouse'} direction={userSortDir} onClick={() => handleUserSort('warehouse')} className="hidden lg:table-cell w-[20%]" />
+                    <SortableTh label="Contact" active={userSortField === 'phone'} direction={userSortDir} onClick={() => handleUserSort('phone')} className="hidden md:table-cell w-[14%]" />
+                    <SortableTh label="Statut" active={userSortField === 'status'} direction={userSortDir} onClick={() => handleUserSort('status')} className="w-[10%]" />
+                    <th className="py-2.5 px-2 text-right w-14">Opt.</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-xs sm:text-sm text-slate-700">
+                <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
                   {filteredUsers.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="py-12 text-center text-slate-400">
@@ -992,7 +1040,7 @@ export const AuthManagementView: React.FC = () => {
                       </td>
                     </tr>
                   ) : (
-                    filteredUsers.map((u) => {
+                    paginatedUsers.map((u) => {
                       const assignedWh = warehouses.find((w) => w.id === u.assignedWarehouseId);
                       const isCurrentUser = currentUser.id === u.id;
                       const isRootAdmin = u.email.toLowerCase() === 'westjunior0805@gmail.com';
@@ -1006,119 +1054,112 @@ export const AuthManagementView: React.FC = () => {
                             isCurrentUser ? 'bg-purple-50/40' : ''
                           }`}
                         >
-                          <td className="py-3.5 px-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 rounded-xl bg-purple-100 text-purple-700 font-bold flex items-center justify-center border border-purple-200">
+                          <td className="py-3 px-2.5">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 font-bold flex items-center justify-center border border-purple-200 shrink-0">
                                 {u.name.charAt(0).toUpperCase()}
                               </div>
-                              <div>
-                                <div className="font-bold text-slate-900 flex items-center gap-2">
-                                  <span>{u.name}</span>
+                              <div className="min-w-0">
+                                <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                                  <span className="truncate">{u.name}</span>
                                   {isCurrentUser && (
-                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700">
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700 shrink-0">
                                       Vous
                                     </span>
                                   )}
                                   {isRootAdmin && (
-                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 shrink-0">
                                       Principal
                                     </span>
                                   )}
                                 </div>
-                                <div className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
-                                  <Mail className="w-3 h-3" />
-                                  <span>{u.email}</span>
+                                <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5 truncate">
+                                  <Mail className="w-3 h-3 shrink-0" />
+                                  <span className="truncate">{u.email}</span>
                                 </div>
                               </div>
                             </div>
                           </td>
 
-                          <td className="py-3.5 px-4">
+                          <td className="py-3 px-2.5">
                             <div className="flex flex-col items-start gap-1">
                               {getRoleBadge(u.role)}
-                              <span className="text-[11px] font-mono text-slate-500">
-                                {enabledPermsCount} / {PERMISSION_DEFINITIONS.length} autorisations actives
+                              <span className="text-[10px] font-mono text-slate-500 truncate max-w-full">
+                                {enabledPermsCount}/{PERMISSION_DEFINITIONS.length} droits
                               </span>
                             </div>
                           </td>
 
-                          <td className="py-3.5 px-4">
+                          <td className="hidden lg:table-cell py-3 px-2.5">
                             {u.role === 'MAGASINIER' ? (
                               assignedWh ? (
-                                <span className="inline-flex items-center gap-1.5 font-medium text-slate-800">
-                                  <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                                  {assignedWh.name} ({assignedWh.code})
+                                <span className="inline-flex items-center gap-1 font-medium text-slate-800 truncate max-w-full">
+                                  <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                  <span className="truncate">{assignedWh.name} ({assignedWh.code})</span>
                                 </span>
                               ) : (
                                 <span className="text-amber-600 font-medium">Non assigné</span>
                               )
                             ) : (
-                              <span className="text-slate-400 font-medium">
-                                Tous les magasins (Global)
+                              <span className="text-slate-400 font-medium truncate block">
+                                Tous les magasins
                               </span>
                             )}
                           </td>
 
-                          <td className="py-3.5 px-4">
+                          <td className="hidden md:table-cell py-3 px-2.5">
                             {u.phone ? (
-                              <span className="flex items-center gap-1.5 text-slate-600 font-medium font-mono">
-                                <Phone className="w-3.5 h-3.5 text-slate-400" />
-                                {u.phone}
+                              <span className="flex items-center gap-1 text-slate-600 font-medium font-mono truncate">
+                                <Phone className="w-3 h-3 text-slate-400 shrink-0" />
+                                <span className="truncate">{u.phone}</span>
                               </span>
                             ) : (
-                              <span className="text-slate-400 italic">Non renseigné</span>
+                              <span className="text-slate-400 italic">—</span>
                             )}
                           </td>
 
-                          <td className="py-3.5 px-4">
+                          <td className="py-3 px-2">
                             {u.isActive !== false ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                 <Check className="w-3 h-3" />
                                 Actif
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-slate-100 text-slate-500 border border-slate-200">
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-500 border border-slate-200">
                                 <X className="w-3 h-3" />
                                 Inactif
                               </span>
                             )}
                           </td>
 
-                          <td className="py-3.5 px-4 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
-                              <button
-                                type="button"
-                                title="Gérer les autorisations détaillées de cet utilisateur"
-                                onClick={() => {
-                                  setSelectedUserIdForPerms(u.id);
-                                  setActiveTab('matrix');
-                                }}
-                                className="px-2.5 py-1.5 text-xs font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-colors inline-flex items-center gap-1 cursor-pointer"
-                              >
-                                <Sliders className="w-3.5 h-3.5 text-amber-600" />
-                                <span>Droits</span>
-                              </button>
-
-                              <button
-                                type="button"
-                                title="Modifier le profil, code PIN & rôle"
-                                onClick={() => handleOpenEditModal(u)}
-                                className="p-1.5 text-slate-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors cursor-pointer"
-                              >
-                                <Edit2 className="w-4 h-4" />
-                              </button>
-
-                              {!isRootAdmin && !isCurrentUser && (
-                                <button
-                                  type="button"
-                                  title="Supprimer l’utilisateur"
-                                  onClick={() => setDeletingUser(u)}
-                                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              )}
-                            </div>
+                          <td className="py-3 px-2 text-right whitespace-nowrap">
+                            <RowActionsMenu
+                              actions={[
+                                {
+                                  label: 'Gérer les autorisations',
+                                  icon: <Sliders className="w-3.5 h-3.5" />,
+                                  tone: 'warning',
+                                  onClick: () => {
+                                    setSelectedUserIdForPerms(u.id);
+                                    setActiveTab('matrix');
+                                  },
+                                },
+                                {
+                                  label: 'Modifier profil, PIN & rôle',
+                                  icon: <Edit2 className="w-3.5 h-3.5" />,
+                                  tone: 'primary',
+                                  onClick: () => handleOpenEditModal(u),
+                                },
+                                {
+                                  label: 'Supprimer l’utilisateur',
+                                  icon: <Trash2 className="w-3.5 h-3.5" />,
+                                  tone: 'danger',
+                                  dividerBefore: true,
+                                  hidden: isRootAdmin || isCurrentUser,
+                                  onClick: () => setDeletingUser(u),
+                                },
+                              ]}
+                            />
                           </td>
                         </tr>
                       );
@@ -1127,6 +1168,14 @@ export const AuthManagementView: React.FC = () => {
                 </tbody>
               </table>
             </div>
+            <TablePagination
+              currentPage={usersPage}
+              totalItems={filteredUsers.length}
+              pageSize={usersPageSize}
+              onPageChange={setUsersPage}
+              onPageSizeChange={setUsersPageSize}
+              itemLabel="utilisateurs"
+            />
           </div>
         </div>
       )}

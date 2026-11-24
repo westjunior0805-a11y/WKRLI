@@ -19,6 +19,18 @@ import {
   X,
   RotateCcw,
 } from 'lucide-react';
+import { TablePagination, SortableTh, usePagination } from '../common/TablePagination';
+
+type MovementSortField =
+  | 'date'
+  | 'type'
+  | 'reference'
+  | 'quantity'
+  | 'warehouse'
+  | 'documentRef'
+  | 'reason'
+  | 'stockAfter'
+  | 'userName';
 
 export const MovementHistoryView: React.FC = () => {
   const {
@@ -39,6 +51,17 @@ export const MovementHistoryView: React.FC = () => {
   const [selectedUserFilter, setSelectedUserFilter] = useState<string>('ALL');
   const [dateFilter, setDateFilter] = useState<'ALL' | 'TODAY' | 'WEEK' | 'MONTH'>('ALL');
   const [selectedMovementDetail, setSelectedMovementDetail] = useState<StockMovement | null>(null);
+  const [sortField, setSortField] = useState<MovementSortField>('date');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+  const handleSort = (field: MovementSortField) => {
+    if (sortField === field) {
+      setSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDir(field === 'date' || field === 'quantity' || field === 'stockAfter' ? 'desc' : 'asc');
+    }
+  };
 
   // Filtered movements with Fuzzy Search
   const filteredMovements = useMemo(() => {
@@ -124,6 +147,62 @@ export const MovementHistoryView: React.FC = () => {
     getArticleById,
     getWarehouseById,
   ]);
+
+  const sortedMovements = useMemo(() => {
+    return [...filteredMovements].sort((a, b) => {
+      let cmp = 0;
+      switch (sortField) {
+        case 'date':
+          cmp = new Date(a.date).getTime() - new Date(b.date).getTime();
+          break;
+        case 'type':
+          cmp = (a.type || '').localeCompare(b.type || '', 'fr');
+          break;
+        case 'reference': {
+          const refA = getArticleById(a.articleId)?.mainReference || a.articleId;
+          const refB = getArticleById(b.articleId)?.mainReference || b.articleId;
+          cmp = refA.localeCompare(refB, 'fr');
+          break;
+        }
+        case 'quantity':
+          cmp = (a.quantity || 0) - (b.quantity || 0);
+          break;
+        case 'warehouse': {
+          const wA =
+            (a.targetWarehouseId ? getWarehouseById(a.targetWarehouseId)?.name : '') ||
+            (a.sourceWarehouseId ? getWarehouseById(a.sourceWarehouseId)?.name : '') ||
+            '';
+          const wB =
+            (b.targetWarehouseId ? getWarehouseById(b.targetWarehouseId)?.name : '') ||
+            (b.sourceWarehouseId ? getWarehouseById(b.sourceWarehouseId)?.name : '') ||
+            '';
+          cmp = wA.localeCompare(wB, 'fr');
+          break;
+        }
+        case 'documentRef':
+          cmp = (a.documentRef || '').localeCompare(b.documentRef || '', 'fr');
+          break;
+        case 'reason':
+          cmp = (a.reason || '').localeCompare(b.reason || '', 'fr');
+          break;
+        case 'stockAfter':
+          cmp = (a.stockAfter ?? -1) - (b.stockAfter ?? -1);
+          break;
+        case 'userName':
+          cmp = (a.userName || '').localeCompare(b.userName || '', 'fr');
+          break;
+      }
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [filteredMovements, sortField, sortDir, getArticleById, getWarehouseById]);
+
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    paginatedItems: paginatedMovements,
+  } = usePagination(sortedMovements, 20);
 
   const handleExportCSV = () => {
     const headers = [
@@ -368,8 +447,8 @@ export const MovementHistoryView: React.FC = () => {
 
       {/* Movements Table */}
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
-        <div className="overflow-x-auto">
-          {filteredMovements.length === 0 ? (
+        <div className="w-full">
+          {sortedMovements.length === 0 ? (
             <div className="text-center py-14 px-4 space-y-3">
               <History className="w-10 h-10 text-slate-300 mx-auto" />
               <div>
@@ -403,23 +482,23 @@ export const MovementHistoryView: React.FC = () => {
           ) : (
             <>
               {/* Desktop Table View */}
-              <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
+              <div className="hidden md:block w-full">
+            <table className="w-full table-fixed text-left text-xs">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold text-[10px]">
                 <tr>
-                  <th className="py-3 px-3">Date & Heure</th>
-                  <th className="py-3 px-3">Type</th>
-                  <th className="py-3 px-3">Réf. & Pièce</th>
-                  <th className="py-3 px-3 text-right">Quantité</th>
-                  <th className="py-3 px-3">Magasin(s)</th>
-                  <th className="py-3 px-3">N° Document</th>
-                  <th className="py-3 px-3">Motif & Tiers</th>
-                  <th className="py-3 px-3 text-right">Stock Avant/Après</th>
-                  <th className="py-3 px-3">Utilisateur</th>
+                  <SortableTh label="Date" active={sortField === 'date'} direction={sortDir} onClick={() => handleSort('date')} className="w-[12%]" />
+                  <SortableTh label="Type" active={sortField === 'type'} direction={sortDir} onClick={() => handleSort('type')} className="w-[9%]" />
+                  <SortableTh label="Réf. & Pièce" active={sortField === 'reference'} direction={sortDir} onClick={() => handleSort('reference')} className="w-[18%]" />
+                  <SortableTh label="Qté" active={sortField === 'quantity'} direction={sortDir} onClick={() => handleSort('quantity')} align="right" className="w-[8%]" />
+                  <SortableTh label="Magasin" active={sortField === 'warehouse'} direction={sortDir} onClick={() => handleSort('warehouse')} className="w-[12%]" />
+                  <SortableTh label="Document" active={sortField === 'documentRef'} direction={sortDir} onClick={() => handleSort('documentRef')} className="hidden lg:table-cell w-[11%]" />
+                  <SortableTh label="Motif & Tiers" active={sortField === 'reason'} direction={sortDir} onClick={() => handleSort('reason')} className="w-[14%]" />
+                  <SortableTh label="Avant/Après" active={sortField === 'stockAfter'} direction={sortDir} onClick={() => handleSort('stockAfter')} align="right" className="hidden xl:table-cell w-[9%]" />
+                  <SortableTh label="Utilisateur" active={sortField === 'userName'} direction={sortDir} onClick={() => handleSort('userName')} className="hidden xl:table-cell w-[9%]" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredMovements.map((mvt, idx) => {
+                {paginatedMovements.map((mvt, idx) => {
                   const art = getArticleById(mvt.articleId);
                   const srcWh = mvt.sourceWarehouseId ? getWarehouseById(mvt.sourceWarehouseId) : null;
                   const tgtWh = mvt.targetWarehouseId ? getWarehouseById(mvt.targetWarehouseId) : null;
@@ -498,37 +577,37 @@ export const MovementHistoryView: React.FC = () => {
                       </td>
 
                       {/* Warehouse */}
-                      <td className="py-3 px-3 text-xs whitespace-nowrap">
+                      <td className="py-2.5 px-2.5 text-xs">
                         {mvt.type === 'TRANSFERT' ? (
-                          <div className="flex items-center gap-1 font-medium">
+                          <div className="flex items-center gap-1 font-medium truncate">
                             <span className="text-amber-700">{srcWh?.code}</span>
                             <span>➔</span>
                             <span className="text-emerald-700">{tgtWh?.code}</span>
                           </div>
                         ) : (
-                          <span className="font-medium text-slate-800">
+                          <span className="font-medium text-slate-800 block truncate" title={tgtWh?.name || srcWh?.name || '-'}>
                             {tgtWh?.name || srcWh?.name || '-'}
                           </span>
                         )}
                       </td>
 
                       {/* Document Ref */}
-                      <td className="py-3 px-3 font-mono text-slate-700 font-medium whitespace-nowrap">
+                      <td className="hidden lg:table-cell py-2.5 px-2.5 font-mono text-slate-700 font-medium truncate" title={mvt.documentRef}>
                         {mvt.documentRef}
                       </td>
 
                       {/* Reason & Third Party */}
-                      <td className="py-3 px-3 max-w-xs">
-                        <div className="font-medium text-slate-800 truncate">{mvt.reason}</div>
+                      <td className="py-2.5 px-2.5">
+                        <div className="font-medium text-slate-800 truncate" title={mvt.reason}>{mvt.reason}</div>
                         {mvt.thirdParty && (
-                          <div className="text-[11px] text-slate-500 truncate">
+                          <div className="text-[11px] text-slate-500 truncate" title={mvt.thirdParty}>
                             {mvt.thirdParty}
                           </div>
                         )}
                       </td>
 
                       {/* Stock before / after */}
-                      <td className="py-3 px-3 text-right font-mono text-slate-700 whitespace-nowrap tabular-nums">
+                      <td className="hidden xl:table-cell py-2.5 px-2.5 text-right font-mono text-slate-700 whitespace-nowrap tabular-nums">
                         {mvt.stockBefore !== undefined && mvt.stockAfter !== undefined ? (
                           <span>
                             {mvt.stockBefore} ➔ <strong>{mvt.stockAfter}</strong>
@@ -539,7 +618,7 @@ export const MovementHistoryView: React.FC = () => {
                       </td>
 
                       {/* User */}
-                      <td className="py-3 px-3 whitespace-nowrap text-slate-600">
+                      <td className="hidden xl:table-cell py-2.5 px-2.5 text-slate-600 truncate" title={mvt.userName}>
                         {mvt.userName}
                       </td>
                     </tr>
@@ -551,7 +630,7 @@ export const MovementHistoryView: React.FC = () => {
 
           {/* Mobile Card View */}
           <div className="block md:hidden divide-y divide-slate-100">
-            {filteredMovements.map((mvt, idx) => {
+            {paginatedMovements.map((mvt, idx) => {
               const art = getArticleById(mvt.articleId);
               const srcWh = mvt.sourceWarehouseId ? getWarehouseById(mvt.sourceWarehouseId) : null;
               const tgtWh = mvt.targetWarehouseId ? getWarehouseById(mvt.targetWarehouseId) : null;
@@ -635,6 +714,15 @@ export const MovementHistoryView: React.FC = () => {
             </>
           )}
         </div>
+
+        <TablePagination
+          currentPage={currentPage}
+          totalItems={sortedMovements.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="mouvements"
+        />
 
         {/* Footer legal rule */}
         <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">

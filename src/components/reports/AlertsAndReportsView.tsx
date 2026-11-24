@@ -22,6 +22,8 @@ import {
   X,
 } from 'lucide-react';
 import { CreatePurchaseOrderModal } from '../orders/CreatePurchaseOrderModal';
+import { TablePagination, SortableTh, usePagination } from '../common/TablePagination';
+import { RowActionsMenu } from '../common/RowActionsMenu';
 
 interface AlertsAndReportsViewProps {
   onOpenStockIn: (articleId?: string) => void;
@@ -76,6 +78,23 @@ export const AlertsAndReportsView: React.FC<AlertsAndReportsViewProps> = ({
   const [pieceSortDir, setPieceSortDir] = useState<'asc' | 'desc'>('asc');
   const [pageSize, setPageSize] = useState<number>(25);
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [valSort, setValSort] = useState<{
+    field: 'name' | 'location' | 'pieceCount' | 'purchaseVal' | 'saleVal' | 'margin';
+    dir: 'asc' | 'desc';
+  }>({ field: 'purchaseVal', dir: 'desc' });
+  const [flowSort, setFlowSort] = useState<{
+    field: 'name' | 'inQty' | 'outQty' | 'ratio';
+    dir: 'asc' | 'desc';
+  }>({ field: 'inQty', dir: 'desc' });
+
+  const toggleValSort = (field: typeof valSort.field) =>
+    setValSort((prev) =>
+      prev.field === field ? { field, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { field, dir: field === 'name' || field === 'location' ? 'asc' : 'desc' }
+    );
+  const toggleFlowSort = (field: typeof flowSort.field) =>
+    setFlowSort((prev) =>
+      prev.field === field ? { field, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { field, dir: field === 'name' ? 'asc' : 'desc' }
+    );
 
   // Multi-selection for ordering multiple pieces at once
   const [selectedReplenishArticleIds, setSelectedReplenishArticleIds] = useState<string[]>([]);
@@ -318,6 +337,73 @@ export const AlertsAndReportsView: React.FC<AlertsAndReportsViewProps> = ({
       outQty,
     };
   });
+
+  const sortedValStats = useMemo(() => {
+    return [...warehouseStats].sort((a, b) => {
+      let cmp = 0;
+      switch (valSort.field) {
+        case 'name':
+          cmp = a.warehouse.name.localeCompare(b.warehouse.name, 'fr');
+          break;
+        case 'location':
+          cmp = (a.warehouse.location || '').localeCompare(b.warehouse.location || '', 'fr');
+          break;
+        case 'pieceCount':
+          cmp = a.pieceCount - b.pieceCount;
+          break;
+        case 'purchaseVal':
+          cmp = a.purchaseVal - b.purchaseVal;
+          break;
+        case 'saleVal':
+          cmp = a.saleVal - b.saleVal;
+          break;
+        case 'margin':
+          cmp = a.margin - b.margin;
+          break;
+      }
+      return valSort.dir === 'asc' ? cmp : -cmp;
+    });
+  }, [warehouseStats, valSort]);
+
+  const {
+    currentPage: valPage,
+    setCurrentPage: setValPage,
+    pageSize: valPageSize,
+    setPageSize: setValPageSize,
+    paginatedItems: paginatedValStats,
+  } = usePagination(sortedValStats, 15);
+
+  const sortedFlowStats = useMemo(() => {
+    return [...warehouseStats].sort((a, b) => {
+      let cmp = 0;
+      switch (flowSort.field) {
+        case 'name':
+          cmp = a.warehouse.name.localeCompare(b.warehouse.name, 'fr');
+          break;
+        case 'inQty':
+          cmp = a.inQty - b.inQty;
+          break;
+        case 'outQty':
+          cmp = a.outQty - b.outQty;
+          break;
+        case 'ratio': {
+          const rA = a.outQty > 0 ? a.inQty / a.outQty : -1;
+          const rB = b.outQty > 0 ? b.inQty / b.outQty : -1;
+          cmp = rA - rB;
+          break;
+        }
+      }
+      return flowSort.dir === 'asc' ? cmp : -cmp;
+    });
+  }, [warehouseStats, flowSort]);
+
+  const {
+    currentPage: flowPage,
+    setCurrentPage: setFlowPage,
+    pageSize: flowPageSize,
+    setPageSize: setFlowPageSize,
+    paginatedItems: paginatedFlowStats,
+  } = usePagination(sortedFlowStats, 15);
 
   // Export alerts / pieces
   const handleExportAlertsCSV = () => {
@@ -605,7 +691,7 @@ export const AlertsAndReportsView: React.FC<AlertsAndReportsViewProps> = ({
 
           {/* Pieces Table with Sortable Columns & Pagination */}
           <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
-            <div className="overflow-x-auto">
+            <div className="w-full">
               {filteredAndSortedPieces.length === 0 ? (
                 <div className="text-center py-12 px-4">
                   <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
@@ -615,10 +701,10 @@ export const AlertsAndReportsView: React.FC<AlertsAndReportsViewProps> = ({
                   </p>
                 </div>
               ) : (
-                <table className="w-full text-left text-xs">
+                <table className="w-full table-fixed text-left text-xs">
                   <thead className="bg-slate-50 text-slate-600 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-200">
                     <tr>
-                      <th className="py-3 px-3 w-10 text-center">
+                      <th className="py-2.5 px-2 w-8 text-center">
                         <input
                           type="checkbox"
                           checked={
@@ -645,63 +731,63 @@ export const AlertsAndReportsView: React.FC<AlertsAndReportsViewProps> = ({
                       </th>
                       <th
                         onClick={() => togglePieceSort('mainReference')}
-                        className="py-3 px-3 cursor-pointer hover:text-slate-900 select-none"
+                        className="py-2.5 px-2 cursor-pointer hover:text-slate-900 select-none w-[12%]"
                       >
-                        Réf. Constructeur {renderPieceSortIcon('mainReference')}
+                        Réf. {renderPieceSortIcon('mainReference')}
                       </th>
                       <th
                         onClick={() => togglePieceSort('designation')}
-                        className="py-3 px-3 cursor-pointer hover:text-slate-900 select-none"
+                        className="py-2.5 px-2 cursor-pointer hover:text-slate-900 select-none w-[18%]"
                       >
-                        Désignation & Catégorie {renderPieceSortIcon('designation')}
+                        Désignation {renderPieceSortIcon('designation')}
                       </th>
                       <th
                         onClick={() => togglePieceSort('brand')}
-                        className="py-3 px-3 cursor-pointer hover:text-slate-900 select-none"
+                        className="hidden md:table-cell py-2.5 px-2 cursor-pointer hover:text-slate-900 select-none w-[9%]"
                       >
                         Marque {renderPieceSortIcon('brand')}
                       </th>
                       <th
                         onClick={() => togglePieceSort('status')}
-                        className="py-3 px-3 text-center cursor-pointer hover:text-slate-900 select-none"
+                        className="py-2.5 px-2 text-center cursor-pointer hover:text-slate-900 select-none w-[10%]"
                       >
-                        État Stock {renderPieceSortIcon('status')}
+                        État {renderPieceSortIcon('status')}
                       </th>
                       <th
                         onClick={() => togglePieceSort('currentStock')}
-                        className="py-3 px-3 text-right cursor-pointer hover:text-slate-900 select-none"
+                        className="py-2.5 px-2 text-right cursor-pointer hover:text-slate-900 select-none w-[7%]"
                       >
-                        Stock Actuel {renderPieceSortIcon('currentStock')}
+                        Stock {renderPieceSortIcon('currentStock')}
                       </th>
                       <th
                         onClick={() => togglePieceSort('minThreshold')}
-                        className="py-3 px-3 text-right cursor-pointer hover:text-slate-900 select-none"
+                        className="hidden lg:table-cell py-2.5 px-2 text-right cursor-pointer hover:text-slate-900 select-none w-[7%]"
                       >
-                        Seuil Min {renderPieceSortIcon('minThreshold')}
+                        Seuil {renderPieceSortIcon('minThreshold')}
                       </th>
                       <th
                         onClick={() => togglePieceSort('suggestedQty')}
-                        className="py-3 px-3 text-right cursor-pointer hover:text-slate-900 select-none"
+                        className="hidden sm:table-cell py-2.5 px-2 text-right cursor-pointer hover:text-slate-900 select-none w-[7%]"
                       >
-                        Qté Conseillée {renderPieceSortIcon('suggestedQty')}
+                        Cons. {renderPieceSortIcon('suggestedQty')}
                       </th>
                       <th
                         onClick={() => togglePieceSort('preferredSupplier')}
-                        className="py-3 px-3 cursor-pointer hover:text-slate-900 select-none"
+                        className="hidden xl:table-cell py-2.5 px-2 cursor-pointer hover:text-slate-900 select-none w-[11%]"
                       >
                         Fournisseur {renderPieceSortIcon('preferredSupplier')}
                       </th>
                       <th
                         onClick={() => togglePieceSort('purchasePrice')}
-                        className="py-3 px-3 text-right cursor-pointer hover:text-slate-900 select-none"
+                        className="hidden xl:table-cell py-2.5 px-2 text-right cursor-pointer hover:text-slate-900 select-none w-[10%]"
                       >
-                        Prix Achat {renderPieceSortIcon('purchasePrice')}
+                        P. Achat {renderPieceSortIcon('purchasePrice')}
                       </th>
                       <th
                         onClick={() => togglePieceSort('orderStatus')}
-                        className="py-3 px-3 text-right cursor-pointer hover:text-slate-900 select-none"
+                        className="py-2.5 px-2 text-right cursor-pointer hover:text-slate-900 select-none w-16"
                       >
-                        Commande & Action {renderPieceSortIcon('orderStatus')}
+                        Opt. {renderPieceSortIcon('orderStatus')}
                       </th>
                     </tr>
                   </thead>
@@ -717,7 +803,7 @@ export const AlertsAndReportsView: React.FC<AlertsAndReportsViewProps> = ({
                             isSelected ? 'bg-amber-50/50' : ''
                           }`}
                         >
-                          <td className="py-3 px-3 text-center">
+                          <td className="py-2.5 px-2 text-center">
                             <input
                               type="checkbox"
                               checked={isSelected}
@@ -733,36 +819,36 @@ export const AlertsAndReportsView: React.FC<AlertsAndReportsViewProps> = ({
                               className="w-4 h-4 rounded border-slate-300 text-amber-600"
                             />
                           </td>
-                          <td className="py-3 px-3 font-mono font-bold text-slate-900">
+                          <td className="py-2.5 px-2 font-mono font-bold text-slate-900 truncate" title={s.article.mainReference}>
                             {s.article.mainReference}
                           </td>
-                          <td className="py-3 px-3">
-                            <div className="font-semibold text-slate-800">
+                          <td className="py-2.5 px-2">
+                            <div className="font-semibold text-slate-800 truncate" title={s.article.designation}>
                               {s.article.designation}
                             </div>
-                            <div className="text-[11px] text-slate-400">{s.article.category}</div>
+                            <div className="text-[10px] text-slate-400 truncate">{s.article.category}</div>
                           </td>
-                          <td className="py-3 px-3 font-semibold text-slate-700">
+                          <td className="hidden md:table-cell py-2.5 px-2 font-semibold text-slate-700 truncate">
                             {s.primaryBrand || '—'}
                           </td>
-                          <td className="py-3 px-3 text-center whitespace-nowrap">
+                          <td className="py-2.5 px-1.5 text-center">
                             {s.status === 'RUPTURE' ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700">
-                                <AlertOctagon className="w-3 h-3" />
-                                Rupture (0)
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700">
+                                <AlertOctagon className="w-3 h-3 shrink-0" />
+                                Rupture
                               </span>
                             ) : s.status === 'SOUS_SEUIL' ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">
-                                <AlertTriangle className="w-3 h-3" />
-                                Sous seuil
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">
+                                <AlertTriangle className="w-3 h-3 shrink-0" />
+                                Bas
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700">
-                                Disponible
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700">
+                                Dispo
                               </span>
                             )}
                           </td>
-                          <td className="py-3 px-3 text-right font-mono font-bold">
+                          <td className="py-2.5 px-2 text-right font-mono font-bold">
                             <span
                               className={
                                 s.currentStock === 0
@@ -775,59 +861,40 @@ export const AlertsAndReportsView: React.FC<AlertsAndReportsViewProps> = ({
                               {s.currentStock}
                             </span>
                           </td>
-                          <td className="py-3 px-3 text-right font-mono text-slate-500">
+                          <td className="hidden lg:table-cell py-2.5 px-2 text-right font-mono text-slate-500">
                             {s.minThreshold}
                           </td>
-                          <td className="py-3 px-3 text-right font-mono font-bold text-slate-900">
+                          <td className="hidden sm:table-cell py-2.5 px-2 text-right font-mono font-bold text-slate-900">
                             +{s.suggestedQty}
                           </td>
-                          <td className="py-3 px-3">
-                            <span className="font-medium text-slate-700 truncate max-w-[140px] block">
+                          <td className="hidden xl:table-cell py-2.5 px-2">
+                            <span className="font-medium text-slate-700 truncate block" title={s.preferredSupplier}>
                               {s.preferredSupplier}
                             </span>
                           </td>
-                          <td className="py-3 px-3 text-right font-mono text-slate-700">
+                          <td className="hidden xl:table-cell py-2.5 px-2 text-right font-mono text-slate-700 truncate">
                             {formatFCFA(s.purchasePrice)}
                           </td>
-                          <td className="py-3 px-3 text-right whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-1.5">
-                              {linkedOrder ? (
-                                <>
-                                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-100 text-emerald-800 font-bold text-[11px]">
-                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                    Commandé ({s.orderedQtyInActiveOrder})
-                                  </span>
-                                  {onNavigateToPurchaseOrder && (
-                                    <button
-                                      type="button"
-                                      onClick={() => onNavigateToPurchaseOrder(linkedOrder.id)}
-                                      className="px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-800 text-amber-400 font-bold text-[11px] inline-flex items-center gap-1 cursor-pointer shadow-2xs"
-                                      title={`Ouvrir la liste de commande ${linkedOrder.orderNumber}`}
-                                    >
-                                      <span>{linkedOrder.orderNumber}</span>
-                                      <ExternalLink className="w-3 h-3" />
-                                    </button>
-                                  )}
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOrderSinglePiece(s)}
-                                    className="p-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-[11px] cursor-pointer"
-                                    title="Commander à nouveau ou ajouter sur une autre liste"
-                                  >
-                                    <Plus className="w-3.5 h-3.5" />
-                                  </button>
-                                </>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => handleOrderSinglePiece(s)}
-                                  className="px-2.5 py-1 bg-amber-400 hover:bg-amber-300 text-slate-950 rounded font-bold text-[11px] inline-flex items-center gap-1 shadow-2xs cursor-pointer"
-                                >
-                                  <Truck className="w-3.5 h-3.5" />
-                                  <span>Commander</span>
-                                </button>
-                              )}
-                            </div>
+                          <td className="py-2.5 px-2 text-right whitespace-nowrap">
+                            <RowActionsMenu
+                              actions={[
+                                {
+                                  label: linkedOrder
+                                    ? `Ouvrir commande ${linkedOrder.orderNumber} (${s.orderedQtyInActiveOrder})`
+                                    : 'Ouvrir commande',
+                                  icon: <ExternalLink className="w-3.5 h-3.5" />,
+                                  tone: 'success',
+                                  hidden: !linkedOrder || !onNavigateToPurchaseOrder,
+                                  onClick: () => linkedOrder && onNavigateToPurchaseOrder?.(linkedOrder.id),
+                                },
+                                {
+                                  label: linkedOrder ? 'Commander à nouveau' : 'Commander cette pièce',
+                                  icon: <Truck className="w-3.5 h-3.5" />,
+                                  tone: 'warning',
+                                  onClick: () => handleOrderSinglePiece(s),
+                                },
+                              ]}
+                            />
                           </td>
                         </tr>
                       );
@@ -938,38 +1005,38 @@ export const AlertsAndReportsView: React.FC<AlertsAndReportsViewProps> = ({
               <h3 className="text-sm font-bold text-slate-900">Synthèse valorisée par entrepôt</h3>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
+            <div className="w-full">
+              <table className="w-full table-fixed text-left text-xs">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold text-[10px]">
                   <tr>
-                    <th className="py-3 px-3">Code & Magasin</th>
-                    <th className="py-3 px-3">Localisation</th>
-                    <th className="py-3 px-3 text-right">Quantité Pièces</th>
-                    <th className="py-3 px-3 text-right">Valeur Achat (FCFA)</th>
-                    <th className="py-3 px-3 text-right">Valeur Vente (FCFA)</th>
-                    <th className="py-3 px-3 text-right">Marge Brute</th>
+                    <SortableTh label="Magasin" active={valSort.field === 'name'} direction={valSort.dir} onClick={() => toggleValSort('name')} className="w-[22%]" />
+                    <SortableTh label="Localisation" active={valSort.field === 'location'} direction={valSort.dir} onClick={() => toggleValSort('location')} className="hidden md:table-cell w-[18%]" />
+                    <SortableTh label="Pièces" active={valSort.field === 'pieceCount'} direction={valSort.dir} onClick={() => toggleValSort('pieceCount')} align="right" className="w-[12%]" />
+                    <SortableTh label="Val. Achat" active={valSort.field === 'purchaseVal'} direction={valSort.dir} onClick={() => toggleValSort('purchaseVal')} align="right" className="w-[16%]" />
+                    <SortableTh label="Val. Vente" active={valSort.field === 'saleVal'} direction={valSort.dir} onClick={() => toggleValSort('saleVal')} align="right" className="w-[16%]" />
+                    <SortableTh label="Marge Brute" active={valSort.field === 'margin'} direction={valSort.dir} onClick={() => toggleValSort('margin')} align="right" className="w-[16%]" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {warehouseStats.map((item) => (
+                  {paginatedValStats.map((item) => (
                     <tr key={item.warehouse.id} className="hover:bg-slate-50">
-                      <td className="py-3 px-3 font-semibold text-slate-900">
-                        {item.warehouse.name}
+                      <td className="py-2.5 px-2.5 font-semibold text-slate-900">
+                        <span className="block truncate">{item.warehouse.name}</span>
                         <span className="block font-mono text-[10px] text-slate-400">
                           {item.warehouse.code}
                         </span>
                       </td>
-                      <td className="py-3 px-3 text-slate-600">{item.warehouse.location}</td>
-                      <td className="py-3 px-3 text-right font-mono font-bold text-slate-900 tabular-nums">
+                      <td className="hidden md:table-cell py-2.5 px-2.5 text-slate-600 truncate">{item.warehouse.location}</td>
+                      <td className="py-2.5 px-2.5 text-right font-mono font-bold text-slate-900 tabular-nums">
                         {item.pieceCount.toLocaleString('fr-FR')}
                       </td>
-                      <td className="py-3 px-3 text-right font-mono font-bold text-slate-900 tabular-nums">
+                      <td className="py-2.5 px-2.5 text-right font-mono font-bold text-slate-900 tabular-nums truncate">
                         {formatFCFA(item.purchaseVal)}
                       </td>
-                      <td className="py-3 px-3 text-right font-mono font-bold text-emerald-700 tabular-nums">
+                      <td className="py-2.5 px-2.5 text-right font-mono font-bold text-emerald-700 tabular-nums truncate">
                         {formatFCFA(item.saleVal)}
                       </td>
-                      <td className="py-3 px-3 text-right font-mono font-bold text-amber-700 tabular-nums">
+                      <td className="py-2.5 px-2.5 text-right font-mono font-bold text-amber-700 tabular-nums truncate">
                         {formatFCFA(item.margin)}
                       </td>
                     </tr>
@@ -977,6 +1044,14 @@ export const AlertsAndReportsView: React.FC<AlertsAndReportsViewProps> = ({
                 </tbody>
               </table>
             </div>
+            <TablePagination
+              currentPage={valPage}
+              totalItems={sortedValStats.length}
+              pageSize={valPageSize}
+              onPageChange={setValPage}
+              onPageSizeChange={setValPageSize}
+              itemLabel="magasins"
+            />
           </div>
         </div>
       )}
@@ -993,29 +1068,29 @@ export const AlertsAndReportsView: React.FC<AlertsAndReportsViewProps> = ({
             </p>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
+          <div className="w-full">
+            <table className="w-full table-fixed text-left text-xs">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold text-[10px]">
                 <tr>
-                  <th className="py-3 px-3">Magasin</th>
-                  <th className="py-3 px-3 text-right">Volume Reçu (Entrées)</th>
-                  <th className="py-3 px-3 text-right">Volume Livré (Sorties)</th>
-                  <th className="py-3 px-3 text-right">Ratio Flux</th>
+                  <SortableTh label="Magasin" active={flowSort.field === 'name'} direction={flowSort.dir} onClick={() => toggleFlowSort('name')} className="w-[40%]" />
+                  <SortableTh label="Volume Reçu" active={flowSort.field === 'inQty'} direction={flowSort.dir} onClick={() => toggleFlowSort('inQty')} align="right" className="w-[22%]" />
+                  <SortableTh label="Volume Livré" active={flowSort.field === 'outQty'} direction={flowSort.dir} onClick={() => toggleFlowSort('outQty')} align="right" className="w-[22%]" />
+                  <SortableTh label="Ratio" active={flowSort.field === 'ratio'} direction={flowSort.dir} onClick={() => toggleFlowSort('ratio')} align="right" className="w-[16%]" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {warehouseStats.map((item) => (
+                {paginatedFlowStats.map((item) => (
                   <tr key={item.warehouse.id} className="hover:bg-slate-50">
-                    <td className="py-3 px-3 font-semibold text-slate-900">
+                    <td className="py-2.5 px-2.5 font-semibold text-slate-900 truncate">
                       {item.warehouse.name} ({item.warehouse.code})
                     </td>
-                    <td className="py-3 px-3 text-right font-mono font-bold text-emerald-700 tabular-nums">
+                    <td className="py-2.5 px-2.5 text-right font-mono font-bold text-emerald-700 tabular-nums">
                       +{item.inQty} pièces
                     </td>
-                    <td className="py-3 px-3 text-right font-mono font-bold text-rose-700 tabular-nums">
+                    <td className="py-2.5 px-2.5 text-right font-mono font-bold text-rose-700 tabular-nums">
                       -{item.outQty} pièces
                     </td>
-                    <td className="py-3 px-3 text-right font-mono text-slate-600 tabular-nums">
+                    <td className="py-2.5 px-2.5 text-right font-mono text-slate-600 tabular-nums">
                       {item.outQty > 0 ? (item.inQty / item.outQty).toFixed(2) : 'N/A'}
                     </td>
                   </tr>
@@ -1023,6 +1098,14 @@ export const AlertsAndReportsView: React.FC<AlertsAndReportsViewProps> = ({
               </tbody>
             </table>
           </div>
+          <TablePagination
+            currentPage={flowPage}
+            totalItems={sortedFlowStats.length}
+            pageSize={flowPageSize}
+            onPageChange={setFlowPage}
+            onPageSizeChange={setFlowPageSize}
+            itemLabel="magasins"
+          />
         </div>
       )}
 

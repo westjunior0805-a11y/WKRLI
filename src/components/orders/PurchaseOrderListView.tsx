@@ -34,6 +34,7 @@ import {
 import { CreatePurchaseOrderModal } from './CreatePurchaseOrderModal';
 import { ReceiveOrderModal } from './ReceiveOrderModal';
 import { PurchaseOrderPrintModal } from './PurchaseOrderPrintModal';
+import { RowActionsMenu } from '../common/RowActionsMenu';
 
 interface PurchaseOrderListViewProps {
   focusedOrderId?: string | null;
@@ -53,6 +54,7 @@ type SupplierSortField =
   | 'code'
   | 'name'
   | 'contactPerson'
+  | 'brands'
   | 'ordersCount'
   | 'totalOrderedAmount'
   | 'lastOrderDate';
@@ -269,6 +271,9 @@ export const PurchaseOrderListView: React.FC<PurchaseOrderListViewProps> = ({
           break;
         case 'contactPerson':
           cmp = (a.supplier.contactPerson || '').localeCompare(b.supplier.contactPerson || '');
+          break;
+        case 'brands':
+          cmp = (a.supplier.brandsHandled || []).join(', ').localeCompare((b.supplier.brandsHandled || []).join(', '), 'fr');
           break;
         case 'ordersCount':
           cmp = a.ordersCount - b.ordersCount;
@@ -524,7 +529,7 @@ export const PurchaseOrderListView: React.FC<PurchaseOrderListViewProps> = ({
       )}
 
       {/* Segmented Navigation (2 Onglets : Listes de Commandes, Gestion des Fournisseurs) */}
-      <div className="flex items-center gap-2 border-b border-slate-200 overflow-x-auto">
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200">
         <button
           onClick={() => setActiveTab('ORDERS')}
           className={`pb-3 px-3 text-xs sm:text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${
@@ -586,7 +591,7 @@ export const PurchaseOrderListView: React.FC<PurchaseOrderListViewProps> = ({
 
           {/* Orders Table */}
           <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
-            <div className="overflow-x-auto">
+            <div className="w-full">
               {filteredOrders.length === 0 ? (
                 <div className="text-center py-12 px-4">
                   <Truck className="w-10 h-10 text-slate-300 mx-auto mb-2" />
@@ -596,52 +601,52 @@ export const PurchaseOrderListView: React.FC<PurchaseOrderListViewProps> = ({
                   </p>
                 </div>
               ) : (
-                <table className="w-full text-left text-xs">
+                <table className="w-full table-fixed text-left text-xs">
                   <thead className="bg-slate-50 text-slate-600 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-200">
                     <tr>
                       <th
                         onClick={() => toggleOrderSort('orderNumber')}
-                        className="py-3 px-4 cursor-pointer hover:text-slate-900 select-none"
+                        className="py-2.5 px-2.5 cursor-pointer hover:text-slate-900 select-none w-[14%]"
                       >
-                        N° Commande {renderOrderSortIcon('orderNumber')}
+                        N° Cde {renderOrderSortIcon('orderNumber')}
                       </th>
                       <th
                         onClick={() => toggleOrderSort('date')}
-                        className="py-3 px-4 cursor-pointer hover:text-slate-900 select-none"
+                        className="py-2.5 px-2.5 cursor-pointer hover:text-slate-900 select-none w-[11%]"
                       >
-                        Date Émission {renderOrderSortIcon('date')}
+                        Date {renderOrderSortIcon('date')}
                       </th>
                       <th
                         onClick={() => toggleOrderSort('supplierName')}
-                        className="py-3 px-4 cursor-pointer hover:text-slate-900 select-none"
+                        className="py-2.5 px-2.5 cursor-pointer hover:text-slate-900 select-none w-[19%]"
                       >
                         Fournisseur {renderOrderSortIcon('supplierName')}
                       </th>
                       <th
                         onClick={() => toggleOrderSort('targetWarehouseName')}
-                        className="py-3 px-4 cursor-pointer hover:text-slate-900 select-none"
+                        className="hidden lg:table-cell py-2.5 px-2.5 cursor-pointer hover:text-slate-900 select-none w-[14%]"
                       >
-                        Magasin Cible {renderOrderSortIcon('targetWarehouseName')}
+                        Magasin {renderOrderSortIcon('targetWarehouseName')}
                       </th>
                       <th
                         onClick={() => toggleOrderSort('itemsCount')}
-                        className="py-3 px-4 text-center cursor-pointer hover:text-slate-900 select-none"
+                        className="py-2.5 px-2 text-center cursor-pointer hover:text-slate-900 select-none w-[12%]"
                       >
                         Pièces {renderOrderSortIcon('itemsCount')}
                       </th>
                       <th
                         onClick={() => toggleOrderSort('totalAmount')}
-                        className="py-3 px-4 text-right cursor-pointer hover:text-slate-900 select-none"
+                        className="py-2.5 px-2.5 text-right cursor-pointer hover:text-slate-900 select-none w-[13%]"
                       >
-                        Montant Total {renderOrderSortIcon('totalAmount')}
+                        Total {renderOrderSortIcon('totalAmount')}
                       </th>
                       <th
                         onClick={() => toggleOrderSort('status')}
-                        className="py-3 px-4 text-center cursor-pointer hover:text-slate-900 select-none"
+                        className="py-2.5 px-2 text-center cursor-pointer hover:text-slate-900 select-none w-[11%]"
                       >
                         Statut {renderOrderSortIcon('status')}
                       </th>
-                      <th className="py-3 px-4 text-right">Actions</th>
+                      <th className="py-2.5 px-2 text-right w-14">Opt.</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -650,6 +655,12 @@ export const PurchaseOrderListView: React.FC<PurchaseOrderListViewProps> = ({
                       const totalQtyReceived = order.items.reduce((s, it) => s + it.quantityReceived, 0);
                       const canReceive =
                         order.status === 'ORDERED' || order.status === 'PARTIALLY_RECEIVED';
+                      const canEditOrder =
+                        order.status === 'DRAFT' ||
+                        order.status === 'TO_ORDER' ||
+                        order.status === 'ORDERED';
+                      const canValidateOrder =
+                        order.status === 'DRAFT' || order.status === 'TO_ORDER';
                       const isHighlighted = highlightedOrderId === order.id;
 
                       return (
@@ -661,131 +672,104 @@ export const PurchaseOrderListView: React.FC<PurchaseOrderListViewProps> = ({
                               : 'hover:bg-slate-50/70'
                           }`}
                         >
-                          <td className="py-3 px-4 font-mono font-bold text-slate-900">
+                          <td className="py-2.5 px-2.5 font-mono font-bold text-slate-900">
                             <button
                               type="button"
                               onClick={() => setOrderToInspect(order)}
-                              className="hover:underline text-left flex items-center gap-1 cursor-pointer"
+                              className="hover:underline text-left flex items-center gap-1 cursor-pointer max-w-full"
                               title="Voir les pièces de cette liste de commande"
                             >
-                              <span>{order.orderNumber}</span>
-                              <Eye className="w-3.5 h-3.5 text-slate-400" />
+                              <span className="truncate">{order.orderNumber}</span>
+                              <Eye className="w-3 h-3 text-slate-400 shrink-0" />
                             </button>
                           </td>
-                          <td className="py-3 px-4 text-slate-600 whitespace-nowrap">
+                          <td className="py-2.5 px-2.5 text-slate-600 whitespace-nowrap font-mono text-[11px]">
                             {formatDate(order.date)}
                           </td>
-                          <td className="py-3 px-4 font-semibold text-slate-800">
+                          <td className="py-2.5 px-2.5 font-semibold text-slate-800 truncate" title={order.supplierName}>
                             {order.supplierName}
                           </td>
-                          <td className="py-3 px-4 text-slate-600">
+                          <td className="hidden lg:table-cell py-2.5 px-2.5 text-slate-600 truncate" title={order.targetWarehouseName}>
                             <span className="font-medium text-slate-800">
                               {order.targetWarehouseName}
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-center font-mono">
+                          <td className="py-2.5 px-2 text-center font-mono">
                             <button
                               type="button"
                               onClick={() => setOrderToInspect(order)}
-                              className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 font-bold text-slate-800 cursor-pointer"
+                              className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 font-bold text-[11px] text-slate-800 cursor-pointer"
                             >
-                              {order.items.length} réf. ({totalQtyReceived}/{totalQtyOrdered})
+                              {order.items.length} ({totalQtyReceived}/{totalQtyOrdered})
                             </button>
                           </td>
-                          <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
+                          <td className="py-2.5 px-2.5 text-right font-mono font-bold text-slate-900 truncate">
                             {formatFCFA(order.totalAmount)}
                           </td>
-                          <td className="py-3 px-4 text-center whitespace-nowrap">
+                          <td className="py-2.5 px-2 text-center">
                             {getStatusBadge(order.status)}
                           </td>
-                          <td className="py-3 px-4 text-right whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-1.5">
-                              {/* View details */}
-                              <button
-                                onClick={() => setOrderToInspect(order)}
-                                className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded cursor-pointer"
-                                title="Consulter les pièces de la commande"
-                              >
-                                <Eye className="w-4 h-4" />
-                              </button>
-
-                              {/* Print PO */}
-                              <button
-                                onClick={() => setOrderToPrint(order)}
-                                className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded cursor-pointer"
-                                title="Imprimer le bon de commande"
-                              >
-                                <Printer className="w-4 h-4" />
-                              </button>
-
-                              {/* Edit / Add Products to Draft, To_Order or Ordered */}
-                              {(order.status === 'DRAFT' ||
-                                order.status === 'TO_ORDER' ||
-                                order.status === 'ORDERED') && (
-                                <button
-                                  onClick={() => {
+                          <td className="py-2.5 px-2 text-right whitespace-nowrap">
+                            <RowActionsMenu
+                              actions={[
+                                {
+                                  label: 'Consulter les pièces',
+                                  icon: <Eye className="w-3.5 h-3.5" />,
+                                  onClick: () => setOrderToInspect(order),
+                                },
+                                {
+                                  label: 'Imprimer le bon de commande',
+                                  icon: <Printer className="w-3.5 h-3.5" />,
+                                  onClick: () => setOrderToPrint(order),
+                                },
+                                {
+                                  label: 'Ajouter produits / Modifier',
+                                  icon: <Edit2 className="w-3.5 h-3.5" />,
+                                  tone: 'primary',
+                                  hidden: !canEditOrder,
+                                  onClick: () => {
                                     setOrderToEdit(order);
                                     setPrefilledItemsForPO([]);
                                     setPrefilledSupplierName(undefined);
                                     setIsCreateModalOpen(true);
-                                  }}
-                                  className="px-2.5 py-1 bg-slate-100 text-slate-800 hover:bg-slate-200 rounded font-semibold text-[11px] inline-flex items-center gap-1 cursor-pointer"
-                                  title="Ajouter d'autres produits ou modifier cette liste"
-                                >
-                                  <Edit2 className="w-3.5 h-3.5" />
-                                  <span>Ajouter produits / Modifier</span>
-                                </button>
-                              )}
-
-                              {/* Validate Order once product list is finished */}
-                              {(order.status === 'DRAFT' || order.status === 'TO_ORDER') && (
-                                <button
-                                  onClick={() => {
+                                  },
+                                },
+                                {
+                                  label: 'Valider la commande',
+                                  icon: <CheckCircle2 className="w-3.5 h-3.5" />,
+                                  tone: 'warning',
+                                  hidden: !canValidateOrder,
+                                  onClick: () => {
                                     updateSupplierOrderStatus(order.id, 'ORDERED');
                                     setNotification(
                                       `Commande ${order.orderNumber} validée avec succès ! Elle est maintenant prête pour réception.`
                                     );
-                                  }}
-                                  className="px-2.5 py-1 bg-amber-400 text-slate-950 hover:bg-amber-300 rounded font-bold text-[11px] inline-flex items-center gap-1 shadow-2xs cursor-pointer"
-                                  title="Valider définitivement la commande une fois la liste de produits terminée"
-                                >
-                                  <CheckCircle2 className="w-3.5 h-3.5" />
-                                  <span>Valider la commande</span>
-                                </button>
-                              )}
-
-                              {/* Receive */}
-                              {canReceive && (
-                                <button
-                                  onClick={() => setOrderToReceive(order)}
-                                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-semibold text-[11px] inline-flex items-center gap-1 shadow-2xs cursor-pointer"
-                                  title="Réceptionner les marchandises en magasin"
-                                >
-                                  <PackageCheck className="w-3.5 h-3.5" />
-                                  Réceptionner
-                                </button>
-                              )}
-
-                              {/* Cancel */}
-                              {order.status !== 'RECEIVED' && order.status !== 'CANCELLED' && (
-                                <button
-                                  onClick={() => setOrderToCancel(order)}
-                                  className="p-1.5 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded cursor-pointer"
-                                  title="Annuler la commande"
-                                >
-                                  <Ban className="w-4 h-4" />
-                                </button>
-                              )}
-
-                              {/* Delete */}
-                              <button
-                                onClick={() => setOrderToDelete(order)}
-                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded cursor-pointer"
-                                title="Supprimer définitivement la commande"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
+                                  },
+                                },
+                                {
+                                  label: 'Réceptionner en magasin',
+                                  icon: <PackageCheck className="w-3.5 h-3.5" />,
+                                  tone: 'success',
+                                  hidden: !canReceive,
+                                  onClick: () => setOrderToReceive(order),
+                                },
+                                {
+                                  label: 'Annuler la commande',
+                                  icon: <Ban className="w-3.5 h-3.5" />,
+                                  tone: 'warning',
+                                  dividerBefore: true,
+                                  hidden: order.status === 'RECEIVED' || order.status === 'CANCELLED',
+                                  onClick: () => setOrderToCancel(order),
+                                },
+                                {
+                                  label: 'Supprimer définitivement',
+                                  icon: <Trash2 className="w-3.5 h-3.5" />,
+                                  tone: 'danger',
+                                  dividerBefore: order.status === 'RECEIVED' || order.status === 'CANCELLED',
+                                  onClick: () => setOrderToDelete(order),
+                                },
+                              ]}
+                            />
                           </td>
                         </tr>
                       );
@@ -929,7 +913,7 @@ export const PurchaseOrderListView: React.FC<PurchaseOrderListViewProps> = ({
 
           {/* Suppliers Table */}
           <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
-            <div className="overflow-x-auto">
+            <div className="w-full">
               {enrichedSuppliers.length === 0 ? (
                 <div className="text-center py-12 px-4">
                   <Building2 className="w-10 h-10 text-slate-300 mx-auto mb-2" />
@@ -939,47 +923,52 @@ export const PurchaseOrderListView: React.FC<PurchaseOrderListViewProps> = ({
                   </p>
                 </div>
               ) : (
-                <table className="w-full text-left text-xs">
+                <table className="w-full table-fixed text-left text-xs">
                   <thead className="bg-slate-50 text-slate-600 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-200">
                     <tr>
                       <th
                         onClick={() => toggleSupplierSort('code')}
-                        className="py-3 px-4 cursor-pointer hover:text-slate-900 select-none"
+                        className="py-2.5 px-2.5 cursor-pointer hover:text-slate-900 select-none w-[9%]"
                       >
                         Code {renderSupplierSortIcon('code')}
                       </th>
                       <th
                         onClick={() => toggleSupplierSort('name')}
-                        className="py-3 px-4 cursor-pointer hover:text-slate-900 select-none"
+                        className="py-2.5 px-2.5 cursor-pointer hover:text-slate-900 select-none w-[22%]"
                       >
-                        Raison Sociale & Localisation {renderSupplierSortIcon('name')}
+                        Fournisseur {renderSupplierSortIcon('name')}
                       </th>
                       <th
                         onClick={() => toggleSupplierSort('contactPerson')}
-                        className="py-3 px-4 cursor-pointer hover:text-slate-900 select-none"
+                        className="hidden md:table-cell py-2.5 px-2.5 cursor-pointer hover:text-slate-900 select-none w-[17%]"
                       >
-                        Contact & Coordonnées {renderSupplierSortIcon('contactPerson')}
+                        Contact {renderSupplierSortIcon('contactPerson')}
                       </th>
-                      <th className="py-3 px-4">Marques Distribuées</th>
+                      <th
+                        onClick={() => toggleSupplierSort('brands')}
+                        className="hidden xl:table-cell py-2.5 px-2.5 cursor-pointer hover:text-slate-900 select-none w-[14%]"
+                      >
+                        Marques {renderSupplierSortIcon('brands')}
+                      </th>
                       <th
                         onClick={() => toggleSupplierSort('ordersCount')}
-                        className="py-3 px-4 text-center cursor-pointer hover:text-slate-900 select-none"
+                        className="py-2.5 px-2 text-center cursor-pointer hover:text-slate-900 select-none w-[10%]"
                       >
-                        Commandes {renderSupplierSortIcon('ordersCount')}
+                        Cdes {renderSupplierSortIcon('ordersCount')}
                       </th>
                       <th
                         onClick={() => toggleSupplierSort('totalOrderedAmount')}
-                        className="py-3 px-4 text-right cursor-pointer hover:text-slate-900 select-none"
+                        className="py-2.5 px-2.5 text-right cursor-pointer hover:text-slate-900 select-none w-[13%]"
                       >
-                        Volume Commandé {renderSupplierSortIcon('totalOrderedAmount')}
+                        Volume {renderSupplierSortIcon('totalOrderedAmount')}
                       </th>
                       <th
                         onClick={() => toggleSupplierSort('lastOrderDate')}
-                        className="py-3 px-4 text-center cursor-pointer hover:text-slate-900 select-none"
+                        className="hidden lg:table-cell py-2.5 px-2 text-center cursor-pointer hover:text-slate-900 select-none w-[10%]"
                       >
-                        Dernière Cde {renderSupplierSortIcon('lastOrderDate')}
+                        Dern. Cde {renderSupplierSortIcon('lastOrderDate')}
                       </th>
-                      <th className="py-3 px-4 text-right">Actions</th>
+                      <th className="py-2.5 px-2 text-right w-14">Opt.</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -992,114 +981,108 @@ export const PurchaseOrderListView: React.FC<PurchaseOrderListViewProps> = ({
                         lastOrderDate,
                       }) => (
                         <tr key={supplier.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="py-3 px-4 font-mono font-bold text-slate-900">
+                          <td className="py-2.5 px-2.5 font-mono font-bold text-slate-900 truncate">
                             {supplier.code}
                           </td>
-                          <td className="py-3 px-4">
-                            <div className="font-bold text-slate-900">{supplier.name}</div>
+                          <td className="py-2.5 px-2.5">
+                            <div className="font-bold text-slate-900 truncate" title={supplier.name}>{supplier.name}</div>
                             {(supplier.address || supplier.country) && (
-                              <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
-                                <MapPin className="w-3 h-3 text-slate-400" />
-                                <span>
+                              <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5 truncate">
+                                <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                                <span className="truncate">
                                   {[supplier.address, supplier.country].filter(Boolean).join(' · ')}
                                 </span>
                               </div>
                             )}
                           </td>
-                          <td className="py-3 px-4">
-                            <div className="font-medium text-slate-800">
+                          <td className="hidden md:table-cell py-2.5 px-2.5">
+                            <div className="font-medium text-slate-800 truncate">
                               {supplier.contactPerson || '—'}
                             </div>
                             <div className="text-[11px] text-slate-500 space-y-0.5">
                               {supplier.phone && (
-                                <div className="flex items-center gap-1">
-                                  <Phone className="w-3 h-3 text-slate-400" />
-                                  <span>{supplier.phone}</span>
+                                <div className="flex items-center gap-1 truncate">
+                                  <Phone className="w-3 h-3 text-slate-400 shrink-0" />
+                                  <span className="truncate">{supplier.phone}</span>
                                 </div>
                               )}
                               {supplier.email && (
-                                <div className="flex items-center gap-1">
-                                  <Mail className="w-3 h-3 text-slate-400" />
-                                  <span>{supplier.email}</span>
+                                <div className="flex items-center gap-1 truncate">
+                                  <Mail className="w-3 h-3 text-slate-400 shrink-0" />
+                                  <span className="truncate">{supplier.email}</span>
                                 </div>
                               )}
                             </div>
                           </td>
-                          <td className="py-3 px-4">
-                            <div className="flex flex-wrap gap-1 max-w-xs">
+                          <td className="hidden xl:table-cell py-2.5 px-2.5">
+                            <div className="flex flex-wrap gap-1">
                               {(supplier.brandsHandled || []).length === 0 ? (
-                                <span className="text-slate-400 text-[11px]">Toutes marques</span>
+                                <span className="text-slate-400 text-[11px]">Toutes</span>
                               ) : (
-                                supplier.brandsHandled.map((b, idx) => (
+                                supplier.brandsHandled.slice(0, 2).map((b, idx) => (
                                   <span
                                     key={idx}
-                                    className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-[10px] font-semibold"
+                                    className="px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded text-[10px] font-semibold truncate max-w-full"
                                   >
                                     {b}
                                   </span>
                                 ))
                               )}
+                              {(supplier.brandsHandled || []).length > 2 && (
+                                <span className="px-1.5 py-0.5 bg-amber-50 text-amber-800 rounded text-[10px] font-semibold">
+                                  +{supplier.brandsHandled.length - 2}
+                                </span>
+                              )}
                             </div>
                           </td>
-                          <td className="py-3 px-4 text-center font-mono">
+                          <td className="py-2.5 px-2 text-center font-mono">
                             <span className="font-bold text-slate-900">{ordersCount}</span>
                             {activeOrdersCount > 0 && (
-                              <span className="ml-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold">
-                                {activeOrdersCount} en cours
+                              <span className="block text-[10px] font-bold text-amber-700">
+                                {activeOrdersCount} actif
                               </span>
                             )}
                           </td>
-                          <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
+                          <td className="py-2.5 px-2.5 text-right font-mono font-bold text-slate-900 truncate">
                             {formatFCFA(totalOrderedAmount)}
                           </td>
-                          <td className="py-3 px-4 text-center text-slate-500 whitespace-nowrap">
+                          <td className="hidden lg:table-cell py-2.5 px-2 text-center text-slate-500 whitespace-nowrap font-mono text-[11px]">
                             {lastOrderDate ? formatDate(lastOrderDate) : 'Aucune'}
                           </td>
-                          <td className="py-3 px-4 text-right whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => setSupplierHistoryTarget(supplier)}
-                                className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white rounded font-semibold text-[11px] inline-flex items-center gap-1 cursor-pointer"
-                                title="Consulter l'historique complet des commandes de ce fournisseur"
-                              >
-                                <History className="w-3.5 h-3.5 text-amber-400" />
-                                <span>Historique ({ordersCount})</span>
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setOrderToEdit(null);
-                                  setPrefilledItemsForPO([]);
-                                  setPrefilledSupplierName(supplier.name);
-                                  setIsCreateModalOpen(true);
-                                }}
-                                className="px-2 py-1 bg-amber-400 hover:bg-amber-300 text-slate-950 rounded font-bold text-[11px] inline-flex items-center gap-1 cursor-pointer"
-                                title="Créer une commande pour ce fournisseur"
-                              >
-                                <Plus className="w-3.5 h-3.5" />
-                                <span>Commander</span>
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => openEditSupplierModal(supplier)}
-                                className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded cursor-pointer"
-                                title="Modifier le fournisseur"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => setSupplierToDelete(supplier)}
-                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded cursor-pointer"
-                                title="Supprimer le fournisseur"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
+                          <td className="py-2.5 px-2 text-right whitespace-nowrap">
+                            <RowActionsMenu
+                              actions={[
+                                {
+                                  label: `Historique commandes (${ordersCount})`,
+                                  icon: <History className="w-3.5 h-3.5" />,
+                                  onClick: () => setSupplierHistoryTarget(supplier),
+                                },
+                                {
+                                  label: 'Nouvelle commande',
+                                  icon: <Plus className="w-3.5 h-3.5" />,
+                                  tone: 'warning',
+                                  onClick: () => {
+                                    setOrderToEdit(null);
+                                    setPrefilledItemsForPO([]);
+                                    setPrefilledSupplierName(supplier.name);
+                                    setIsCreateModalOpen(true);
+                                  },
+                                },
+                                {
+                                  label: 'Modifier le fournisseur',
+                                  icon: <Edit2 className="w-3.5 h-3.5" />,
+                                  tone: 'primary',
+                                  onClick: () => openEditSupplierModal(supplier),
+                                },
+                                {
+                                  label: 'Supprimer le fournisseur',
+                                  icon: <Trash2 className="w-3.5 h-3.5" />,
+                                  tone: 'danger',
+                                  dividerBefore: true,
+                                  onClick: () => setSupplierToDelete(supplier),
+                                },
+                              ]}
+                            />
                           </td>
                         </tr>
                       )

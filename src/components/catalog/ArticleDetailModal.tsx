@@ -286,18 +286,18 @@ export const ArticleDetailModal: React.FC<ArticleDetailModalProps> = ({
               </span>
             </h3>
 
-            <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs overflow-x-auto">
-              <table className="w-full text-left text-xs">
+            <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+              <table className="w-full table-fixed text-left text-xs">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-semibold text-[10px]">
                   <tr>
-                    <th className="py-2.5 px-3">Marque</th>
-                    <th className="py-2.5 px-3 text-right">Quantité disponible</th>
-                    <th className="py-2.5 px-3">Emplacement</th>
-                    <th className="py-2.5 px-3">N° Facture</th>
-                    <th className="py-2.5 px-3 text-right">Prix d'achat unit.</th>
-                    <th className="py-2.5 px-3 text-right">Prix de vente unit.</th>
+                    <th className="py-2.5 px-2.5 w-[20%]">Marque</th>
+                    <th className="py-2.5 px-2.5 text-right w-[14%]">Qté dispo</th>
+                    <th className="py-2.5 px-2.5 w-[16%]">Emplacement</th>
+                    <th className="py-2.5 px-2.5 w-[15%]">N° Facture</th>
+                    <th className="py-2.5 px-2.5 text-right w-[13%]">P. Achat</th>
+                    <th className="py-2.5 px-2.5 text-right w-[13%]">P. Vente</th>
                     {(onQuickEditStock || onOpenPurchaseOrder) && (
-                      <th className="py-2.5 px-3 text-right">Action</th>
+                      <th className="py-2.5 px-2.5 text-right w-[9%]">Action</th>
                     )}
                   </tr>
                 </thead>
