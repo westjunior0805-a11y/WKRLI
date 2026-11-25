@@ -1526,7 +1526,7 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
             </div>
 
             {/* Corps du bloc de recherche */}
-            <div className="px-6 sm:px-8 py-6 space-y-5">
+            <div className="px-4 sm:px-8 py-4 sm:py-6 space-y-4 sm:space-y-5">
               {/* Grande barre de saisie centrale — Variation 8 Editorial Underline */}
               <div className="relative">
                 <Search
@@ -1542,9 +1542,9 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={handleSearchKeyDown}
                   placeholder="Référence ou pièce..."
-                  className="search-input-prominent hero-search-input w-full pl-9 pr-36 py-3.5 text-2xl sm:text-[2rem] bg-transparent border-0 border-b-2 border-[#CCCCCC] text-[#111111] focus:outline-none focus:border-[#FFCD11] transition-all"
+                  className="search-input-prominent hero-search-input w-full pl-8 sm:pl-9 pr-20 sm:pr-36 py-2.5 sm:py-3.5 text-lg sm:text-[2rem] bg-transparent border-0 border-b-2 border-[#CCCCCC] text-[#111111] focus:outline-none focus:border-[#FFCD11] transition-all"
                 />
-                <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1 sm:gap-1.5">
                   {searchQuery && (
                     <button
                       type="button"
@@ -1552,7 +1552,7 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                       className="p-1.5 text-[#595959] hover:text-[#111111] border-0! bg-transparent! cursor-pointer"
                       title="Effacer la recherche"
                     >
-                      <X className="w-5 h-5" />
+                      <X className="w-4 h-4 sm:w-5 sm:h-5" />
                     </button>
                   )}
                   <VoiceSearchButton
@@ -1563,25 +1563,25 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                     }}
                   />
                   <span
-                    className="px-2.5 py-1 bg-[#F4F4F4] text-[#111111] text-[10px] font-mono font-bold inline-flex items-center gap-1 border border-[#E0E0E0]"
+                    className="hidden sm:inline-flex px-2.5 py-1 bg-[#F4F4F4] text-[#111111] text-[10px] font-mono font-bold items-center gap-1 border border-[#E0E0E0]"
                     title="Appuyez sur Entrée pour ajouter directement le 1er résultat"
                   >
                     <Barcode className="w-3.5 h-3.5 text-[#111111]" />
-                    <span className="hidden sm:inline">ENTRÉE</span>
+                    <span>ENTRÉE</span>
                   </span>
                 </div>
               </div>
 
               {/* Filtres rapides de ciblage et catégories */}
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="label mr-1">Cibler :</span>
+              <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-2.5 sm:gap-3 pt-1">
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                  <span className="label mr-0.5 sm:mr-1">Cibler :</span>
                   {SEARCH_SCOPE_OPTIONS.map((opt) => (
                     <button
                       key={opt.id}
                       type="button"
                       onClick={() => setSearchScope(opt.id)}
-                      className={`px-3 py-1.5 text-xs font-mono uppercase tracking-[0.06em] transition-colors cursor-pointer border ${
+                      className={`px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-mono uppercase tracking-[0.06em] transition-colors cursor-pointer border ${
                         searchScope === opt.id
                           ? 'bg-[#FFCD11]! text-[#111111]! border-[#FFCD11]! font-bold'
                           : 'bg-white text-[#595959] border-[#E0E0E0] hover:border-[#111111] hover:text-[#111111]'
@@ -1596,7 +1596,7 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                   <select
                     value={selectedCategory}
                     onChange={(e) => setSelectedCategory(e.target.value)}
-                    className="px-3 py-1.5 text-xs font-semibold bg-[#FAFAFA] border border-[#D4D4D4] text-[#111111] cursor-pointer"
+                    className="w-full sm:w-auto px-3 py-1.5 text-xs font-semibold bg-[#FAFAFA] border border-[#D4D4D4] text-[#111111] cursor-pointer"
                   >
                     <option value="ALL">Toutes les catégories</option>
                     {availableCategories.map((cat) => (
@@ -1642,11 +1642,11 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                 return (
                   <div
                     key={art.id}
-                    className="bg-white border border-[#E0E0E0] p-5 sm:p-6 shadow-[0_2px_12px_rgba(0,0,0,0.03)] space-y-4"
+                    className="bg-white border border-[#E0E0E0] p-4 sm:p-6 shadow-[0_2px_12px_rgba(0,0,0,0.03)] space-y-3 sm:space-y-4"
                   >
                     {/* En-tête éditorial */}
-                    <div className="flex items-end justify-between gap-4">
-                      <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                    <div className="flex flex-wrap items-start sm:items-end justify-between gap-2.5 sm:gap-4">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
                         {showProductImages && (
                           <div
                             onClick={(e) => {
@@ -1659,7 +1659,7 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                                 });
                               }
                             }}
-                            className="w-11 h-11 border border-[#E0E0E0] bg-[#F4F4F4] flex items-center justify-center p-1 shrink-0 overflow-hidden cursor-pointer"
+                            className="w-10 h-10 sm:w-11 sm:h-11 border border-[#E0E0E0] bg-[#F4F4F4] flex items-center justify-center p-1 shrink-0 overflow-hidden cursor-pointer"
                           >
                             {art.imageUrl ? (
                               <img
@@ -1674,11 +1674,11 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                         )}
 
                         <div className="min-w-0 flex-1">
-                          <span className="font-mono font-bold text-sm sm:text-base text-[#7A5C00] block mb-1 tracking-[0.04em]">
+                          <span className="font-mono font-bold text-sm sm:text-base text-[#7A5C00] block mb-0.5 sm:mb-1 tracking-[0.04em] truncate">
                             REF: {art.mainReference}
                           </span>
                           <h3
-                            className="font-display text-xl sm:text-2xl font-semibold text-[#111111] leading-tight truncate"
+                            className="font-display text-lg sm:text-2xl font-semibold text-[#111111] leading-tight line-clamp-2 sm:truncate"
                             title={art.designation}
                           >
                             {art.designation}
@@ -1686,7 +1686,7 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-3 shrink-0">
+                      <div className="flex items-center gap-2 sm:gap-3 shrink-0 ml-auto">
                         {!searchQuery.trim() && soldQty > 0 && (
                           <span className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] px-2 py-0.5 bg-[#FFF9DF] border border-[#E5C130] text-[#7A5C00] tabular-nums whitespace-nowrap">
                             {soldQty} vendue{soldQty > 1 ? 's' : ''}
@@ -1716,68 +1716,76 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                             type="button"
                             disabled={!canSellOption}
                             onClick={() => handleAddToCart(art, opt)}
-                            className={`w-full text-left py-3.5 px-2 transition-colors grid grid-cols-1 sm:grid-cols-[minmax(95px,135px)_minmax(0,1fr)_auto_auto_auto] items-center gap-x-4 gap-y-1.5 group bg-transparent! border-0 ${
+                            className={`w-full text-left py-3 px-1.5 sm:py-3.5 sm:px-2 transition-colors flex flex-col sm:grid sm:grid-cols-[minmax(95px,135px)_minmax(0,1fr)_auto_auto_auto] sm:items-center gap-2 sm:gap-x-4 group bg-transparent! border-0 ${
                               canSellOption
                                 ? 'hover:bg-[#FFFDF2]! cursor-pointer'
                                 : 'opacity-50 cursor-not-allowed'
                             }`}
                           >
-                            {/* 1. Marque */}
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <Tag className="w-3 h-3 text-[#595959] shrink-0" />
-                              <span
-                                className="font-semibold text-xs text-[#111111] truncate"
-                                title={opt.brand}
-                              >
-                                {opt.brand || '—'}
-                              </span>
-                            </div>
-
-                            {/* 2. Magasin & Emplacement */}
-                            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 min-w-0 text-xs">
-                              <span
-                                className="inline-flex items-center gap-1 min-w-0 truncate font-semibold text-[#111111]"
-                                title={opt.warehouseName}
-                              >
-                                <Building2 className="w-3 h-3 text-[#595959] shrink-0" />
-                                <span className="truncate">{opt.warehouseName}</span>
-                              </span>
-                              {opt.location && (
+                            {/* Mobile Row 1 (dissolves into grid cols on sm+): Marque + Magasin & Emplacement */}
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0 sm:contents">
+                              {/* 1. Marque */}
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <Tag className="w-3 h-3 text-[#595959] shrink-0" />
                                 <span
-                                  className="inline-flex items-center gap-1 min-w-0 truncate font-mono text-[11px] text-[#595959]"
-                                  title={opt.location}
+                                  className="font-semibold text-xs text-[#111111] truncate"
+                                  title={opt.brand}
                                 >
-                                  <MapPin className="w-3 h-3 text-[#737373] shrink-0" />
-                                  <span className="truncate">{opt.location}</span>
+                                  {opt.brand || '—'}
                                 </span>
-                              )}
+                              </div>
+
+                              {/* 2. Magasin & Emplacement */}
+                              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 min-w-0 text-xs">
+                                <span
+                                  className="inline-flex items-center gap-1 min-w-0 truncate font-semibold text-[#111111]"
+                                  title={opt.warehouseName}
+                                >
+                                  <Building2 className="w-3 h-3 text-[#595959] shrink-0" />
+                                  <span className="truncate">{opt.warehouseName}</span>
+                                </span>
+                                {opt.location && (
+                                  <span
+                                    className="inline-flex items-center gap-1 min-w-0 truncate font-mono text-[11px] text-[#595959]"
+                                    title={opt.location}
+                                  >
+                                    <MapPin className="w-3 h-3 text-[#737373] shrink-0" />
+                                    <span className="truncate">{opt.location}</span>
+                                  </span>
+                                )}
+                              </div>
                             </div>
 
-                            {/* 3. Stock disponible */}
-                            <span
-                              className={`font-mono font-bold text-xs tabular-nums px-2.5 py-1 bg-[#F4F4F4] whitespace-nowrap ${
-                                opt.stockQty > 0 ? 'text-[#111111]' : 'text-rose-600'
-                              }`}
-                            >
-                              {opt.stockQty} {art.unit}
-                            </span>
+                            {/* Mobile Row 2 (dissolves into grid cols on sm+): Stock + Prix + Bouton + */}
+                            <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-[#F0F0F0] sm:border-t-0 sm:pt-0 sm:contents">
+                              {/* 3. Stock disponible */}
+                              <span
+                                className={`font-mono font-bold text-xs tabular-nums px-2.5 py-1 bg-[#F4F4F4] whitespace-nowrap ${
+                                  opt.stockQty > 0 ? 'text-[#111111]' : 'text-rose-600'
+                                }`}
+                              >
+                                {opt.stockQty} {art.unit}
+                              </span>
 
-                            {/* 4. Prix de vente */}
-                            <span className="font-mono font-bold text-xs sm:text-sm text-[#111111] tabular-nums sm:min-w-[96px] sm:text-right whitespace-nowrap">
-                              {formatFCFA(opt.salePrice)}
-                            </span>
+                              <div className="flex items-center gap-2.5 sm:contents">
+                                {/* 4. Prix de vente */}
+                                <span className="font-mono font-bold text-xs sm:text-sm text-[#111111] tabular-nums sm:min-w-[96px] sm:text-right whitespace-nowrap">
+                                  {formatFCFA(opt.salePrice)}
+                                </span>
 
-                            {/* 5. Bouton + Cat Yellow (.add-btn) */}
-                            <span
-                              className={`w-9 h-9 inline-flex items-center justify-center transition-colors shrink-0 ${
-                                canSellOption
-                                  ? 'bg-[#FFCD11] group-hover:bg-[#E5B700] text-[#111111]'
-                                  : 'bg-[#EAEAEA] text-[#595959]'
-                              }`}
-                              title="Ajouter au panier"
-                            >
-                              <Plus className="w-4 h-4 stroke-[2.5]" />
-                            </span>
+                                {/* 5. Bouton + Cat Yellow (.add-btn) */}
+                                <span
+                                  className={`w-9 h-9 inline-flex items-center justify-center transition-colors shrink-0 ${
+                                    canSellOption
+                                      ? 'bg-[#FFCD11] group-hover:bg-[#E5B700] text-[#111111]'
+                                      : 'bg-[#EAEAEA] text-[#595959]'
+                                  }`}
+                                  title="Ajouter au panier"
+                                >
+                                  <Plus className="w-4 h-4 stroke-[2.5]" />
+                                </span>
+                              </div>
+                            </div>
                           </button>
                         );
                       })}
@@ -1795,7 +1803,7 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
         /* ================================================================== */
         <div className="space-y-5 animate-in fade-in duration-150">
           {/* Barre supérieure du Mode Facturation Directe */}
-          <div className="flex flex-wrap items-center justify-between gap-3 bg-white border border-[#E0E0E0] px-5 sm:px-6 py-4 shadow-[0_2px_12px_rgba(0,0,0,0.03)]">
+          <div className="flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 bg-white border border-[#E0E0E0] px-4 sm:px-6 py-3.5 sm:py-4 shadow-[0_2px_12px_rgba(0,0,0,0.03)]">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 bg-[#FFCD11] text-[#111111] flex items-center justify-center font-bold">
                 <ShoppingCart className="w-5 h-5 text-[#111111]" />
@@ -2426,8 +2434,8 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
             )}
 
             {/* Tableau Pleine Largeur */}
-            <div className="border border-[#E5E5E5] rounded-lg overflow-hidden">
-              <table className="w-full table-fixed text-left border-collapse">
+            <div className="border border-[#E5E5E5] rounded-lg overflow-x-auto">
+              <table className="w-full min-w-[660px] table-fixed text-left border-collapse">
                 <thead>
                   <tr className="bg-[#F9FAFB] text-[#1B1B1B]/70 text-[11px] font-semibold border-b border-[#E5E5E5]">
                     <th className="py-2.5 px-2.5 w-[12%]">Réf</th>

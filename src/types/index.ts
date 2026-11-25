@@ -254,8 +254,10 @@ export interface InventorySession {
   supervisor: string;
   scope?: InventoryScope;
   scopeSummary?: string;
+  scopeOptions?: CreateInventoryOptions;
   items: InventoryItemCount[];
   createdAt: string;
+  updatedAt?: string;
   validatedAt?: string;
   validatedBy?: string;
   notes?: string;

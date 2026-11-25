@@ -632,7 +632,7 @@ export const CustomerListView: React.FC = () => {
 
       {/* Customers Table */}
       <div className="bg-white border border-[#E5E5E5] rounded-lg overflow-hidden">
-        <div className="w-full">
+        <div className="w-full overflow-x-auto">
           {filteredCustomers.length === 0 ? (
             <div className="text-center py-12 px-4 text-[#1B1B1B]/40 text-xs">
               Aucun compte client ne correspond à votre recherche.

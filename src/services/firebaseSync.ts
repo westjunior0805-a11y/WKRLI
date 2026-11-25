@@ -481,6 +481,16 @@ export async function saveInventoryToFirebase(inv: InventorySession): Promise<vo
   }
 }
 
+export async function deleteInventoryFromFirebase(inventoryId: string): Promise<void> {
+  if (!db || !isFirebaseSyncAllowed() || !inventoryId) return;
+  try {
+    const safeId = inventoryId.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 120);
+    await deleteDoc(doc(db, 'inventories', safeId));
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `inventories/${inventoryId}`);
+  }
+}
+
 export async function saveReturnToFirebase(ret: SaleReturn): Promise<void> {
   if (!db || !isFirebaseSyncAllowed() || !ret?.id) return;
   try {

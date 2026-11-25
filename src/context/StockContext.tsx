@@ -107,6 +107,7 @@ import {
   saveQuoteToFirebase,
   deleteQuoteFromFirebase,
   saveInventoryToFirebase,
+  deleteInventoryFromFirebase,
   saveReturnToFirebase,
   saveCompanyInfoToFirebase,
 } from '../services/firebaseSync';
@@ -514,6 +515,7 @@ interface StockContextType {
   ) => { success: boolean; addedLines: number; totalLines: number; error?: string };
   validateInventorySession: (sessionId: string) => { success: boolean; error?: string };
   cancelInventorySession: (sessionId: string) => { success: boolean; error?: string };
+  deleteInventorySession: (sessionId: string) => { success: boolean; error?: string };
   updateStockLocationInWarehouse: (
     articleId: string,
     warehouseId: string,
@@ -7621,7 +7623,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       if (whStock?.brandLocations) {
         for (const bKey of Object.keys(whStock.brandLocations)) {
-          const cleanB = bKey.trim();
+          const cleanB = cleanBrandName(bKey);
           if (!cleanB) continue;
           const normB = cleanB.toLowerCase();
           if (!brandMap.has(normB)) {
@@ -7633,6 +7635,11 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             });
           }
         }
+      }
+
+      // Drop ghost empty-brand placeholder if at least one real brand exists for this article
+      if (brandMap.size > 1 && brandMap.has('')) {
+        brandMap.delete('');
       }
 
       for (const bEntry of brandMap.values()) {
@@ -7747,17 +7754,20 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const sessionCode = `INV-${wh.code}-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(inventories.length + 1).padStart(2, '0')}`;
 
+    const nowIso = new Date().toISOString();
     const newSession: InventorySession = {
       id: `INV-${Date.now()}`,
       warehouseId,
       code: sessionCode,
-      date: new Date().toISOString().slice(0, 10),
+      date: nowIso.slice(0, 10),
       status: 'COUNTING',
       supervisor: currentUser.name,
       scope: options?.scope || 'FULL',
       scopeSummary,
-      createdAt: new Date().toISOString(),
-      notes,
+      scopeOptions: options,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+      notes: notes?.trim() || undefined,
       items,
     };
 
@@ -7788,9 +7798,18 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     unitCostOverride?: number
   ) => {
     const nowIso = new Date().toISOString();
+    const safeQty =
+      countedQty === null ? null : Math.max(0, Math.floor(Number(countedQty) || 0));
+
     setInventories((prev) =>
       prev.map((session) => {
-        if (session.id !== sessionId || session.status === 'VALIDATED') return session;
+        if (
+          session.id !== sessionId ||
+          session.status === 'VALIDATED' ||
+          session.status === 'CANCELLED'
+        ) {
+          return session;
+        }
 
         const updatedItems = session.items.map((item) => {
           if (!matchInventoryItemLine(item, articleId, brand)) return item;
@@ -7798,22 +7817,23 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             unitCostOverride !== undefined && unitCostOverride >= 0
               ? unitCostOverride
               : item.unitCost;
-          const variance = countedQty !== null ? countedQty - item.theoreticalQty : 0;
+          const variance = safeQty !== null ? safeQty - item.theoreticalQty : 0;
           const varianceValue = variance * nextCost;
           return {
             ...item,
             unitCost: nextCost,
-            countedQty,
+            countedQty: safeQty,
             variance,
             varianceValue,
             notes: notes !== undefined ? notes : item.notes,
-            countedAt: countedQty !== null ? nowIso : undefined,
-            countedBy: countedQty !== null ? currentUser.name : undefined,
+            countedAt: safeQty !== null ? nowIso : undefined,
+            countedBy: safeQty !== null ? currentUser.name : undefined,
           };
         });
 
-        const updatedSession = {
+        const updatedSession: InventorySession = {
           ...session,
+          updatedAt: nowIso,
           items: updatedItems,
         };
         saveInventoryToFirebase(updatedSession).catch(console.warn);
@@ -7836,7 +7856,13 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     setInventories((prev) =>
       prev.map((session) => {
-        if (session.id !== sessionId || session.status === 'VALIDATED') return session;
+        if (
+          session.id !== sessionId ||
+          session.status === 'VALIDATED' ||
+          session.status === 'CANCELLED'
+        ) {
+          return session;
+        }
 
         const updatedItems = session.items.map((item) => {
           const matchingUpdate = updates.find((u) =>
@@ -7844,23 +7870,27 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           );
           if (!matchingUpdate) return item;
 
-          const { countedQty, notes } = matchingUpdate;
-          const variance = countedQty !== null ? countedQty - item.theoreticalQty : 0;
+          const safeQty =
+            matchingUpdate.countedQty === null
+              ? null
+              : Math.max(0, Math.floor(Number(matchingUpdate.countedQty) || 0));
+          const variance = safeQty !== null ? safeQty - item.theoreticalQty : 0;
           const varianceValue = variance * item.unitCost;
 
           return {
             ...item,
-            countedQty,
+            countedQty: safeQty,
             variance,
             varianceValue,
-            notes: notes !== undefined ? notes : item.notes,
-            countedAt: countedQty !== null ? nowIso : undefined,
-            countedBy: countedQty !== null ? currentUser.name : undefined,
+            notes: matchingUpdate.notes !== undefined ? matchingUpdate.notes : item.notes,
+            countedAt: safeQty !== null ? nowIso : undefined,
+            countedBy: safeQty !== null ? currentUser.name : undefined,
           };
         });
 
-        const updatedSession = {
+        const updatedSession: InventorySession = {
           ...session,
+          updatedAt: nowIso,
           items: updatedItems,
         };
         saveInventoryToFirebase(updatedSession).catch(console.warn);
@@ -7876,16 +7906,19 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!session) {
       return { success: false, addedLines: 0, totalLines: 0, error: 'Session introuvable.' };
     }
-    if (session.status === 'VALIDATED') {
+    if (session.status === 'VALIDATED' || session.status === 'CANCELLED') {
       return {
         success: false,
         addedLines: 0,
         totalLines: session.items.length,
-        error: 'Cette session est déjà validée.',
+        error: 'Cette session est verrouillée.',
       };
     }
 
-    const freshItems = buildBrandInventoryItemsForWarehouse(session.warehouseId);
+    const freshItems = buildBrandInventoryItemsForWarehouse(
+      session.warehouseId,
+      session.scopeOptions
+    );
     const mergedItems: InventoryItemCount[] = [];
     const matchedOldIndices = new Set<number>();
     let addedLines = 0;
@@ -7894,7 +7927,6 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const art = articles.find((a) => a.id === fresh.articleId);
       const freshBrandNorm = cleanBrandName(fresh.brand || art?.brand).toLowerCase();
 
-      // Find exact (articleId + brand) match first, or legacy (articleId with no brand) if primary brand
       let oldIdx = session.items.findIndex(
         (old, idx) =>
           !matchedOldIndices.has(idx) &&
@@ -7934,7 +7966,6 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     }
 
-    // Preserve any remaining custom lines that were in session.items
     session.items.forEach((old, idx) => {
       if (!matchedOldIndices.has(idx)) {
         const art = articles.find((a) => a.id === old.articleId);
@@ -7949,6 +7980,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const updatedSession: InventorySession = {
       ...session,
+      updatedAt: new Date().toISOString(),
       items: mergedItems,
     };
 
@@ -7968,35 +8000,46 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (session.status === 'VALIDATED') {
       return { success: false, error: 'Cette session est déjà validée et verrouillée.' };
     }
+    if (session.status === 'CANCELLED') {
+      return { success: false, error: 'Impossible de valider une session annulée.' };
+    }
 
     const wh = warehouses.find((w) => w.id === session.warehouseId);
     if (!wh) return { success: false, error: 'Magasin associé introuvable.' };
 
     const nowIso = new Date().toISOString();
 
-    // Si rien n'est renseigné pour une pièce/marque (non comptée), elle conserve automatiquement sa quantité théorique (écart = 0)
+    // Recompute variances cleanly; uncounted lines keep their theoretical quantity (variance = 0)
     const normalizedItems: InventoryItemCount[] = session.items.map((it) => {
       const art = articles.find((a) => a.id === it.articleId);
       const resolvedBrand = cleanBrandName(it.brand) || cleanBrandName(art?.brand);
-      if (it.countedQty === null) {
+      const unitCost = Math.max(0, Number(it.unitCost) || art?.purchasePrice || 0);
+      if (it.countedQty === null || it.countedQty === undefined) {
         return {
           ...it,
           brand: resolvedBrand,
+          unitCost,
           countedQty: it.theoreticalQty,
           variance: 0,
           varianceValue: 0,
         };
       }
+      const safeCounted = Math.max(0, Math.floor(Number(it.countedQty) || 0));
+      const variance = safeCounted - it.theoreticalQty;
       return {
         ...it,
         brand: resolvedBrand,
+        unitCost,
+        countedQty: safeCounted,
+        variance,
+        varianceValue: variance * unitCost,
       };
     });
 
     const adjustmentMovements: StockMovement[] = [];
     const updatedStocks = [...stocks];
 
-    // Group items by articleId so multi-brand counts on the same article reconcile cleanly into WarehouseStock.brandBreakdown
+    // Group items by articleId so multi-brand counts reconcile cleanly
     const itemsByArticle = new Map<string, InventoryItemCount[]>();
     for (const item of normalizedItems) {
       const list = itemsByArticle.get(item.articleId) || [];
@@ -8013,47 +8056,71 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       );
       const existingStock = stockIdx >= 0 ? updatedStocks[stockIdx] : undefined;
 
-      const nextBrandBreakdown: Record<string, number> = {
-        ...(existingStock?.brandBreakdown || {}),
-      };
-      const nextBrandLocations: Record<string, string> = {
-        ...(existingStock?.brandLocations || {}),
-      };
+      const nextBrandBreakdown: Record<string, number> = {};
+      if (existingStock?.brandBreakdown) {
+        for (const [k, v] of Object.entries(existingStock.brandBreakdown)) {
+          const ck = cleanBrandName(k);
+          if (ck) nextBrandBreakdown[ck] = Math.max(0, Number(v) || 0);
+        }
+      }
 
-      // If existing stock had no brandBreakdown keys yet, seed with primary brand before applying brand updates
+      const nextBrandLocations: Record<string, string> = {};
+      if (existingStock?.brandLocations) {
+        for (const [k, v] of Object.entries(existingStock.brandLocations)) {
+          const ck = cleanBrandName(k);
+          if (ck && v) nextBrandLocations[ck] = v;
+        }
+      }
+
+      const hasNamedBrands =
+        Object.keys(nextBrandBreakdown).length > 0 ||
+        artItems.some((it) => Boolean(cleanBrandName(it.brand || art.brand)));
+
+      // Seed default brand if existing stock had total qty without brand breakdown yet
       if (
+        hasNamedBrands &&
         existingStock &&
         existingStock.quantity > 0 &&
         Object.keys(nextBrandBreakdown).length === 0
       ) {
         const defaultB = cleanBrandName(art.brand);
-        nextBrandBreakdown[defaultB] = existingStock.quantity;
+        if (defaultB) {
+          nextBrandBreakdown[defaultB] = existingStock.quantity;
+        }
       }
 
       let hasAnyChangeForArticle = false;
+      let directUnbrandedQty: number | null = null;
+      let updatedShelfLocation = existingStock?.shelfLocation;
 
       for (const item of artItems) {
         const itemBrand = cleanBrandName(item.brand) || cleanBrandName(art.brand);
         const countedVal = Math.max(0, item.countedQty ?? item.theoreticalQty);
 
-        // Find matching case-insensitive key in nextBrandBreakdown
-        const existingKey =
-          Object.keys(nextBrandBreakdown).find(
-            (k) => k.toLowerCase().trim() === itemBrand.toLowerCase().trim()
-          ) || itemBrand;
-
-        nextBrandBreakdown[existingKey] = countedVal;
-
-        if (item.location && item.location !== 'Non renseigné') {
-          const locKey =
-            Object.keys(nextBrandLocations).find(
+        if (itemBrand) {
+          const existingKey =
+            Object.keys(nextBrandBreakdown).find(
               (k) => k.toLowerCase().trim() === itemBrand.toLowerCase().trim()
             ) || itemBrand;
-          nextBrandLocations[locKey] = item.location;
+          nextBrandBreakdown[existingKey] = countedVal;
+
+          if (item.location && item.location !== 'Non renseigné') {
+            const locKey =
+              Object.keys(nextBrandLocations).find(
+                (k) => k.toLowerCase().trim() === itemBrand.toLowerCase().trim()
+              ) || itemBrand;
+            nextBrandLocations[locKey] = item.location;
+          }
+        } else {
+          directUnbrandedQty = countedVal;
+          if (item.location && item.location !== 'Non renseigné') {
+            updatedShelfLocation = item.location;
+          }
         }
 
         if (item.variance !== 0 && item.countedQty !== null) {
           hasAnyChangeForArticle = true;
+          const brandLabel = itemBrand ? ` [${itemBrand}]` : '';
           const adjustmentMvt: StockMovement = {
             id: generateMovementId(),
             date: nowIso,
@@ -8064,8 +8131,8 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             userId: currentUser.id,
             userName: currentUser.name,
             documentRef: `PV-${session.code}`,
-            reason: `Ajustement d'inventaire [${itemBrand}] (${item.variance > 0 ? '+' : ''}${item.variance} ${art.unit})`,
-            thirdParty: `Commission Inventaire - ${wh.name}`,
+            reason: `Ajustement d'inventaire${brandLabel} (${item.variance > 0 ? '+' : ''}${item.variance} ${art.unit})`,
+            thirdParty: `Inventaire - ${wh.name}`,
             unitPrice: item.unitCost,
             totalPrice: Math.abs(item.varianceValue),
             stockBefore: item.theoreticalQty,
@@ -8079,34 +8146,41 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       }
 
-      const newTotalWhQty = Object.values(nextBrandBreakdown).reduce(
-        (sum, val) => sum + Math.max(0, Number(val) || 0),
-        0
-      );
+      const namedKeys = Object.keys(nextBrandBreakdown);
+      const newTotalWhQty =
+        namedKeys.length > 0
+          ? namedKeys.reduce((sum, k) => sum + Math.max(0, Number(nextBrandBreakdown[k]) || 0), 0)
+          : directUnbrandedQty !== null
+          ? directUnbrandedQty
+          : existingStock?.quantity ?? 0;
 
       if (stockIdx >= 0) {
         updatedStocks[stockIdx] = {
           ...updatedStocks[stockIdx],
           quantity: newTotalWhQty,
-          brandBreakdown: nextBrandBreakdown,
+          brandBreakdown: namedKeys.length > 0 ? nextBrandBreakdown : undefined,
           brandLocations:
             Object.keys(nextBrandLocations).length > 0
               ? nextBrandLocations
               : updatedStocks[stockIdx].brandLocations,
+          shelfLocation: updatedShelfLocation || updatedStocks[stockIdx].shelfLocation,
           lastInventoryDate: nowIso,
+          updatedAt: nowIso,
         };
       } else if (hasAnyChangeForArticle || newTotalWhQty > 0) {
         updatedStocks.push({
           articleId,
           warehouseId: session.warehouseId,
           quantity: newTotalWhQty,
-          brandBreakdown: nextBrandBreakdown,
+          brandBreakdown: namedKeys.length > 0 ? nextBrandBreakdown : undefined,
           brandLocations:
             Object.keys(nextBrandLocations).length > 0 ? nextBrandLocations : undefined,
           shelfLocation:
+            updatedShelfLocation ||
             artItems.find((i) => i.location && i.location !== 'Non renseigné')?.location ||
             'Non renseigné',
           lastInventoryDate: nowIso,
+          updatedAt: nowIso,
         });
       }
     }
@@ -8118,10 +8192,11 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
     saveMultipleStocksToFirebase(updatedStocks).catch(console.warn);
 
-    const validatedSession = {
+    const validatedSession: InventorySession = {
       ...session,
       items: normalizedItems,
-      status: 'VALIDATED' as const,
+      status: 'VALIDATED',
+      updatedAt: nowIso,
       validatedAt: nowIso,
       validatedBy: currentUser.name,
     };
@@ -8139,12 +8214,34 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (session.status === 'VALIDATED') {
       return { success: false, error: 'Impossible d’annuler une session déjà validée.' };
     }
+    if (session.status === 'CANCELLED') {
+      return { success: false, error: 'Cette session est déjà annulée.' };
+    }
 
-    const cancelledSession = { ...session, status: 'CANCELLED' as const };
+    const cancelledSession: InventorySession = {
+      ...session,
+      status: 'CANCELLED',
+      updatedAt: new Date().toISOString(),
+    };
     setInventories((prev) =>
       prev.map((s) => (s.id === sessionId ? cancelledSession : s))
     );
     saveInventoryToFirebase(cancelledSession).catch(console.warn);
+    return { success: true };
+  };
+
+  const deleteInventorySession = (sessionId: string) => {
+    const session = inventories.find((s) => s.id === sessionId);
+    if (!session) return { success: false, error: 'Session introuvable.' };
+    if (session.status === 'VALIDATED') {
+      return {
+        success: false,
+        error: 'Impossible de supprimer une session validée (archivée pour traçabilité).',
+      };
+    }
+
+    setInventories((prev) => prev.filter((s) => s.id !== sessionId));
+    deleteInventoryFromFirebase(sessionId).catch(console.warn);
     return { success: true };
   };
 
@@ -8259,23 +8356,24 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   ): { success: boolean; error?: string; article?: Article } => {
     const session = inventories.find((s) => s.id === sessionId);
     if (!session) return { success: false, error: 'Session d’inventaire introuvable.' };
-    if (session.status === 'VALIDATED') {
-      return { success: false, error: 'Impossible d’ajouter un produit à une session validée.' };
+    if (session.status === 'VALIDATED' || session.status === 'CANCELLED') {
+      return { success: false, error: 'Impossible d’ajouter un produit à une session verrouillée.' };
     }
 
+    const nowIso = new Date().toISOString();
+    const safeCounted = Math.max(0, Math.floor(Number(initialCountedQty) || 0));
     const refUpper = articleData.mainReference.trim().toUpperCase();
     const targetBrand = cleanBrandName(articleData.brand);
     const cleanLoc = location?.trim() || articleData.defaultLocation || 'Non renseigné';
     const existing = articles.find((a) => a.mainReference.trim().toUpperCase() === refUpper);
 
     if (existing) {
-      // Ensure this brand exists in existing.brandOffers so the new brand is registered on the article
       const currentOffers = getArticleBrandOffers(existing);
       const hasBrandOffer = currentOffers.some(
-        (o) => o.brand.toLowerCase().trim() === targetBrand.toLowerCase()
+        (o) => cleanBrandName(o.brand).toLowerCase() === targetBrand.toLowerCase()
       );
 
-      if (!hasBrandOffer) {
+      if (targetBrand && !hasBrandOffer) {
         const nextOffers: ArticleBrandOffer[] = [
           ...currentOffers,
           {
@@ -8304,23 +8402,6 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         );
       }
 
-      // Check if (existing.id + targetBrand) is already in this session
-      const alreadyInSession = session.items.find((it) =>
-        matchInventoryItemLine(it, existing.id, targetBrand)
-      );
-      if (alreadyInSession) {
-        updateInventoryCount(
-          sessionId,
-          existing.id,
-          initialCountedQty,
-          alreadyInSession.notes,
-          targetBrand,
-          articleData.purchasePrice > 0 ? articleData.purchasePrice : undefined
-        );
-        return { success: true, article: existing };
-      }
-
-      // Otherwise, add a new brand line for this existing article into the session
       const theoBrandQty = getBrandStockAcrossWarehouses(
         stocks,
         existing,
@@ -8329,32 +8410,56 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       );
       const unitCost =
         articleData.purchasePrice > 0 ? articleData.purchasePrice : existing.purchasePrice;
-      const variance = initialCountedQty - theoBrandQty;
+      const variance = safeCounted - theoBrandQty;
 
-      const newItem: InventoryItemCount = {
-        articleId: existing.id,
-        brand: targetBrand,
-        brandReference: existing.mainReference,
-        location: cleanLoc,
-        theoreticalQty: theoBrandQty,
-        countedQty: initialCountedQty,
-        variance,
-        unitCost,
-        salePrice: articleData.salePrice > 0 ? articleData.salePrice : existing.salePrice,
-        varianceValue: variance * unitCost,
-        notes: targetBrand
-          ? `Marque ${targetBrand} ajoutée en cours d’inventaire`
-          : 'Ligne ajoutée en cours d’inventaire',
-        countedAt: new Date().toISOString(),
-        countedBy: currentUser.name,
-      };
+      setInventories((prev) =>
+        prev.map((s) => {
+          if (s.id !== sessionId) return s;
+          const alreadyIdx = s.items.findIndex((it) =>
+            matchInventoryItemLine(it, existing.id, targetBrand)
+          );
+          let nextItems: InventoryItemCount[];
+          if (alreadyIdx >= 0) {
+            nextItems = s.items.map((it, idx) =>
+              idx === alreadyIdx
+                ? {
+                    ...it,
+                    location: cleanLoc !== 'Non renseigné' ? cleanLoc : it.location,
+                    unitCost,
+                    countedQty: safeCounted,
+                    variance: safeCounted - it.theoreticalQty,
+                    varianceValue: (safeCounted - it.theoreticalQty) * unitCost,
+                    countedAt: nowIso,
+                    countedBy: currentUser.name,
+                  }
+                : it
+            );
+          } else {
+            const newItem: InventoryItemCount = {
+              articleId: existing.id,
+              brand: targetBrand,
+              brandReference: existing.mainReference,
+              location: cleanLoc,
+              theoreticalQty: theoBrandQty,
+              countedQty: safeCounted,
+              variance,
+              unitCost,
+              salePrice: articleData.salePrice > 0 ? articleData.salePrice : existing.salePrice,
+              varianceValue: variance * unitCost,
+              notes: targetBrand
+                ? `Marque ${targetBrand} ajoutée en cours d’inventaire`
+                : 'Ligne ajoutée en cours d’inventaire',
+              countedAt: nowIso,
+              countedBy: currentUser.name,
+            };
+            nextItems = [newItem, ...s.items];
+          }
+          const nextSession: InventorySession = { ...s, updatedAt: nowIso, items: nextItems };
+          saveInventoryToFirebase(nextSession).catch(console.warn);
+          return nextSession;
+        })
+      );
 
-      const updatedSession = {
-        ...session,
-        items: [newItem, ...session.items],
-      };
-      setInventories((prev) => prev.map((s) => (s.id === sessionId ? updatedSession : s)));
-      saveInventoryToFirebase(updatedSession).catch(console.warn);
       return { success: true, article: existing };
     }
 
@@ -8374,13 +8479,30 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const createdArticle = artRes.article;
 
+    // Directly initialize warehouse stock location without relying on stale `articles` closure
     if (cleanLoc !== 'Non renseigné') {
-      updateStockLocationInWarehouse(
-        createdArticle.id,
-        session.warehouseId,
-        cleanLoc,
-        targetBrand
-      );
+      const nextStock: WarehouseStock = {
+        articleId: createdArticle.id,
+        warehouseId: session.warehouseId,
+        quantity: 0,
+        shelfLocation: cleanLoc,
+        brandLocations: targetBrand ? { [targetBrand]: cleanLoc } : undefined,
+        updatedAt: nowIso,
+      };
+      setStocks((prev) => {
+        const exists = prev.some(
+          (st) => st.articleId === createdArticle.id && st.warehouseId === session.warehouseId
+        );
+        const updated = exists
+          ? prev.map((st) =>
+              st.articleId === createdArticle.id && st.warehouseId === session.warehouseId
+                ? { ...st, shelfLocation: cleanLoc, brandLocations: nextStock.brandLocations, updatedAt: nowIso }
+                : st
+            )
+          : [...prev, nextStock];
+        saveMultipleStocksToFirebase(updated).catch(console.warn);
+        return updated;
+      });
     }
 
     const newItem: InventoryItemCount = {
@@ -8389,22 +8511,28 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       brandReference: createdArticle.mainReference,
       location: cleanLoc,
       theoreticalQty: 0,
-      countedQty: initialCountedQty,
-      variance: initialCountedQty,
+      countedQty: safeCounted,
+      variance: safeCounted,
       unitCost: createdArticle.purchasePrice,
       salePrice: createdArticle.salePrice,
-      varianceValue: initialCountedQty * createdArticle.purchasePrice,
+      varianceValue: safeCounted * createdArticle.purchasePrice,
       notes: 'Nouvelle pièce créée durant l’inventaire physique',
-      countedAt: new Date().toISOString(),
+      countedAt: nowIso,
       countedBy: currentUser.name,
     };
 
-    const updatedSession = {
-      ...session,
-      items: [newItem, ...session.items],
-    };
-    setInventories((prev) => prev.map((s) => (s.id === sessionId ? updatedSession : s)));
-    saveInventoryToFirebase(updatedSession).catch(console.warn);
+    setInventories((prev) =>
+      prev.map((s) => {
+        if (s.id !== sessionId) return s;
+        const nextSession: InventorySession = {
+          ...s,
+          updatedAt: nowIso,
+          items: [newItem, ...s.items],
+        };
+        saveInventoryToFirebase(nextSession).catch(console.warn);
+        return nextSession;
+      })
+    );
 
     return { success: true, article: createdArticle };
   };
@@ -10361,6 +10489,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         syncInventorySessionBrands,
         validateInventorySession,
         cancelInventorySession,
+        deleteInventorySession,
         updateStockLocationInWarehouse,
         addArticleToInventorySession,
         createCustomer,

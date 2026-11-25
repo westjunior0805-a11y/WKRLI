@@ -1069,7 +1069,7 @@ export const CashRegisterView: React.FC = () => {
               </div>
             )}
 
-            <div className="w-full">
+            <div className="w-full overflow-x-auto">
               {sessionMovements.length === 0 ? (
                 <div className="text-center py-10 text-slate-400 text-xs">
                   Aucun mouvement enregistré pour cette session de caisse.

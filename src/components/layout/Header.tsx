@@ -144,10 +144,10 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="sis-header sticky top-0 z-30 bg-[#111111] text-white border-b-[3px] border-[#FFCD11] px-5 sm:px-8 py-3.5">
-      <div className="header-bar flex items-center justify-between gap-4">
+    <header className="sis-header sticky top-0 z-30 bg-[#111111] text-white border-b-[3px] border-[#FFCD11] px-3 py-2.5 sm:px-6 sm:py-3 lg:px-8 lg:py-3.5">
+      <div className="header-bar flex flex-wrap md:flex-nowrap items-center justify-between gap-x-2.5 sm:gap-x-4 gap-y-2">
         {/* Left: Mobile hamburger + Editorial View Title */}
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1 md:flex-initial">
           <button
             onClick={onToggleSidebarMobile}
             className="sis-header-ctrl lg:hidden p-2 text-white bg-[#1F1F1F] border border-[#3A3A3A] transition-colors shrink-0"
@@ -155,105 +155,24 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <Menu className="w-5 h-5 text-[#FFCD11]" />
           </button>
-          <div className="min-w-0">
-            <div className="flex items-baseline gap-3 min-w-0">
-              <h2 className="font-display text-2xl sm:text-3xl font-semibold text-white tracking-[-0.015em] leading-none truncate">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline gap-2 sm:gap-3 min-w-0">
+              <h2 className="font-display text-xl sm:text-2xl lg:text-3xl font-semibold text-white tracking-[-0.015em] leading-tight truncate">
                 {getViewTitle()}
               </h2>
             </div>
           </div>
         </div>
 
-        {/* Right Zone: SIS 2.0 Dark Chrome Controls & Cat Yellow Primary CTA */}
-        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-          {/* Warehouse Selector */}
-          <div className="relative flex items-center">
-            <Building2 className="w-3.5 h-3.5 text-[#FFCD11] absolute left-2.5 pointer-events-none" />
-            <select
-              value={selectedWarehouseId || 'ALL'}
-              onChange={(e) =>
-                setSelectedWarehouseId(e.target.value === 'ALL' ? null : e.target.value)
-              }
-              disabled={currentUser.role === 'MAGASINIER' && !!currentUser.assignedWarehouseId}
-              className="text-xs pl-8 pr-6 sm:pr-7 py-2 bg-[#1F1F1F] border border-[#3A3A3A] text-white font-medium hover:border-[#FFCD11] focus:outline-none focus:border-[#FFCD11] transition-colors disabled:opacity-75 disabled:cursor-not-allowed cursor-pointer max-w-[140px] sm:max-w-none truncate"
-              title="Filtrer la vue par magasin"
-            >
-              <option value="ALL">Tous les magasins</option>
-              {warehouses.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.code} — {w.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Unified Stock Operations Dropdown */}
-          <div className="relative" ref={stockMenuRef}>
-            <button
-              type="button"
-              onClick={() => setIsStockMenuOpen((prev) => !prev)}
-              className="sis-header-ctrl inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-white bg-[#1F1F1F] hover:border-[#FFCD11] border border-[#3A3A3A] transition-colors whitespace-nowrap cursor-pointer"
-              title="Effectuer une entrée, une sortie ou un transfert"
-            >
-              <Layers className="w-3.5 h-3.5 text-[#FFCD11]" />
-              <span className="hidden sm:inline">Mouvements</span>
-              <ChevronDown
-                className={`w-3 h-3 text-white/70 transition-transform ${isStockMenuOpen ? 'rotate-180' : ''}`}
-              />
-            </button>
-
-            {isStockMenuOpen && (
-              <div className="absolute right-0 mt-2 w-56 bg-white border border-[#D4D4D4] py-1 z-50 text-xs shadow-lg">
-                <div className="px-3.5 py-2 label border-b border-[#E0E0E0]">
-                  Actions Stock
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsStockMenuOpen(false);
-                    onOpenStockIn();
-                  }}
-                  title="Réception fournisseur / bon d'entrée en stock"
-                  className="w-full text-left px-3.5 py-2.5 flex items-center gap-2.5 hover:bg-[#F4F4F4] text-[#111111] font-semibold border-0 border-b border-[#EBEBEB] transition-colors cursor-pointer"
-                >
-                  <ArrowDownLeft className="w-4 h-4 text-emerald-700 shrink-0" />
-                  <span>Entrée de pièces</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsStockMenuOpen(false);
-                    onOpenStockOut();
-                  }}
-                  title="Livraison / bon de sortie ou consommation interne"
-                  className="w-full text-left px-3.5 py-2.5 flex items-center gap-2.5 hover:bg-[#F4F4F4] text-[#111111] font-semibold border-0 border-b border-[#EBEBEB] transition-colors cursor-pointer"
-                >
-                  <ArrowUpRight className="w-4 h-4 text-[#7A5C00] shrink-0" />
-                  <span>Sortie de pièces</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsStockMenuOpen(false);
-                    onOpenTransfer();
-                  }}
-                  title="Déplacement de stock entre deux magasins / dépôts"
-                  className="w-full text-left px-3.5 py-2.5 flex items-center gap-2.5 hover:bg-[#F4F4F4] text-[#111111] font-semibold border-0 transition-colors cursor-pointer"
-                >
-                  <ArrowLeftRight className="w-4 h-4 text-[#111111] shrink-0" />
-                  <span>Transfert inter-dépôts</span>
-                </button>
-              </div>
-            )}
-          </div>
-
+        {/* Mobile Row-1 Right / Desktop Right-End: Primary CTA + Critical Alert + User Menu */}
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 md:order-3">
           {/* Permanent Primary Header CTA Button: + Nouvelle Vente (Caterpillar Yellow) */}
           {onOpenNewSale && (
             <button
               type="button"
               onClick={onOpenNewSale}
               title="Accéder au Guichet Comptoir / Nouvelle Vente"
-              className={`cta-btn inline-flex items-center gap-1.5 px-3.5 sm:px-4 py-2 font-bold text-xs uppercase tracking-[0.05em] border-0 cursor-pointer transition-colors whitespace-nowrap ${
+              className={`cta-btn inline-flex items-center gap-1.5 px-2.5 sm:px-4 py-1.5 sm:py-2 font-bold text-xs uppercase tracking-[0.05em] border-0 cursor-pointer transition-colors whitespace-nowrap ${
                 activeView === 'new_sale'
                   ? 'bg-[#E5B700]! text-[#111111]!'
                   : 'bg-[#FFCD11]! hover:bg-[#E5B700]! text-[#111111]!'
@@ -265,7 +184,7 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
-          {/* Stock Rupture Alert Button */}
+          {/* Stock Rupture Alert Button (Desktop xl+) */}
           {criticalCount > 0 && (
             <button
               type="button"
@@ -281,11 +200,11 @@ export const Header: React.FC<HeaderProps> = ({
           )}
 
           {/* Unified Operator & Account Management Container */}
-          <div className="relative border-l border-[#333333] pl-2.5" ref={userMenuRef}>
+          <div className="relative border-l border-[#333333] pl-1.5 sm:pl-2.5" ref={userMenuRef}>
             <button
               type="button"
               onClick={() => setIsUserMenuOpen((prev) => !prev)}
-              className="sis-header-ctrl flex items-center gap-2.5 px-2.5 py-1.5 bg-[#1F1F1F] hover:border-[#FFCD11] border border-[#3A3A3A] transition-colors text-left cursor-pointer"
+              className="sis-header-ctrl flex items-center gap-2 sm:gap-2.5 px-2 sm:px-2.5 py-1.5 bg-[#1F1F1F] hover:border-[#FFCD11] border border-[#3A3A3A] transition-colors text-left cursor-pointer"
               title="Compte opérateur, gestion des accès et session"
             >
               <div className="relative shrink-0">
@@ -317,7 +236,7 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
 
             {isUserMenuOpen && (
-              <div className="absolute right-0 mt-2 w-68 bg-white border border-[#D4D4D4] py-2 z-50 text-xs">
+              <div className="absolute right-0 mt-2 w-64 max-w-[calc(100vw-1.5rem)] bg-white border border-[#D4D4D4] py-2 z-50 text-xs shadow-lg">
                 {/* Active user header */}
                 <div className="px-3.5 pb-2.5 border-b border-[#E0E0E0]">
                   <div className="flex items-center justify-between gap-2">
@@ -380,6 +299,90 @@ export const Header: React.FC<HeaderProps> = ({
                     <span>Déconnexion</span>
                   </button>
                 </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Mobile Row-2 Full-Width Utility Bar / Desktop Middle-Right Controls */}
+        <div className="flex items-center gap-2 w-full md:w-auto md:ml-auto md:order-2 pt-2 md:pt-0 border-t border-[#2A2A2A] md:border-t-0">
+          {/* Warehouse Selector */}
+          <div className="relative flex items-center flex-1 min-w-0 md:flex-initial">
+            <Building2 className="w-3.5 h-3.5 text-[#FFCD11] absolute left-2.5 pointer-events-none" />
+            <select
+              value={selectedWarehouseId || 'ALL'}
+              onChange={(e) =>
+                setSelectedWarehouseId(e.target.value === 'ALL' ? null : e.target.value)
+              }
+              disabled={currentUser.role === 'MAGASINIER' && !!currentUser.assignedWarehouseId}
+              className="w-full md:w-auto text-xs pl-8 pr-6 sm:pr-7 py-1.5 sm:py-2 bg-[#1F1F1F] border border-[#3A3A3A] text-white font-medium hover:border-[#FFCD11] focus:outline-none focus:border-[#FFCD11] transition-colors disabled:opacity-75 disabled:cursor-not-allowed cursor-pointer md:max-w-[190px] lg:max-w-none truncate"
+              title="Filtrer la vue par magasin"
+            >
+              <option value="ALL">Tous les magasins</option>
+              {warehouses.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.code} — {w.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Unified Stock Operations Dropdown */}
+          <div className="relative shrink-0" ref={stockMenuRef}>
+            <button
+              type="button"
+              onClick={() => setIsStockMenuOpen((prev) => !prev)}
+              className="sis-header-ctrl inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs font-medium text-white bg-[#1F1F1F] hover:border-[#FFCD11] border border-[#3A3A3A] transition-colors whitespace-nowrap cursor-pointer"
+              title="Effectuer une entrée, une sortie ou un transfert"
+            >
+              <Layers className="w-3.5 h-3.5 text-[#FFCD11]" />
+              <span>Mouvements</span>
+              <ChevronDown
+                className={`w-3 h-3 text-white/70 transition-transform ${isStockMenuOpen ? 'rotate-180' : ''}`}
+              />
+            </button>
+
+            {isStockMenuOpen && (
+              <div className="absolute right-0 mt-2 w-56 max-w-[calc(100vw-1.5rem)] bg-white border border-[#D4D4D4] py-1 z-50 text-xs shadow-lg">
+                <div className="px-3.5 py-2 label border-b border-[#E0E0E0]">
+                  Actions Stock
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsStockMenuOpen(false);
+                    onOpenStockIn();
+                  }}
+                  title="Réception fournisseur / bon d'entrée en stock"
+                  className="w-full text-left px-3.5 py-2.5 flex items-center gap-2.5 hover:bg-[#F4F4F4] text-[#111111] font-semibold border-0 border-b border-[#EBEBEB] transition-colors cursor-pointer"
+                >
+                  <ArrowDownLeft className="w-4 h-4 text-emerald-700 shrink-0" />
+                  <span>Entrée de pièces</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsStockMenuOpen(false);
+                    onOpenStockOut();
+                  }}
+                  title="Livraison / bon de sortie ou consommation interne"
+                  className="w-full text-left px-3.5 py-2.5 flex items-center gap-2.5 hover:bg-[#F4F4F4] text-[#111111] font-semibold border-0 border-b border-[#EBEBEB] transition-colors cursor-pointer"
+                >
+                  <ArrowUpRight className="w-4 h-4 text-[#7A5C00] shrink-0" />
+                  <span>Sortie de pièces</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsStockMenuOpen(false);
+                    onOpenTransfer();
+                  }}
+                  title="Déplacement de stock entre deux magasins / dépôts"
+                  className="w-full text-left px-3.5 py-2.5 flex items-center gap-2.5 hover:bg-[#F4F4F4] text-[#111111] font-semibold border-0 transition-colors cursor-pointer"
+                >
+                  <ArrowLeftRight className="w-4 h-4 text-[#111111] shrink-0" />
+                  <span>Transfert inter-dépôts</span>
+                </button>
               </div>
             )}
           </div>

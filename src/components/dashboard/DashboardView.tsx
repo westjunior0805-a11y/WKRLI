@@ -217,21 +217,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
       {/* Top Banner if warehouse is filtered */}
       {selectedWhObj && (
-        <div className="flex items-center justify-between px-5 py-3.5 bg-white border border-[#E5C130] border-l-[4px] border-l-[#FFCD11] text-[#111111] text-sm">
-          <div className="flex items-center gap-2.5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 px-4 sm:px-5 py-3 sm:py-3.5 bg-white border border-[#E5C130] border-l-[4px] border-l-[#FFCD11] text-[#111111] text-sm">
+          <div className="flex items-center gap-2.5 min-w-0">
             <Building2 className="w-4 h-4 text-[#111111] shrink-0" />
-            <span className="font-mono text-xs uppercase tracking-[0.08em]">
+            <span className="font-mono text-xs uppercase tracking-[0.08em] truncate">
               Magasin actif : <strong className="text-[#7A5C00]">{selectedWhObj.name}</strong> ({selectedWhObj.code})
             </span>
           </div>
-          <span className="text-xs font-mono text-[#595959]">
+          <span className="text-xs font-mono text-[#595959] shrink-0">
             {selectedWhObj.location}
           </span>
         </div>
       )}
 
       {/* KPI Cards Strip — SIS 2.0 Industrial */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-5">
         {/* KPI 1: Total Stock */}
         <div className="stat-card">
           <div className="label">Total Stock</div>
@@ -369,11 +369,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {/* 2-Column Split: Urgent Replenishment & Recent Movements */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left: RÉAPPROVISIONNEMENT URGENT */}
-        <div className="card bg-white border border-[#E0E0E0] p-5 sm:p-6 flex flex-col">
-          <div className="flex items-baseline justify-between gap-3 mb-5">
-            <div>
+        <div className="card bg-white border border-[#E0E0E0] p-4 sm:p-6 flex flex-col">
+          <div className="flex flex-wrap items-baseline justify-between gap-2 sm:gap-3 mb-4 sm:mb-5">
+            <div className="min-w-0">
               <div className="label text-[#7A5C00]">Priorité critique</div>
-              <h2 className="font-display text-2xl sm:text-[1.75rem] font-semibold text-[#111111] tracking-[-0.02em] leading-tight mt-0.5">
+              <h2 className="font-display text-xl sm:text-[1.75rem] font-semibold text-[#111111] tracking-[-0.02em] leading-tight mt-0.5">
                 Réapprovisionnement urgent
               </h2>
             </div>
@@ -385,14 +385,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </button>
           </div>
 
-          <div className="flex-1 w-full">
+          <div className="flex-1 w-full min-w-0">
             {sortedAlerts.length === 0 ? (
               <div className="text-center py-10 text-[#595959] text-sm">
                 Tous les niveaux de stock sont conformes aux seuils minimaux.
               </div>
             ) : (
               <>
-                <table className="data-table w-full table-fixed text-xs">
+                <div className="w-full overflow-x-auto">
+                  <table className="data-table w-full table-fixed text-xs">
                   <thead>
                     <tr>
                       <SortableTh label="Réf." active={alertSort.field === 'ref'} direction={alertSort.dir} onClick={() => toggleAlertSort('ref')} className="w-[23%]" />
@@ -465,8 +466,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       );
                     })}
                   </tbody>
-                </table>
-                <div className="-mx-5 sm:-mx-6 mt-3">
+                  </table>
+                </div>
+                <div className="-mx-4 sm:-mx-6 mt-3">
                   <TablePagination
                     currentPage={alertPage}
                     totalItems={sortedAlerts.length}
@@ -493,11 +495,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         {/* Right: DERNIERS MOUVEMENTS ENREGISTRÉS */}
-        <div className="card bg-white border border-[#E0E0E0] p-5 sm:p-6 flex flex-col">
-          <div className="flex items-baseline justify-between gap-3 mb-5">
-            <div>
+        <div className="card bg-white border border-[#E0E0E0] p-4 sm:p-6 flex flex-col">
+          <div className="flex flex-wrap items-baseline justify-between gap-2 sm:gap-3 mb-4 sm:mb-5">
+            <div className="min-w-0">
               <div className="label">Journal des flux</div>
-              <h2 className="font-display text-2xl sm:text-[1.75rem] font-semibold text-[#111111] tracking-[-0.02em] leading-tight mt-0.5">
+              <h2 className="font-display text-xl sm:text-[1.75rem] font-semibold text-[#111111] tracking-[-0.02em] leading-tight mt-0.5">
                 Derniers mouvements
               </h2>
             </div>
@@ -509,14 +511,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </button>
           </div>
 
-          <div className="flex-1 w-full">
+          <div className="flex-1 w-full min-w-0">
             {sortedDashboardMovements.length === 0 ? (
               <div className="text-center py-10 text-[#595959] text-sm">
                 Aucun mouvement enregistré pour le moment.
               </div>
             ) : (
               <>
-                <table className="data-table w-full table-fixed text-xs">
+                <div className="w-full overflow-x-auto">
+                  <table className="data-table w-full table-fixed text-xs">
                   <thead>
                     <tr>
                       <SortableTh label="Type" active={mvtSort.field === 'type'} direction={mvtSort.dir} onClick={() => toggleMvtSort('type')} className="w-[17%]" />
@@ -579,8 +582,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       );
                     })}
                   </tbody>
-                </table>
-                <div className="-mx-5 sm:-mx-6 mt-3">
+                  </table>
+                </div>
+                <div className="-mx-4 sm:-mx-6 mt-3">
                   <TablePagination
                     currentPage={mvtPage}
                     totalItems={sortedDashboardMovements.length}
@@ -595,7 +599,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             )}
           </div>
 
-          <div className="mt-4 pt-4 border-t border-[#E0E0E0] flex items-center justify-between text-xs text-[#595959]">
+          <div className="mt-4 pt-4 border-t border-[#E0E0E0] flex flex-wrap items-center justify-between gap-2 text-xs text-[#595959]">
             <span>Traçabilité atomique des flux physiques</span>
             <button
               onClick={() => onOpenTransfer()}

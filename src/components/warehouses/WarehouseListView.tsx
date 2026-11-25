@@ -1079,7 +1079,7 @@ export const WarehouseListView: React.FC<WarehouseListViewProps> = ({
             )}
           </div>
         ) : (
-        <div className="w-full">
+        <div className="w-full overflow-x-auto">
           <table className="w-full table-fixed text-left text-xs">
             <thead className="bg-slate-50/70 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold text-[10px]">
               <tr>

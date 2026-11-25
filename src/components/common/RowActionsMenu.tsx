@@ -88,7 +88,7 @@ export const RowActionsMenu: React.FC<RowActionsMenuProps> = ({
   const toneClass = (tone?: RowActionItem['tone']) => {
     switch (tone) {
       case 'primary':
-        return 'text-sky-700 hover:bg-sky-50 dark:text-sky-300 dark:hover:bg-sky-950/60';
+        return 'text-[#7A5C00] hover:bg-[#FFF9DF] dark:text-amber-300 dark:hover:bg-amber-950/60';
       case 'success':
         return 'text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/60';
       case 'warning':

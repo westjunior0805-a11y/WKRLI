@@ -305,7 +305,7 @@ function AppContent() {
         />
 
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
           <Header
             activeView={activeView}
             onToggleSidebarMobile={() => setIsSidebarMobileOpen((prev) => !prev)}
@@ -321,11 +321,11 @@ function AppContent() {
             onSelectTheme={(t) => setTheme(t)}
           />
 
-          <main className="flex-1 px-5 py-5 sm:px-8 sm:py-6 lg:px-10 lg:py-8 max-w-[1400px] w-full mx-auto space-y-6">
+          <main className="flex-1 px-3 py-4 sm:px-8 sm:py-6 lg:px-10 lg:py-8 max-w-[1400px] w-full mx-auto space-y-4 sm:space-y-6">
             {/* Unified Module Editorial Sub-Navigation Bar */}
             {moduleSubNav && (
-              <div className="flex flex-wrap items-center justify-between gap-3 bg-white border border-[#E0E0E0] px-5 py-0 shadow-[0_2px_10px_rgba(0,0,0,0.03)]">
-                <div className="flex flex-wrap items-center gap-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-0 sm:gap-3 bg-white border border-[#E0E0E0] px-3 sm:px-5 py-0 shadow-[0_2px_10px_rgba(0,0,0,0.03)]">
+                <div className="flex items-center gap-4 sm:gap-6 overflow-x-auto no-scrollbar">
                   {moduleSubNav.tabs.map((tab) => {
                     const TabIcon = tab.icon;
                     const isTabActive = activeView === tab.id;
@@ -334,14 +334,14 @@ function AppContent() {
                         key={tab.id}
                         type="button"
                         onClick={() => setActiveView(tab.id)}
-                        className={`inline-flex items-center gap-2 py-3.5 text-xs transition-all cursor-pointer bg-transparent! border-0 ${
+                        className={`inline-flex items-center gap-2 py-3 sm:py-3.5 text-xs transition-all cursor-pointer bg-transparent! border-0 whitespace-nowrap shrink-0 ${
                           isTabActive
                             ? 'text-[#111111] font-bold border-b-[2.5px]! border-[#FFCD11]!'
                             : 'text-[#595959] font-medium border-b-[2.5px]! border-transparent! hover:text-[#111111]'
                         }`}
                       >
                         <TabIcon
-                          className={`w-3.5 h-3.5 ${
+                          className={`w-3.5 h-3.5 shrink-0 ${
                             isTabActive ? 'text-[#111111]' : 'text-[#595959]'
                           }`}
                         />
@@ -361,7 +361,11 @@ function AppContent() {
                     );
                   })}
                 </div>
-                {moduleSubNav.rightAction && <div className="py-2">{moduleSubNav.rightAction}</div>}
+                {moduleSubNav.rightAction && (
+                  <div className="py-2 border-t border-[#E0E0E0] sm:border-t-0 flex flex-wrap items-center gap-2 shrink-0">
+                    {moduleSubNav.rightAction}
+                  </div>
+                )}
               </div>
             )}
 

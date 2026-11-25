@@ -483,7 +483,7 @@ export const SalesHistoryView: React.FC = () => {
 
       {/* Sales Table */}
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
-        <div>
+        <div className="w-full overflow-x-auto">
           {filteredSales.length === 0 ? (
             <div className="text-center py-12 px-4 text-slate-400 text-xs">
               Aucune vente ne correspond aux critères de recherche actuels.
