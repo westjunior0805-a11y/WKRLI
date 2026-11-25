@@ -18,7 +18,7 @@ export const VoiceSearchButton: React.FC<VoiceSearchButtonProps> = ({
   size = 'sm',
   className = '',
 }) => {
-  const { articles, customers } = useStock();
+  const { articles, stocks, customers } = useStock();
   const [correctionNotice, setCorrectionNotice] = useState<{
     raw: string;
     resolved: string;
@@ -26,8 +26,8 @@ export const VoiceSearchButton: React.FC<VoiceSearchButtonProps> = ({
   const noticeTimerRef = useRef<number | null>(null);
 
   const vocabulary = useMemo(
-    () => buildStockVoiceVocabulary(articles, customers),
-    [articles, customers]
+    () => buildStockVoiceVocabulary(articles, stocks, customers),
+    [articles, stocks, customers]
   );
 
   const clearCorrectionNotice = useCallback(() => {

@@ -54,10 +54,10 @@ function getSpeechRecognitionCtor(): SpeechRecognitionConstructor | null {
  * - Removes trailing sentence punctuation added by STT engines (., !, ?)
  * - Converts spoken "tiret" between reference chunks into "-"
  * - Compacts pure alphanumeric part codes (e.g. "1 r - 07 16" -> "1R-0716")
- *   while leaving natural French phrases ("filtre à huile") untouched.
+ *   while leaving natural French phrases ("filtre", "filtre à huile", "courroie") untouched.
  */
 export function normalizeSpokenSearchQuery(raw: string): string {
-  let text = raw.trim().replace(/[.!?,;]+$/g, '').trim();
+  let text = raw.replace(/\s+/g, ' ').trim().replace(/[.!?,;]+$/g, '').trim();
   if (!text) return '';
 
   // Replace spoken "tiret" or "trait d'union" with hyphen when surrounded by alphanumeric chars
@@ -93,6 +93,8 @@ export function useVoiceSearch({ onResult, lang = 'fr-FR' }: UseVoiceSearchOptio
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const onResultRef = useRef(onResult);
   const errorTimerRef = useRef<number | null>(null);
+  const lastAlternativesRef = useRef<string[]>([]);
+  const emittedFinalRef = useRef<boolean>(false);
 
   const isSupported = Boolean(getSpeechRecognitionCtor());
 
@@ -142,6 +144,9 @@ export function useVoiceSearch({ onResult, lang = 'fr-FR' }: UseVoiceSearchOptio
       recognitionRef.current = null;
     }
 
+    lastAlternativesRef.current = [];
+    emittedFinalRef.current = false;
+
     try {
       const recognition = new Ctor();
       recognition.lang = lang;
@@ -155,35 +160,49 @@ export function useVoiceSearch({ onResult, lang = 'fr-FR' }: UseVoiceSearchOptio
       };
 
       recognition.onresult = (event: SpeechRecognitionEventLike) => {
-        let prefix = '';
+        const prefixParts: string[] = [];
         let hasFinal = false;
         const lastIndex = event.results.length - 1;
 
         for (let i = 0; i < lastIndex; i++) {
           const res = event.results[i];
-          if (res && res[0]) {
-            prefix += res[0].transcript;
-            if (res.isFinal) hasFinal = true;
+          const chunk = res?.[0]?.transcript?.trim();
+          if (chunk) {
+            prefixParts.push(chunk);
           }
+          if (res?.isFinal) hasFinal = true;
         }
 
-        const lastRes = event.results[lastIndex];
+        const prefix = prefixParts.join(' ');
+        const lastRes = lastIndex >= 0 ? event.results[lastIndex] : undefined;
         const alternatives: string[] = [];
+
         if (lastRes) {
           if (lastRes.isFinal) hasFinal = true;
           const altCount = Math.min(lastRes.length || 1, 5);
           for (let a = 0; a < altCount; a++) {
-            const alt = lastRes[a];
-            if (alt?.transcript) {
-              const cleaned = normalizeSpokenSearchQuery(prefix + alt.transcript);
-              if (cleaned && !alternatives.includes(cleaned)) {
-                alternatives.push(cleaned);
-              }
+            const altText = lastRes[a]?.transcript?.trim() || '';
+            const combined = [prefix, altText].filter(Boolean).join(' ');
+            const cleaned = normalizeSpokenSearchQuery(combined);
+            if (cleaned && !alternatives.includes(cleaned)) {
+              alternatives.push(cleaned);
             }
           }
         }
 
+        // Fallback: if the trailing interim result was empty, never drop the accumulated prefix
+        if (alternatives.length === 0 && prefix) {
+          const cleanedPrefix = normalizeSpokenSearchQuery(prefix);
+          if (cleanedPrefix) {
+            alternatives.push(cleanedPrefix);
+          }
+        }
+
         if (alternatives.length > 0) {
+          lastAlternativesRef.current = alternatives;
+          if (hasFinal) {
+            emittedFinalRef.current = true;
+          }
           onResultRef.current(alternatives[0], hasFinal, alternatives);
         }
       };
@@ -213,6 +232,16 @@ export function useVoiceSearch({ onResult, lang = 'fr-FR' }: UseVoiceSearchOptio
       };
 
       recognition.onend = () => {
+        // If browser ended right after an interim word (common on short 1-word utterances like "filtre"),
+        // ensure we still dispatch a final resolution so the text is never lost.
+        if (!emittedFinalRef.current && lastAlternativesRef.current.length > 0) {
+          emittedFinalRef.current = true;
+          onResultRef.current(
+            lastAlternativesRef.current[0],
+            true,
+            lastAlternativesRef.current
+          );
+        }
         setIsListening(false);
         recognitionRef.current = null;
       };
