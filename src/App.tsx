@@ -241,18 +241,18 @@ function AppContent() {
               <button
                 type="button"
                 onClick={() => setStockImportTrigger((n) => n + 1)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#1B1B1B] bg-white hover:border-[#E35E2D] border border-[#E5E5E5] rounded transition-colors whitespace-nowrap cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-[#111111] bg-white hover:border-[#FFCD11] hover:bg-[#FFF9DF] border border-[#E0E0E0] transition-colors whitespace-nowrap cursor-pointer"
               >
-                <FileSpreadsheet className="w-3.5 h-3.5 text-[#E35E2D]" />
+                <FileSpreadsheet className="w-3.5 h-3.5 text-[#7A5C00]" />
                 <span>Importer Stock (Excel / CSV)</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setStockExportTrigger((n) => n + 1)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#1B1B1B] hover:bg-[#E35E2D] rounded transition-colors whitespace-nowrap cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold uppercase tracking-[0.04em] text-[#111111] bg-[#FFCD11] hover:bg-[#E5B700] transition-colors whitespace-nowrap cursor-pointer"
               >
-                <Download className="w-3.5 h-3.5 text-white" />
+                <Download className="w-3.5 h-3.5 text-[#111111]" />
                 <span>Exporter Stock</span>
               </button>
             </div>
@@ -286,7 +286,7 @@ function AppContent() {
           ? 'bg-[#0b0f19] text-slate-100'
           : theme === 'soft'
           ? 'bg-[#2e3440] text-[#eceff4]'
-          : 'bg-[#F8F7F4] text-[#1B1B1B]'
+          : 'bg-[#F4F4F4] text-[#111111]'
       }`}
     >
       <div className="flex-1 flex w-full">
@@ -321,11 +321,11 @@ function AppContent() {
             onSelectTheme={(t) => setTheme(t)}
           />
 
-          <main className="flex-1 p-4 sm:p-6 lg:p-10 max-w-7xl w-full mx-auto space-y-6">
-            {/* Unified Module Segmented Sub-Navigation Bar */}
+          <main className="flex-1 px-5 py-5 sm:px-8 sm:py-6 lg:px-10 lg:py-8 max-w-[1400px] w-full mx-auto space-y-6">
+            {/* Unified Module Editorial Sub-Navigation Bar */}
             {moduleSubNav && (
-              <div className="flex flex-wrap items-center justify-between gap-2 bg-white border border-[#E5E5E5] rounded-lg p-1.5">
-                <div className="flex flex-wrap items-center gap-1">
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-white border border-[#E0E0E0] px-5 py-0 shadow-[0_2px_10px_rgba(0,0,0,0.03)]">
+                <div className="flex flex-wrap items-center gap-6">
                   {moduleSubNav.tabs.map((tab) => {
                     const TabIcon = tab.icon;
                     const isTabActive = activeView === tab.id;
@@ -334,32 +334,34 @@ function AppContent() {
                         key={tab.id}
                         type="button"
                         onClick={() => setActiveView(tab.id)}
-                        className={`inline-flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded transition-all cursor-pointer ${
+                        className={`inline-flex items-center gap-2 py-3.5 text-xs transition-all cursor-pointer bg-transparent! border-0 ${
                           isTabActive
-                            ? 'bg-[#E35E2D] text-white font-semibold'
-                            : 'text-[#1B1B1B]/75 hover:text-[#1B1B1B] hover:bg-[#F0F0F0]'
+                            ? 'text-[#111111] font-bold border-b-[2.5px]! border-[#FFCD11]!'
+                            : 'text-[#595959] font-medium border-b-[2.5px]! border-transparent! hover:text-[#111111]'
                         }`}
                       >
                         <TabIcon
                           className={`w-3.5 h-3.5 ${
-                            isTabActive ? 'text-white' : 'text-[#E35E2D]'
+                            isTabActive ? 'text-[#111111]' : 'text-[#595959]'
                           }`}
                         />
                         <span>{tab.label}</span>
                         {tab.count !== undefined && (
                           <span
-                            className={`font-mono tabular-nums text-[11px] ${
-                              isTabActive ? 'text-white font-bold' : 'text-[#E35E2D] font-semibold'
+                            className={`nav-count font-mono tabular-nums text-[10px] ${
+                              isTabActive
+                                ? 'bg-[#FFCD11]! text-[#111111]! font-bold'
+                                : 'bg-[#F4F4F4] text-[#595959]'
                             }`}
                           >
-                            ({tab.count})
+                            {tab.count}
                           </span>
                         )}
                       </button>
                     );
                   })}
                 </div>
-                {moduleSubNav.rightAction && <div>{moduleSubNav.rightAction}</div>}
+                {moduleSubNav.rightAction && <div className="py-2">{moduleSubNav.rightAction}</div>}
               </div>
             )}
 

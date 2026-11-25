@@ -393,7 +393,7 @@ export const SalesHistoryView: React.FC = () => {
             value={searchQuery}
             onChange={setSearchQuery}
             className="flex-1"
-            placeholder="Recherche par n° vente (VTE-2026-0001), reçu, client (Eiffage), vendeur..."
+            placeholder="N° facture ou client..."
           />
 
           <button

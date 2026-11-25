@@ -55,6 +55,7 @@ import { ArticleDetailModal } from '../catalog/ArticleDetailModal';
 import { ArticleFormModal } from '../catalog/ArticleFormModal';
 import { QuickStockEditModal } from '../catalog/QuickStockEditModal';
 import { NumericInput } from '../common/NumericInput';
+import { VoiceSearchButton } from '../common/VoiceSearchButton';
 
 interface CartItem {
   article: Article;
@@ -142,6 +143,7 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
     stocks,
     warehouses,
     customers,
+    sales,
     users,
     getTotalStockForArticle,
     recordSale,
@@ -574,6 +576,23 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
     return Array.from(set).sort();
   }, [articles]);
 
+  // Aggregate sales volume per article to surface best-sellers when no search query is typed
+  const salesStatsByArticleId = useMemo(() => {
+    const map = new Map<string, { totalQtySold: number; saleCount: number }>();
+    for (const sale of sales) {
+      if (sale.status === 'CANCELLED') continue;
+      for (const item of sale.items) {
+        const prev = map.get(item.articleId) || { totalQtySold: 0, saleCount: 0 };
+        prev.totalQtySold += item.quantity || 0;
+        prev.saleCount += 1;
+        map.set(item.articleId, prev);
+      }
+    }
+    return map;
+  }, [sales]);
+
+  const hasAnySales = salesStatsByArticleId.size > 0;
+
   // Filtered Articles for Search
   const filteredArticles = useMemo(() => {
     const activeArticles = articles.filter((art) => {
@@ -590,7 +609,19 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
 
     const trimmedQuery = deferredSearchQuery.trim();
     if (!trimmedQuery) {
-      return activeArticles.slice(0, 15);
+      return [...activeArticles]
+        .sort((a, b) => {
+          const statsA = salesStatsByArticleId.get(a.id);
+          const statsB = salesStatsByArticleId.get(b.id);
+          const qtyDiff = (statsB?.totalQtySold || 0) - (statsA?.totalQtySold || 0);
+          if (qtyDiff !== 0) return qtyDiff;
+          const countDiff = (statsB?.saleCount || 0) - (statsA?.saleCount || 0);
+          if (countDiff !== 0) return countDiff;
+          const stockDiff = getTotalStockForArticle(b.id) - getTotalStockForArticle(a.id);
+          if (stockDiff !== 0) return stockDiff;
+          return a.mainReference.localeCompare(b.mainReference);
+        })
+        .slice(0, 15);
     }
 
     const scored: Array<{ art: Article; score: number }> = [];
@@ -611,6 +642,7 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
   }, [
     articles,
     stocksByArticleId,
+    salesStatsByArticleId,
     deferredSearchQuery,
     searchScope,
     isStockFrozen,
@@ -1448,31 +1480,31 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
       {/*          AU CENTRE DE LA PAGE                                      */}
       {/* ================================================================== */}
       {cart.length === 0 ? (
-        <div className="max-w-4xl mx-auto py-4 sm:py-6">
-          <div className="card bg-white border border-[#E5E5E5] rounded-lg overflow-hidden p-0!">
-            {/* En-tête du grand bloc de recherche central — Variation 19 */}
-            <div className="px-6 py-5 bg-[#FDFDFD] border-b border-[#E5E5E5] flex flex-wrap items-center justify-between gap-3">
+        <div className="max-w-5xl mx-auto py-1 space-y-6">
+          {/* En-tête + Grande barre de recherche — SIS 2.0 & Variation 8 */}
+          <div className="card bg-white border border-[#E0E0E0] overflow-hidden p-0!">
+            <div className="px-6 sm:px-8 py-5 bg-white border-b border-[#E0E0E0] flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-3.5">
-                <div className="w-11 h-11 bg-[#E35E2D] text-white rounded flex items-center justify-center font-bold shrink-0">
-                  <Search className="w-5 h-5 text-white" />
+                <div className="w-10 h-10 bg-[#111111] text-[#FFCD11] flex items-center justify-center shrink-0">
+                  <Search className="w-5 h-5 text-[#FFCD11]" />
                 </div>
                 <div>
-                  <div className="label text-[#E35E2D] opacity-100">Guichet Central · POS</div>
-                  <h2 className="font-display text-lg sm:text-xl font-bold tracking-[-0.04em] text-[#1B1B1B]">
+                  <div className="label text-[#7A5C00]">Guichet Comptoir · POS</div>
+                  <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-[-0.02em] leading-none text-[#111111] mt-1">
                     Nouvelle Vente — Rechercher une pièce
                   </h2>
                 </div>
               </div>
 
               {/* Outils discrets (Listes en attente & Gel de stock) */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 {savedDrafts.length > 0 && (
                   <button
                     type="button"
                     onClick={() => setIsSavedDraftsModalOpen(true)}
-                    className="px-3 py-1.5 text-xs font-semibold bg-[#E35E2D] text-white hover:bg-[#C94D1E] rounded inline-flex items-center gap-1.5 cursor-pointer"
+                    className="px-3.5 py-2 text-xs font-bold bg-[#FFCD11] text-[#111111] hover:bg-[#E5B700] inline-flex items-center gap-1.5 cursor-pointer transition-colors"
                   >
-                    <FolderOpen className="w-3.5 h-3.5 text-white" />
+                    <FolderOpen className="w-3.5 h-3.5 text-[#111111]" />
                     <span>En attente ({savedDrafts.length})</span>
                   </button>
                 )}
@@ -1480,10 +1512,10 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                 <button
                   type="button"
                   onClick={toggleStockFreeze}
-                  className={`px-3 py-1.5 border text-xs font-semibold rounded inline-flex items-center gap-1.5 transition-colors cursor-pointer ${
+                  className={`px-3.5 py-2 border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer ${
                     isStockFrozen
-                      ? 'bg-[#E35E2D] text-white border-[#E35E2D]'
-                      : 'bg-white text-[#1B1B1B] border-[#E5E5E5] hover:border-[#E35E2D]'
+                      ? 'bg-[#FFCD11] text-[#111111] border-[#FFCD11] font-bold'
+                      : 'bg-white text-[#111111] border-[#E0E0E0] hover:border-[#111111]'
                   }`}
                   title="Mode Gel de Stock : enregistrer une vente sans déduire le stock physique"
                 >
@@ -1493,11 +1525,14 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
               </div>
             </div>
 
-            {/* Corps du grand bloc de recherche */}
-            <div className="p-6 space-y-5">
-              {/* Grande barre de saisie centrale — Haute visibilité neutre */}
+            {/* Corps du bloc de recherche */}
+            <div className="px-6 sm:px-8 py-6 space-y-5">
+              {/* Grande barre de saisie centrale — Variation 8 Editorial Underline */}
               <div className="relative">
-                <Search className="w-5 h-5 text-[#1B1B1B] absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none stroke-[2.25]" />
+                <Search
+                  className="w-5 h-5 text-[#111111]/50 dark:text-slate-400 absolute left-0.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                  aria-hidden="true"
+                />
                 <input
                   ref={heroSearchInputRef}
                   type="text"
@@ -1506,46 +1541,50 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={handleSearchKeyDown}
-                  placeholder={
-                    SEARCH_SCOPE_OPTIONS.find((o) => o.id === searchScope)?.placeholder ||
-                    'Rechercher une référence (ex: 1R-0716), une désignation, une marque ou un modèle d’engin...'
-                  }
-                  className="search-input-prominent w-full pl-12 pr-28 py-4 text-sm sm:text-base font-medium bg-white border-[1.5px] border-[#374151] rounded-md text-[#1B1B1B] focus:outline-none focus:border-[#1B1B1B] transition-all"
+                  placeholder="Référence ou pièce..."
+                  className="search-input-prominent hero-search-input w-full pl-9 pr-36 py-3.5 text-2xl sm:text-[2rem] bg-transparent border-0 border-b-2 border-[#CCCCCC] text-[#111111] focus:outline-none focus:border-[#FFCD11] transition-all"
                 />
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
                   {searchQuery && (
                     <button
                       type="button"
                       onClick={() => setSearchQuery('')}
-                      className="p-1.5 text-[#1B1B1B]/60 hover:text-[#1B1B1B] border-0! bg-transparent! cursor-pointer"
+                      className="p-1.5 text-[#595959] hover:text-[#111111] border-0! bg-transparent! cursor-pointer"
                       title="Effacer la recherche"
                     >
                       <X className="w-5 h-5" />
                     </button>
                   )}
+                  <VoiceSearchButton
+                    size="md"
+                    onTranscript={(text) => {
+                      setSearchQuery(text);
+                      heroSearchInputRef.current?.focus();
+                    }}
+                  />
                   <span
-                    className="px-2.5 py-1 bg-[#F3F4F6] text-[#1B1B1B] text-[11px] font-mono font-semibold inline-flex items-center gap-1 border border-[#D1D5DB] rounded"
+                    className="px-2.5 py-1 bg-[#F4F4F4] text-[#111111] text-[10px] font-mono font-bold inline-flex items-center gap-1 border border-[#E0E0E0]"
                     title="Appuyez sur Entrée pour ajouter directement le 1er résultat"
                   >
-                    <Barcode className="w-3.5 h-3.5 text-[#1B1B1B]" />
+                    <Barcode className="w-3.5 h-3.5 text-[#111111]" />
                     <span className="hidden sm:inline">ENTRÉE</span>
                   </span>
                 </div>
               </div>
 
               {/* Filtres rapides de ciblage et catégories */}
-              <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                <div className="flex flex-wrap items-center gap-1.5">
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="label mr-1">Cibler :</span>
                   {SEARCH_SCOPE_OPTIONS.map((opt) => (
                     <button
                       key={opt.id}
                       type="button"
                       onClick={() => setSearchScope(opt.id)}
-                      className={`px-3 py-1 text-xs font-semibold rounded transition-colors cursor-pointer border ${
+                      className={`px-3 py-1.5 text-xs font-mono uppercase tracking-[0.06em] transition-colors cursor-pointer border ${
                         searchScope === opt.id
-                          ? 'bg-[#E35E2D]! text-white! border-[#E35E2D]!'
-                          : 'bg-white text-[#1B1B1B]/75 border-[#E5E5E5] hover:border-[#E35E2D]'
+                          ? 'bg-[#FFCD11]! text-[#111111]! border-[#FFCD11]! font-bold'
+                          : 'bg-white text-[#595959] border-[#E0E0E0] hover:border-[#111111] hover:text-[#111111]'
                       }`}
                     >
                       {opt.shortLabel}
@@ -1557,7 +1596,7 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                   <select
                     value={selectedCategory}
                     onChange={(e) => setSelectedCategory(e.target.value)}
-                    className="px-3 py-1 text-xs font-semibold bg-[#F9FAFB] border border-[#E5E5E5] rounded text-[#1B1B1B] cursor-pointer"
+                    className="px-3 py-1.5 text-xs font-semibold bg-[#FAFAFA] border border-[#D4D4D4] text-[#111111] cursor-pointer"
                   >
                     <option value="ALL">Toutes les catégories</option>
                     {availableCategories.map((cat) => (
@@ -1568,177 +1607,185 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                   </select>
                 )}
               </div>
+            </div>
+          </div>
 
-              {/* Liste des pièces correspondantes */}
-              <div className="border border-[#E5E5E5] rounded-lg overflow-hidden bg-white">
-                <div className="px-4 py-2.5 bg-[#F9FAFB] border-b border-[#E5E5E5] flex items-center justify-between text-xs font-semibold text-[#1B1B1B]">
-                  <span>
-                    {searchQuery.trim()
-                      ? `Résultats pour « ${searchQuery} » (${filteredArticles.length})`
-                      : `Pièces disponibles en stock (${filteredArticles.length})`}
-                  </span>
-                </div>
+          {/* Barre de comptage éditoriale (SIS 2.0 Cat Yellow left rule) */}
+          <div className="flex items-center justify-between">
+            <div className="font-mono text-[11px] uppercase tracking-[0.1em] text-[#595959] border-l-[3px] border-[#FFCD11] pl-3">
+              {searchQuery.trim()
+                ? `Résultats pour « ${searchQuery} » — ${filteredArticles.length} pièce(s)`
+                : hasAnySales
+                ? `Pièces les plus vendues — ${filteredArticles.length} référence(s)`
+                : `Pièces disponibles en stock — ${filteredArticles.length} référence(s)`}
+            </div>
+          </div>
 
-                <div className="divide-y divide-[#E5E5E5] max-h-[420px] overflow-y-auto bg-white">
-                  {filteredArticles.length === 0 ? (
-                    <div className="py-12 text-center text-[#1B1B1B]/40 space-y-1.5">
-                      <Boxes className="w-8 h-8 mx-auto opacity-40" />
-                      <p className="text-sm font-semibold text-[#1B1B1B]">
-                        Aucune pièce en stock ne correspond à votre recherche
-                      </p>
-                      <p className="text-xs">
-                        Essayez un autre mot-clé ou changez le filtre de ciblage ci-dessus.
-                      </p>
+          {/* Liste des pièces en cartes éditoriales */}
+          <div className="space-y-4 max-h-[540px] overflow-y-auto pr-1">
+            {filteredArticles.length === 0 ? (
+              <div className="card py-14 text-center text-[#595959] space-y-2 bg-white border border-[#E0E0E0]">
+                <Boxes className="w-8 h-8 mx-auto opacity-40" />
+                <p className="font-display text-xl font-semibold text-[#111111]">
+                  Aucune pièce en stock ne correspond à votre recherche
+                </p>
+                <p className="text-xs">
+                  Essayez un autre mot-clé ou changez le filtre de ciblage ci-dessus.
+                </p>
+              </div>
+            ) : (
+              filteredArticles.map((art) => {
+                const totalStock = getTotalStockForArticle(art.id);
+                const saleOptions = getSaleOptionsForArticle(art);
+                const soldQty = salesStatsByArticleId.get(art.id)?.totalQtySold || 0;
+
+                return (
+                  <div
+                    key={art.id}
+                    className="bg-white border border-[#E0E0E0] p-5 sm:p-6 shadow-[0_2px_12px_rgba(0,0,0,0.03)] space-y-4"
+                  >
+                    {/* En-tête éditorial */}
+                    <div className="flex items-end justify-between gap-4">
+                      <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                        {showProductImages && (
+                          <div
+                            onClick={(e) => {
+                              if (art.imageUrl) {
+                                e.stopPropagation();
+                                setImagePreviewUrl({
+                                  url: art.imageUrl,
+                                  title: art.designation,
+                                  ref: art.mainReference,
+                                });
+                              }
+                            }}
+                            className="w-11 h-11 border border-[#E0E0E0] bg-[#F4F4F4] flex items-center justify-center p-1 shrink-0 overflow-hidden cursor-pointer"
+                          >
+                            {art.imageUrl ? (
+                              <img
+                                src={art.imageUrl}
+                                alt={art.designation}
+                                className="max-h-full max-w-full object-contain"
+                              />
+                            ) : (
+                              <ImageIcon className="w-4 h-4 text-[#595959]" />
+                            )}
+                          </div>
+                        )}
+
+                        <div className="min-w-0 flex-1">
+                          <span className="font-mono font-bold text-sm sm:text-base text-[#7A5C00] block mb-1 tracking-[0.04em]">
+                            REF: {art.mainReference}
+                          </span>
+                          <h3
+                            className="font-display text-xl sm:text-2xl font-semibold text-[#111111] leading-tight truncate"
+                            title={art.designation}
+                          >
+                            {art.designation}
+                          </h3>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 shrink-0">
+                        {!searchQuery.trim() && soldQty > 0 && (
+                          <span className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] px-2 py-0.5 bg-[#FFF9DF] border border-[#E5C130] text-[#7A5C00] tabular-nums whitespace-nowrap">
+                            {soldQty} vendue{soldQty > 1 ? 's' : ''}
+                          </span>
+                        )}
+                        <span className="hidden sm:inline font-mono text-xs font-bold text-[#111111] border-b-2 border-[#111111] pb-0.5 tabular-nums">
+                          {totalStock} {art.unit}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setDetailArticle(art)}
+                          className="p-2 border border-[#E0E0E0] bg-white text-[#595959] hover:text-[#111111] hover:border-[#111111] transition-colors cursor-pointer"
+                          title="Ouvrir la fiche complète de la pièce (Modifier, Entrée, Sortie)"
+                        >
+                          <Info className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
-                  ) : (
-                    filteredArticles.map((art) => {
-                      const totalStock = getTotalStockForArticle(art.id);
-                      const saleOptions = getSaleOptionsForArticle(art);
 
-                      return (
-                        <div key={art.id} className="px-4 py-3.5 bg-white space-y-2.5">
-                          {/* En-tête de la référence article */}
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-3 min-w-0 flex-1">
-                              {showProductImages && (
-                                <div
-                                  onClick={(e) => {
-                                    if (art.imageUrl) {
-                                      e.stopPropagation();
-                                      setImagePreviewUrl({
-                                        url: art.imageUrl,
-                                        title: art.designation,
-                                        ref: art.mainReference,
-                                      });
-                                    }
-                                  }}
-                                  className="w-10 h-10 border border-[#E5E5E5] rounded bg-[#F9FAFB] flex items-center justify-center p-1 shrink-0 overflow-hidden cursor-pointer"
-                                >
-                                  {art.imageUrl ? (
-                                    <img
-                                      src={art.imageUrl}
-                                      alt={art.designation}
-                                      className="max-h-full max-w-full object-contain"
-                                    />
-                                  ) : (
-                                    <ImageIcon className="w-4 h-4 text-[#1B1B1B]/40" />
-                                  )}
-                                </div>
-                              )}
-
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="font-mono font-semibold text-xs sm:text-sm px-2 py-0.5 bg-[#FFF5F1] text-[#E35E2D] rounded">
-                                    {art.mainReference}
-                                  </span>
-                                  <span className="font-semibold text-sm text-[#1B1B1B] truncate">
-                                    {art.designation}
-                                  </span>
-                                  <span className="font-mono font-semibold text-emerald-700 text-[11px] bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
-                                    Stock total : {totalStock} {art.unit}
-                                  </span>
-                                </div>
-                              </div>
+                    {/* Tableau léger des offres */}
+                    <div className="border-t border-[#E0E0E0] divide-y divide-[#EBEBEB]">
+                      {saleOptions.map((opt) => {
+                        const canSellOption = opt.stockQty > 0 || isStockFrozen;
+                        return (
+                          <button
+                            key={opt.key}
+                            type="button"
+                            disabled={!canSellOption}
+                            onClick={() => handleAddToCart(art, opt)}
+                            className={`w-full text-left py-3.5 px-2 transition-colors grid grid-cols-1 sm:grid-cols-[minmax(95px,135px)_minmax(0,1fr)_auto_auto_auto] items-center gap-x-4 gap-y-1.5 group bg-transparent! border-0 ${
+                              canSellOption
+                                ? 'hover:bg-[#FFFDF2]! cursor-pointer'
+                                : 'opacity-50 cursor-not-allowed'
+                            }`}
+                          >
+                            {/* 1. Marque */}
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <Tag className="w-3 h-3 text-[#595959] shrink-0" />
+                              <span
+                                className="font-semibold text-xs text-[#111111] truncate"
+                                title={opt.brand}
+                              >
+                                {opt.brand || '—'}
+                              </span>
                             </div>
 
-                            <button
-                              type="button"
-                              onClick={() => setDetailArticle(art)}
-                              className="p-2 border border-[#E5E5E5] rounded bg-white text-[#1B1B1B] hover:border-[#E35E2D] transition-colors cursor-pointer shrink-0"
-                              title="Ouvrir la fiche complète de la pièce (Modifier, Entrée, Sortie)"
-                            >
-                              <Info className="w-4 h-4" />
-                            </button>
-                          </div>
-
-                          {/* Options distinctes : Marque | Magasin | Emplacement */}
-                          <div className="space-y-1.5 pl-0 sm:pl-2">
-                            {saleOptions.map((opt) => {
-                              const canSellOption = opt.stockQty > 0 || isStockFrozen;
-                              return (
-                                <button
-                                  key={opt.key}
-                                  type="button"
-                                  disabled={!canSellOption}
-                                  onClick={() => handleAddToCart(art, opt)}
-                                  className={`w-full text-left px-3 py-2 rounded border transition-colors flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5 group ${
-                                    canSellOption
-                                      ? 'bg-[#F9FAFB] hover:bg-[#FFF5F1] border-[#E5E5E5] hover:border-[#E35E2D] cursor-pointer'
-                                      : 'bg-slate-50 border-slate-200 opacity-60 cursor-not-allowed'
-                                  }`}
+                            {/* 2. Magasin & Emplacement */}
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 min-w-0 text-xs">
+                              <span
+                                className="inline-flex items-center gap-1 min-w-0 truncate font-semibold text-[#111111]"
+                                title={opt.warehouseName}
+                              >
+                                <Building2 className="w-3 h-3 text-[#595959] shrink-0" />
+                                <span className="truncate">{opt.warehouseName}</span>
+                              </span>
+                              {opt.location && (
+                                <span
+                                  className="inline-flex items-center gap-1 min-w-0 truncate font-mono text-[11px] text-[#595959]"
+                                  title={opt.location}
                                 >
-                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 flex-1 min-w-0 items-center">
-                                    {/* 1. Marque */}
-                                    <div className="flex items-center gap-1.5 min-w-0">
-                                      <span className="text-[10px] font-semibold uppercase text-[#1B1B1B]/45 shrink-0">
-                                        Marque :
-                                      </span>
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#1B1B1B] text-white font-semibold text-xs truncate">
-                                        <Tag className="w-3 h-3 text-[#E35E2D] shrink-0" />
-                                        <span className="truncate">{opt.brand}</span>
-                                      </span>
-                                    </div>
+                                  <MapPin className="w-3 h-3 text-[#737373] shrink-0" />
+                                  <span className="truncate">{opt.location}</span>
+                                </span>
+                              )}
+                            </div>
 
-                                    {/* 2. Magasin */}
-                                    <div className="flex items-center gap-1.5 min-w-0">
-                                      <span className="text-[10px] font-semibold uppercase text-[#1B1B1B]/45 shrink-0">
-                                        Magasin :
-                                      </span>
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white border border-[#E5E5E5] text-[#1B1B1B] font-semibold text-xs truncate">
-                                        <Building2 className="w-3 h-3 text-[#E35E2D] shrink-0" />
-                                        <span className="truncate">{opt.warehouseName}</span>
-                                      </span>
-                                    </div>
+                            {/* 3. Stock disponible */}
+                            <span
+                              className={`font-mono font-bold text-xs tabular-nums px-2.5 py-1 bg-[#F4F4F4] whitespace-nowrap ${
+                                opt.stockQty > 0 ? 'text-[#111111]' : 'text-rose-600'
+                              }`}
+                            >
+                              {opt.stockQty} {art.unit}
+                            </span>
 
-                                    {/* 3. Emplacement */}
-                                    <div className="flex items-center gap-1.5 min-w-0">
-                                      <span className="text-[10px] font-semibold uppercase text-[#1B1B1B]/45 shrink-0">
-                                        Empl. :
-                                      </span>
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white border border-[#E5E5E5] text-[#1B1B1B]/80 font-mono text-xs truncate">
-                                        <MapPin className="w-3 h-3 text-[#E35E2D] shrink-0" />
-                                        <span className="truncate">{opt.location}</span>
-                                      </span>
-                                    </div>
-                                  </div>
+                            {/* 4. Prix de vente */}
+                            <span className="font-mono font-bold text-xs sm:text-sm text-[#111111] tabular-nums sm:min-w-[96px] sm:text-right whitespace-nowrap">
+                              {formatFCFA(opt.salePrice)}
+                            </span>
 
-                                  <div className="flex items-center gap-3 shrink-0 ml-auto">
-                                    <span
-                                      className={`font-mono font-bold text-xs px-2 py-0.5 rounded ${
-                                        opt.stockQty > 0
-                                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                          : 'bg-rose-50 text-rose-600 border border-rose-200'
-                                      }`}
-                                    >
-                                      {opt.stockQty} {art.unit}
-                                    </span>
-
-                                    <span className="font-mono font-bold text-xs sm:text-sm text-[#1B1B1B] tabular-nums min-w-[85px] text-right">
-                                      {formatFCFA(opt.salePrice)}
-                                    </span>
-
-                                    <span
-                                      className={`px-3 py-1.5 font-semibold text-xs rounded inline-flex items-center gap-1 transition-colors ${
-                                        canSellOption
-                                          ? 'bg-[#1B1B1B] group-hover:bg-[#E35E2D] text-white'
-                                          : 'bg-slate-200 text-slate-500'
-                                      }`}
-                                    >
-                                      <Plus className="w-3.5 h-3.5" />
-                                      <span>Choisir</span>
-                                    </span>
-                                  </div>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-            </div>
+                            {/* 5. Bouton + Cat Yellow (.add-btn) */}
+                            <span
+                              className={`w-9 h-9 inline-flex items-center justify-center transition-colors shrink-0 ${
+                                canSellOption
+                                  ? 'bg-[#FFCD11] group-hover:bg-[#E5B700] text-[#111111]'
+                                  : 'bg-[#EAEAEA] text-[#595959]'
+                              }`}
+                              title="Ajouter au panier"
+                            >
+                              <Plus className="w-4 h-4 stroke-[2.5]" />
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       ) : (
@@ -1746,14 +1793,14 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
         /* ÉTAT 2 : PRODUIT CHOISI -> BASCULE AUTOMATIQUE SUR LE MODÈLE 2     */
         /*          (MODE FACTURATION DIRECTE PLEINE LARGEUR : 1, 2, 3, 4)    */
         /* ================================================================== */
-        <div className="space-y-4 animate-in fade-in duration-150">
+        <div className="space-y-5 animate-in fade-in duration-150">
           {/* Barre supérieure du Mode Facturation Directe */}
-          <div className="flex flex-wrap items-center justify-between gap-3 bg-white border border-[#E5E5E5] rounded-lg px-5 py-3.5">
+          <div className="flex flex-wrap items-center justify-between gap-3 bg-white border border-[#E0E0E0] px-5 sm:px-6 py-4 shadow-[0_2px_12px_rgba(0,0,0,0.03)]">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-[#E35E2D] text-white rounded flex items-center justify-center font-bold">
-                <ShoppingCart className="w-5 h-5 text-white" />
+              <div className="w-9 h-9 bg-[#FFCD11] text-[#111111] flex items-center justify-center font-bold">
+                <ShoppingCart className="w-5 h-5 text-[#111111]" />
               </div>
-              <h2 className="font-display text-base sm:text-lg font-bold text-[#1B1B1B] tracking-[-0.04em]">
+              <h2 className="font-display text-xl sm:text-2xl font-semibold text-[#111111] tracking-[-0.02em] leading-none">
                 Facturation Directe
               </h2>
             </div>
@@ -1762,10 +1809,10 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
               <button
                 type="button"
                 onClick={handleSaveDraftList}
-                className="px-3 py-1.5 text-xs font-semibold bg-white hover:border-[#E35E2D] text-[#1B1B1B] border border-[#E5E5E5] rounded inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                className="px-3.5 py-2 text-xs font-semibold bg-white hover:border-[#111111] hover:bg-[#FFF9DF] text-[#111111] border border-[#E0E0E0] inline-flex items-center gap-1.5 cursor-pointer transition-colors"
                 title="Mettre cette vente en attente sans déduire le stock"
               >
-                <Bookmark className="w-3.5 h-3.5 text-[#E35E2D]" />
+                <Bookmark className="w-3.5 h-3.5 text-[#7A5C00]" />
                 <span>Mettre en attente</span>
               </button>
 
@@ -1773,10 +1820,10 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsSavedDraftsModalOpen(true)}
-                  className="px-3 py-1.5 text-xs font-semibold bg-white hover:border-[#E35E2D] text-[#1B1B1B] border border-[#E5E5E5] rounded inline-flex items-center gap-1.5 cursor-pointer"
+                  className="px-3.5 py-2 text-xs font-semibold bg-white hover:border-[#111111] hover:bg-[#FFF9DF] text-[#111111] border border-[#E0E0E0] inline-flex items-center gap-1.5 cursor-pointer"
                   title="Ouvrir les listes de vente mises en attente"
                 >
-                  <FolderOpen className="w-3.5 h-3.5 text-[#E35E2D]" />
+                  <FolderOpen className="w-3.5 h-3.5 text-[#7A5C00]" />
                   <span>En attente ({savedDrafts.length})</span>
                 </button>
               )}
@@ -1784,7 +1831,7 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
               <button
                 type="button"
                 onClick={resetSalePageAsNew}
-                className="px-3 py-1.5 text-xs font-semibold bg-white hover:border-rose-500 text-rose-600 border border-[#E5E5E5] rounded inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                className="px-3.5 py-2 text-xs font-semibold bg-white hover:border-rose-500 text-rose-600 border border-[#E0E0E0] inline-flex items-center gap-1.5 cursor-pointer transition-colors"
                 title="Tout vider et revenir à l'écran de recherche initial"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
@@ -1796,12 +1843,12 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
           {/* ============================================================== */}
           {/* RANGÉE HAUTE : 1. SÉLECTION DU CLIENT + 2. RECHERCHE DE PIÈCE  */}
           {/* ============================================================== */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
             {/* BLOC 1 : 1. Sélection du Client (Champ recherche + liste fusionnés) */}
-            <div className="lg:col-span-5 card bg-white border border-[#E5E5E5] rounded-lg p-5 flex flex-col justify-between space-y-3">
+            <div className="lg:col-span-5 card bg-white border border-[#E0E0E0] p-5 sm:p-6 flex flex-col justify-between space-y-4">
               <div className="flex items-center justify-between gap-2">
                 <h3
-                  className="font-display text-sm sm:text-base font-bold text-[#1B1B1B]"
+                  className="font-display text-lg sm:text-xl font-semibold text-[#111111]"
                   title="Choisir un client comptoir (vente directe) ou un client en compte"
                 >
                   1. Sélection du Client
@@ -1809,18 +1856,22 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
               </div>
 
               {/* Sélecteur Type de Client */}
-              <div className="grid grid-cols-2 gap-1.5 p-1 bg-[#F9FAFB] border border-[#E5E5E5] rounded text-xs">
+              <div className="grid grid-cols-2 gap-1.5 p-1 bg-[#F4F4F4] border border-[#E0E0E0] text-xs">
                 <button
                   type="button"
                   onClick={() => setCustomerType('WALK_IN')}
                   title="Vente directe au comptoir sans ouverture de compte client"
-                  className={`py-2 px-3 rounded font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                  className={`py-2 px-3 font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
                     customerType === 'WALK_IN'
-                      ? 'bg-[#1B1B1B]! text-white!'
-                      : 'bg-transparent! text-[#1B1B1B]/70! hover:text-[#1B1B1B]!'
+                      ? 'bg-[#111111]! text-white!'
+                      : 'bg-transparent! text-[#595959]! hover:text-[#111111]!'
                   }`}
                 >
-                  <User className="w-3.5 h-3.5 text-[#E35E2D]" />
+                  <User
+                    className={`w-3.5 h-3.5 ${
+                      customerType === 'WALK_IN' ? 'text-[#FFCD11]' : 'text-[#7A5C00]'
+                    }`}
+                  />
                   <span>Client Comptoir</span>
                 </button>
 
@@ -1833,22 +1884,26 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                     }
                   }}
                   title="Facturer un client enregistré dans le répertoire (avec suivi de créance)"
-                  className={`py-2 px-3 rounded font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                  className={`py-2 px-3 font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
                     customerType === 'REGISTERED'
-                      ? 'bg-[#1B1B1B]! text-white!'
-                      : 'bg-transparent! text-[#1B1B1B]/70! hover:text-[#1B1B1B]!'
+                      ? 'bg-[#111111]! text-white!'
+                      : 'bg-transparent! text-[#595959]! hover:text-[#111111]!'
                   }`}
                 >
-                  <CreditCard className="w-3.5 h-3.5 text-[#E35E2D]" />
+                  <CreditCard
+                    className={`w-3.5 h-3.5 ${
+                      customerType === 'REGISTERED' ? 'text-[#FFCD11]' : 'text-[#7A5C00]'
+                    }`}
+                  />
                   <span>Client en Compte</span>
                 </button>
               </div>
 
               {/* Champs Client selon le type choisi */}
               {customerType === 'WALK_IN' ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                   <div>
-                    <label className="block text-[11px] font-semibold text-[#1B1B1B]/60 mb-1">
+                    <label className="block text-[11px] font-mono uppercase tracking-[0.06em] text-[#595959] mb-1.5">
                       Nom du client
                     </label>
                     <input
@@ -1857,11 +1912,11 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                       onChange={(e) => setWalkInName(e.target.value)}
                       placeholder="Client Comptoir"
                       title="Nom ou raison sociale à afficher sur la facture"
-                      className="w-full px-3 py-2 border border-[#E5E5E5] rounded bg-[#F9FAFB] text-[#1B1B1B] font-medium focus:bg-white focus:outline-none focus:border-[#E35E2D]"
+                      className="w-full px-3 py-2 border border-[#D4D4D4] bg-[#FAFAFA] text-[#111111] font-medium focus:bg-white focus:outline-none focus:border-[#111111]"
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-semibold text-[#1B1B1B]/60 mb-1">
+                    <label className="block text-[11px] font-mono uppercase tracking-[0.06em] text-[#595959] mb-1.5">
                       Téléphone
                     </label>
                     <input
@@ -1870,22 +1925,22 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                       onChange={(e) => setWalkInPhone(e.target.value)}
                       placeholder="Ex: 77 000 00 00"
                       title="Numéro de téléphone du client (facultatif)"
-                      className="w-full px-3 py-2 border border-[#E5E5E5] rounded bg-[#F9FAFB] text-[#1B1B1B] font-mono focus:bg-white focus:outline-none focus:border-[#E35E2D]"
+                      className="w-full px-3 py-2 border border-[#D4D4D4] bg-[#FAFAFA] text-[#111111] font-mono focus:bg-white focus:outline-none focus:border-[#111111]"
                     />
                   </div>
                 </div>
               ) : (
                 <div className="space-y-2 text-xs">
                   {selectedCustObj ? (
-                    <div className="p-3 bg-[#FFF5F1] border border-[#E35E2D]/40 rounded flex items-center justify-between gap-2">
+                    <div className="p-3.5 bg-[#FFF9DF] border border-[#E5C130] flex items-center justify-between gap-2">
                       <div className="min-w-0">
-                        <div className="font-bold text-[#1B1B1B] text-xs sm:text-sm truncate">
+                        <div className="font-bold text-[#111111] text-xs sm:text-sm truncate">
                           {selectedCustObj.name}{' '}
-                          <span className="font-mono text-[11px] text-[#1B1B1B]/60">
+                          <span className="font-mono text-[11px] text-[#595959]">
                             ({selectedCustObj.code})
                           </span>
                         </div>
-                        <div className="text-[11px] text-[#1B1B1B]/70 mt-0.5 font-mono">
+                        <div className="text-[11px] text-[#595959] mt-0.5 font-mono">
                           Solde dû :{' '}
                           <strong
                             className={
@@ -1906,32 +1961,33 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                           setIsCustomerDropdownOpen(true);
                         }}
                         title="Changer de client en compte"
-                        className="px-2.5 py-1.5 bg-white border border-[#E5E5E5] hover:border-[#E35E2D] rounded font-semibold text-[#1B1B1B] cursor-pointer shrink-0"
+                        className="px-3 py-1.5 bg-white border border-[#E0E0E0] hover:border-[#111111] font-semibold text-[#111111] cursor-pointer shrink-0"
                       >
                         Changer
                       </button>
                     </div>
                   ) : (
-                    /* Champ unique fusionné : Recherche + Sélection dans la liste */
+                    /* Champ unique fusionné : Recherche + Sélection dans la liste (Variation 8 underline) */
                     <div className="relative" ref={customerComboboxRef}>
-                      <label className="block text-[11px] font-semibold text-[#1B1B1B]/60 mb-1">
+                      <label className="block text-[11px] font-mono uppercase tracking-[0.06em] text-[#595959] mb-1.5">
                         Client en compte
                       </label>
                       <div className="relative">
-                        <Search className="w-3.5 h-3.5 text-[#E35E2D] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <Search className="w-4 h-4 text-[#111111]/50 absolute left-0.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                         <input
                           type="text"
+                          data-search-input="true"
                           value={customerSearchQuery}
                           onFocus={() => setIsCustomerDropdownOpen(true)}
                           onChange={(e) => {
                             setCustomerSearchQuery(e.target.value);
                             setIsCustomerDropdownOpen(true);
                           }}
-                          placeholder="Rechercher ou choisir un client dans la liste..."
+                          placeholder="Choisir un client..."
                           title="Tapez un nom, un code ou un téléphone, ou cliquez pour dérouler la liste des clients"
-                          className="w-full pl-9 pr-14 py-2 border border-[#E5E5E5] rounded bg-[#F9FAFB] text-[#1B1B1B] font-medium focus:bg-white focus:outline-none focus:border-[#E35E2D]"
+                          className="search-input-prominent w-full pl-7 pr-14 py-2 bg-transparent border-0 border-b-2 border-[#CCCCCC] text-[#111111] font-medium focus:outline-none focus:border-[#FFCD11]"
                         />
-                        <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                        <div className="absolute right-0.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
                           {customerSearchQuery && (
                             <button
                               type="button"
@@ -1940,7 +1996,7 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                                 setIsCustomerDropdownOpen(true);
                               }}
                               title="Effacer la recherche"
-                              className="p-1 text-[#1B1B1B]/50 hover:text-[#1B1B1B] bg-transparent! border-0! cursor-pointer"
+                              className="p-1 text-[#595959] hover:text-[#111111] bg-transparent! border-0! cursor-pointer"
                             >
                               <X className="w-3.5 h-3.5" />
                             </button>
@@ -1949,7 +2005,7 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                             type="button"
                             onClick={() => setIsCustomerDropdownOpen((prev) => !prev)}
                             title="Afficher la liste des clients"
-                            className="p-1 text-[#1B1B1B]/60 hover:text-[#E35E2D] bg-transparent! border-0! cursor-pointer"
+                            className="p-1 text-[#595959] hover:text-[#111111] bg-transparent! border-0! cursor-pointer"
                           >
                             <ChevronDown
                               className={`w-4 h-4 transition-transform ${
@@ -1961,9 +2017,9 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                       </div>
 
                       {isCustomerDropdownOpen && (
-                        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-[#E5E5E5] rounded-lg shadow-lg z-40 max-h-56 overflow-y-auto divide-y divide-[#E5E5E5]">
+                        <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-[#E0E0E0] shadow-lg z-40 max-h-56 overflow-y-auto divide-y divide-[#EBEBEB]">
                           {filteredCustomers.length === 0 ? (
-                            <div className="p-3 text-center text-xs text-[#1B1B1B]/50">
+                            <div className="p-3.5 text-center text-xs text-[#595959]">
                               Aucun client trouvé pour « {customerSearchQuery} »
                             </div>
                           ) : (
@@ -1976,13 +2032,13 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                                   setCustomerSearchQuery('');
                                   setIsCustomerDropdownOpen(false);
                                 }}
-                                className="w-full text-left px-3.5 py-2.5 hover:bg-[#FFF5F1] bg-white! text-[#1B1B1B]! border-0! flex items-center justify-between gap-2 transition-colors cursor-pointer"
+                                className="w-full text-left px-3.5 py-2.5 hover:bg-[#FFFDF2] bg-white! text-[#111111]! border-0! flex items-center justify-between gap-2 transition-colors cursor-pointer"
                               >
                                 <div className="min-w-0">
-                                  <div className="font-semibold text-xs text-[#1B1B1B] truncate">
+                                  <div className="font-semibold text-xs text-[#111111] truncate">
                                     {c.name}
                                   </div>
-                                  <div className="text-[10px] font-mono text-[#1B1B1B]/60 truncate">
+                                  <div className="text-[10px] font-mono text-[#595959] truncate">
                                     {c.code}
                                     {c.phone ? ` · ${c.phone}` : ''}
                                   </div>
@@ -1991,7 +2047,7 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                                   className={`font-mono text-[11px] font-semibold shrink-0 tabular-nums ${
                                     c.outstandingBalance > 0
                                       ? 'text-rose-600'
-                                      : 'text-emerald-600'
+                                      : 'text-emerald-700'
                                   }`}
                                 >
                                   Dû: {formatFCFA(c.outstandingBalance)}
@@ -2008,10 +2064,10 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
             </div>
 
             {/* BLOC 2 : 2. Recherche Rapide de Pièce */}
-            <div className="lg:col-span-7 card bg-white border border-[#E5E5E5] rounded-lg p-5 flex flex-col justify-between space-y-3 relative">
+            <div className="lg:col-span-7 card bg-white border border-[#E0E0E0] p-5 sm:p-6 flex flex-col justify-between space-y-4 relative">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3
-                  className="font-display text-sm sm:text-base font-bold text-[#1B1B1B]"
+                  className="font-display text-lg sm:text-xl font-semibold text-[#111111]"
                   title="Rechercher et ajouter une autre pièce à la facture"
                 >
                   2. Ajouter une Pièce
@@ -2025,10 +2081,10 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                       type="button"
                       onClick={() => setSearchScope(opt.id)}
                       title={`Cibler la recherche par : ${opt.label}`}
-                      className={`px-2 py-0.5 rounded text-[10px] font-semibold cursor-pointer border ${
+                      className={`px-2.5 py-1 text-[10px] font-mono uppercase tracking-[0.05em] cursor-pointer border ${
                         searchScope === opt.id
-                          ? 'bg-[#E35E2D]! text-white! border-[#E35E2D]!'
-                          : 'bg-[#F9FAFB]! text-[#1B1B1B]/70! border-[#E5E5E5] hover:border-[#E35E2D]'
+                          ? 'bg-[#FFCD11]! text-[#111111]! border-[#FFCD11]! font-bold'
+                          : 'bg-[#F4F4F4]! text-[#595959]! border-[#E0E0E0] hover:border-[#111111] hover:text-[#111111]'
                       }`}
                     >
                       {opt.shortLabel}
@@ -2042,7 +2098,7 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                         ? 'Masquer la liste rapide des pièces'
                         : 'Afficher la liste rapide des pièces disponibles'
                     }
-                    className="px-2 py-0.5 rounded text-[10px] font-semibold bg-white! text-[#1B1B1B]! border border-[#E5E5E5] hover:border-[#E35E2D] inline-flex items-center gap-1 cursor-pointer"
+                    className="px-2.5 py-1 text-[10px] font-semibold bg-white! text-[#111111]! border border-[#E0E0E0] hover:border-[#111111] inline-flex items-center gap-1 cursor-pointer"
                   >
                     <span>Catalogue</span>
                     <ChevronDown
@@ -2054,9 +2110,12 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                 </div>
               </div>
 
-              {/* Champ de recherche — Haute visibilité neutre */}
+              {/* Champ de recherche — Variation 8 Editorial Underline */}
               <div className="relative">
-                <Search className="w-4 h-4 text-[#1B1B1B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none stroke-[2.25]" />
+                <Search
+                  className="w-4 h-4 text-[#111111]/55 dark:text-slate-400 absolute left-0.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                  aria-hidden="true"
+                />
                 <input
                   ref={step2SearchInputRef}
                   type="text"
@@ -2068,27 +2127,37 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                     setIsStep2SearchOpen(true);
                   }}
                   onKeyDown={handleSearchKeyDown}
-                  placeholder="Référence (ex: 1R-0716), désignation, marque..."
+                  placeholder="Ajouter une pièce..."
                   title="Tapez une référence ou désignation puis appuyez sur Entrée ou cliquez sur une pièce pour l'ajouter"
-                  className="search-input-prominent w-full pl-10 pr-9 py-2.5 text-xs sm:text-sm font-medium bg-white border-[1.5px] border-[#374151] rounded-md text-[#1B1B1B] focus:outline-none focus:border-[#1B1B1B]"
+                  className="search-input-prominent w-full pl-8 pr-20 py-2.5 text-sm font-medium bg-transparent border-0 border-b-2 border-[#CCCCCC] text-[#111111] focus:outline-none focus:border-[#FFCD11] transition-all"
                 />
-                {(searchQuery || isStep2SearchOpen) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSearchQuery('');
-                      setIsStep2SearchOpen(false);
+                <div className="absolute right-0.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                  {(searchQuery || isStep2SearchOpen) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery('');
+                        setIsStep2SearchOpen(false);
+                      }}
+                      title="Fermer la recherche"
+                      className="text-[#595959] hover:text-[#111111] bg-transparent! border-0! p-0.5 cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                  <VoiceSearchButton
+                    size="sm"
+                    onTranscript={(text) => {
+                      setSearchQuery(text);
+                      setIsStep2SearchOpen(true);
+                      step2SearchInputRef.current?.focus();
                     }}
-                    title="Fermer la recherche"
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#1B1B1B]/50 hover:text-[#1B1B1B] bg-transparent! border-0! p-0.5 cursor-pointer"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
+                  />
+                </div>
 
                 {/* Menu déroulant instantané des résultats */}
                 {(isStep2SearchOpen || searchQuery.trim().length > 0) && (
-                  <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-[#E5E5E5] rounded-lg shadow-xl z-30 max-h-80 overflow-y-auto divide-y divide-[#E5E5E5]">
+                  <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-[#E0E0E0] shadow-xl z-30 max-h-80 overflow-y-auto divide-y divide-[#EBEBEB]">
                     {filteredArticles.length === 0 ? (
                       <div className="p-4 text-center text-xs text-[#1B1B1B]/50">
                         Aucune pièce disponible pour « {searchQuery} »
@@ -2097,17 +2166,23 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                       filteredArticles.map((art) => {
                         const stockQty = getTotalStockForArticle(art.id);
                         const saleOptions = getSaleOptionsForArticle(art);
+                        const soldQty = salesStatsByArticleId.get(art.id)?.totalQtySold || 0;
 
                         return (
                           <div key={art.id} className="px-3.5 py-2.5 bg-white space-y-2">
                             <div className="flex items-center justify-between gap-2">
                               <div className="flex items-center gap-2 min-w-0 flex-1 text-xs">
-                                <span className="font-mono font-semibold text-[#E35E2D] shrink-0">
+                                <span className="font-mono font-bold text-sm text-[#7A5C00] shrink-0">
                                   {art.mainReference}
                                 </span>
-                                <span className="font-semibold text-[#1B1B1B] truncate">
+                                <span className="font-semibold text-[#111111] truncate">
                                   {art.designation}
                                 </span>
+                                {!searchQuery.trim() && soldQty > 0 && (
+                                  <span className="font-mono text-[10px] font-bold text-[#7A5C00] bg-[#FFF9DF] border border-[#E5C130] px-1.5 py-0.5 shrink-0">
+                                    {soldQty} vendue{soldQty > 1 ? 's' : ''}
+                                  </span>
+                                )}
                                 <span className="font-mono text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded shrink-0">
                                   Total : {stockQty}
                                 </span>
@@ -2398,15 +2473,15 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                         className="hover:bg-[#F9FAFB] transition-colors"
                       >
                         {/* Réf (cliquable pour ouvrir la fiche info) */}
-                        <td className="py-2.5 px-2.5 font-mono font-semibold text-[#E35E2D] truncate">
+                        <td className="py-2.5 px-2.5 font-mono font-bold text-[13px] sm:text-sm text-[#7A5C00] truncate">
                           <button
                             type="button"
                             onClick={() => setDetailArticle(item.article)}
-                            className="hover:underline inline-flex items-center gap-1 max-w-full bg-transparent! border-0! text-[#E35E2D]! p-0! cursor-pointer"
+                            className="hover:underline inline-flex items-center gap-1 max-w-full bg-transparent! border-0! text-[#7A5C00]! p-0! cursor-pointer"
                             title={`Cliquer pour consulter la fiche (${item.article.mainReference})`}
                           >
                             <span className="truncate">{item.article.mainReference}</span>
-                            <Info className="w-3 h-3 text-[#1B1B1B]/40 shrink-0" />
+                            <Info className="w-3 h-3 text-[#595959] shrink-0" />
                           </button>
                         </td>
 

@@ -535,7 +535,7 @@ export const CustomerListView: React.FC = () => {
           value={searchQuery}
           onChange={setSearchQuery}
           className="flex-1"
-          placeholder="Rechercher un client par nom, code client ou téléphone..."
+          placeholder="Nom, code ou téléphone..."
         />
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">

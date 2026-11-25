@@ -1,5 +1,6 @@
 import React from 'react';
 import { Search, X } from 'lucide-react';
+import { VoiceSearchButton } from './VoiceSearchButton';
 
 export interface SearchFieldProps {
   value: string;
@@ -12,6 +13,7 @@ export interface SearchFieldProps {
   inputRef?: React.RefObject<HTMLInputElement | null>;
   rightSlot?: React.ReactNode;
   ariaLabel?: string;
+  enableVoice?: boolean;
 }
 
 export const SearchField: React.FC<SearchFieldProps> = ({
@@ -25,11 +27,20 @@ export const SearchField: React.FC<SearchFieldProps> = ({
   inputRef,
   rightSlot,
   ariaLabel = 'Champ de recherche',
+  enableVoice = true,
 }) => {
+  const rightPaddingClass = rightSlot
+    ? 'pr-28'
+    : value && enableVoice
+    ? 'pr-20'
+    : enableVoice || value
+    ? 'pr-12'
+    : 'pr-4';
+
   return (
     <div className={`relative w-full ${className}`}>
       <Search
-        className="w-4 h-4 text-[#1B1B1B] dark:text-slate-100 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none stroke-[2.25]"
+        className="w-4 h-4 text-[#595959] dark:text-slate-400 absolute left-1 top-1/2 -translate-y-1/2 pointer-events-none"
         aria-hidden="true"
       />
       <input
@@ -42,21 +53,28 @@ export const SearchField: React.FC<SearchFieldProps> = ({
         onKeyDown={onKeyDown}
         placeholder={placeholder}
         aria-label={ariaLabel}
-        className={`search-input-prominent w-full pl-10 ${
-          rightSlot ? 'pr-24' : value ? 'pr-9' : 'pr-4'
-        } py-2.5 text-sm font-medium bg-white dark:bg-slate-900 text-[#1B1B1B] dark:text-slate-100 border-[1.5px] border-[#374151] dark:border-slate-400 rounded-md focus:outline-none focus:border-[#1B1B1B] dark:focus:border-white transition-colors ${inputClassName}`}
+        className={`search-input-prominent w-full pl-8 ${rightPaddingClass} py-2.5 text-sm font-medium bg-transparent text-[#111111] dark:text-slate-100 border-0 border-b-2 border-[#CCCCCC] dark:border-slate-600 focus:outline-none focus:border-[#FFCD11] transition-colors ${inputClassName}`}
       />
-      <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+      <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1">
         {value && (
           <button
             type="button"
             onClick={() => onChange('')}
-            className="p-1 text-[#4B5563] hover:text-[#1B1B1B] dark:text-slate-300 dark:hover:text-white rounded cursor-pointer border-0! bg-transparent!"
+            className="p-1 text-[#595959] hover:text-[#111111] dark:text-slate-300 dark:hover:text-white cursor-pointer border-0! bg-transparent!"
             title="Effacer la recherche"
             aria-label="Effacer la recherche"
           >
             <X className="w-4 h-4" />
           </button>
+        )}
+        {enableVoice && (
+          <VoiceSearchButton
+            size="sm"
+            onTranscript={(text) => {
+              onChange(text);
+              inputRef?.current?.focus();
+            }}
+          />
         )}
         {rightSlot}
       </div>

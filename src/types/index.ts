@@ -67,15 +67,59 @@ export interface Warehouse {
 }
 
 export type ArticleCategory =
+  // Pièces transversales / Multi-systèmes
+  | 'Étanchéité & Joints'
+  | 'Axes, Bagues & Articulations'
+  | 'Roulements, Paliers & Courroies'
+  | 'Visserie, Boulonnerie & Fixations'
+  | 'Flexibles, Raccords & Durites'
+  | 'Lubrifiants, Fluides & Consommables'
+  | 'Cabine, Carrosserie & Divers'
+  // Systèmes Machine
   | 'Filtration'
   | 'Moteur & Refroidissement'
   | 'Système Injection & Carburant'
-  | 'Train de Roulement & Chenilles'
   | 'Hydraulique & Vérins'
+  | 'Transmission & Ponts'
+  | 'Train de Roulement & Chenilles'
   | 'Freinage & Friction'
   | 'Électricité & Démarreurs'
-  | 'Transmission & Ponts'
   | 'Outils d’Attaque au Sol (Dents/Lames)';
+
+export const ARTICLE_CATEGORY_GROUPS: Array<{
+  label: string;
+  categories: ArticleCategory[];
+}> = [
+  {
+    label: 'Pièces transversales / Multi-systèmes',
+    categories: [
+      'Étanchéité & Joints',
+      'Axes, Bagues & Articulations',
+      'Roulements, Paliers & Courroies',
+      'Visserie, Boulonnerie & Fixations',
+      'Flexibles, Raccords & Durites',
+      'Lubrifiants, Fluides & Consommables',
+      'Cabine, Carrosserie & Divers',
+    ],
+  },
+  {
+    label: 'Systèmes Machine',
+    categories: [
+      'Filtration',
+      'Moteur & Refroidissement',
+      'Système Injection & Carburant',
+      'Hydraulique & Vérins',
+      'Transmission & Ponts',
+      'Train de Roulement & Chenilles',
+      'Freinage & Friction',
+      'Électricité & Démarreurs',
+      'Outils d’Attaque au Sol (Dents/Lames)',
+    ],
+  },
+];
+
+export const ALL_ARTICLE_CATEGORIES: ArticleCategory[] =
+  ARTICLE_CATEGORY_GROUPS.flatMap((g) => g.categories);
 
 export interface ArticleBrandOffer {
   id: string; // Identifiant de l'offre ou nom de marque

@@ -135,9 +135,7 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
   const [layoutMode, setLayoutMode] = useState<'LINE' | 'GRID'>(() => {
     return (localStorage.getItem('equipstock_catalog_layout_mode') as 'LINE' | 'GRID') || 'LINE';
   });
-  const [displayMode, setDisplayMode] = useState<'PAGINATION' | 'INFINITE'>(() => {
-    return (localStorage.getItem('equipstock_catalog_display_mode') as 'PAGINATION' | 'INFINITE') || 'PAGINATION';
-  });
+  const [displayMode] = useState<'PAGINATION' | 'INFINITE'>('PAGINATION');
   const [pageSize, setPageSize] = useState<number>(() => {
     const saved = Number(localStorage.getItem('equipstock_catalog_page_size'));
     return saved && [25, 50, 100, 200].includes(saved) ? saved : 50;
@@ -595,47 +593,44 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
       )}
 
       {/* Top Header & Search Bar — Champ de recherche immédiatement visible en premier */}
-      <div className="bg-white border border-slate-200/80 rounded-xl p-3.5 sm:p-4 shadow-xs space-y-3">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+      <div className="bg-white border border-[#E0E0E0] p-4 sm:p-5 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
           <SearchField
             value={searchQuery}
             onChange={setSearchQuery}
             className="flex-1"
-            placeholder={
-              SEARCH_SCOPE_OPTIONS.find((o) => o.id === searchScope)?.placeholder ||
-              'Rechercher une référence (ex: 1R-0716), désignation, description ou équivalence...'
-            }
+            placeholder="Référence ou désignation..."
           />
 
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
             {/* Catalogue Import & Export Actions */}
-            <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-0.5 shadow-2xs">
+            <div className="inline-flex items-center border border-[#E0E0E0] bg-white p-0.5 shadow-2xs">
               <button
                 type="button"
                 onClick={() => setIsImportModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 hover:bg-amber-50 rounded-md transition-colors whitespace-nowrap cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#111111] hover:bg-[#FFF9DF] transition-colors whitespace-nowrap cursor-pointer"
                 title="Importer le Catalogue depuis Excel ou CSV (Référence, Désignation, Description, Équivalences, Seuil minimum)"
               >
-                <FileSpreadsheet className="w-3.5 h-3.5 text-[#E35E2D]" />
+                <FileSpreadsheet className="w-3.5 h-3.5 text-[#7A5C00]" />
                 <span>Importer</span>
               </button>
-              <div className="w-px h-4 bg-slate-200" />
+              <div className="w-px h-4 bg-[#E0E0E0]" />
               <button
                 type="button"
                 onClick={handleExportCSV}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-md transition-colors whitespace-nowrap cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#111111] hover:bg-[#F4F4F4] transition-colors whitespace-nowrap cursor-pointer"
                 title="Exporter le catalogue en fichier CSV"
               >
-                <Download className="w-3.5 h-3.5 text-slate-500" />
+                <Download className="w-3.5 h-3.5 text-[#595959]" />
                 <span>Exporter</span>
               </button>
               {canDelete && articles.length > 0 && (
                 <>
-                  <div className="w-px h-4 bg-slate-200" />
+                  <div className="w-px h-4 bg-[#E0E0E0]" />
                   <button
                     type="button"
                     onClick={() => setIsPurgeCatalogModalOpen(true)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:text-rose-900 hover:bg-rose-50 rounded-md transition-colors whitespace-nowrap cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:text-rose-900 hover:bg-rose-50 transition-colors whitespace-nowrap cursor-pointer"
                     title="Purger intégralement le catalogue articles (Local & Cloud Firestore)"
                   >
                     <Trash2 className="w-3.5 h-3.5 text-rose-600" />
@@ -662,87 +657,36 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
           </div>
         </div>
 
-        {/* Scope Strip */}
-        <div className="flex flex-wrap items-center gap-1 pt-0.5" title="Recherche technique exacte SIS 2.0">
-          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mr-1">
-            Cibler :
-          </span>
-          {SEARCH_SCOPE_OPTIONS.map((opt) => {
-            const isActive = searchScope === opt.id;
-            return (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => setSearchScope(opt.id)}
-                className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-all cursor-pointer border ${
-                  isActive
-                    ? 'bg-[#1B1B1B]! text-white! border-[#1B1B1B]!'
-                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
-                }`}
-                title={opt.label}
-              >
-                {opt.shortLabel}
-              </button>
-            );
-          })}
-        </div>
+        {/* Filters & Display Strip — Disposition équilibrée */}
+        <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2.5 border-t border-slate-100 text-xs">
+          {/* Left: Category Filter & Reference Counter */}
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-700 font-medium hover:bg-slate-50 focus:outline-none cursor-pointer"
+            >
+              <option value="ALL">Toutes les catégories ({articles.length})</option>
+              {uniqueCategories.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
 
-        {/* Filters Strip */}
-        <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
-          {/* Category Filter */}
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-700 font-medium hover:bg-slate-50 focus:outline-none"
-          >
-            <option value="ALL">Toutes les catégories ({articles.length})</option>
-            {uniqueCategories.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-
-          {/* Sort selector, Display mode (Pagination / Liste continue) & stats */}
-          <div className="ml-auto flex flex-wrap items-center gap-2">
-            <span className="hidden xl:inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 text-amber-900 border border-amber-200/80 rounded-lg font-mono text-[11px]">
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-50 text-amber-900 border border-amber-200/80 rounded-lg font-mono text-[11px]">
               <span className="font-bold">{articles.length}</span> réf. catalogue
             </span>
+          </div>
 
-            {/* Bouton activation / désactivation des photos produits */}
-            <button
-              type="button"
-              onClick={toggleProductImages}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition-colors cursor-pointer ${
-                showProductImages
-                  ? 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
-                  : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
-              }`}
-              title={
-                showProductImages
-                  ? 'Désactiver les images des pièces pour alléger l’affichage'
-                  : 'Activer l’affichage des images des pièces'
-              }
-            >
-              {showProductImages ? (
-                <>
-                  <ImageIcon className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Photos : <span className="text-emerald-700 font-bold">Oui</span></span>
-                </>
-              ) : (
-                <>
-                  <ImageOff className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Photos : <span className="text-slate-500 font-bold">Non</span></span>
-                </>
-              )}
-            </button>
-
+          {/* Right: Layout Mode, Page Size & Sort Controls */}
+          <div className="flex flex-wrap items-center gap-2">
             {/* Layout Mode Toggle: Ligne vs Grille */}
             <div className="inline-flex items-center p-0.5 bg-slate-100 border border-slate-200 rounded-lg text-[11px]">
               <button
                 type="button"
                 onClick={() => setLayoutMode('LINE')}
-                className={`inline-flex items-center gap-1 px-2 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
+                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
                   layoutMode === 'LINE'
                     ? 'bg-slate-900 text-white shadow-2xs'
                     : 'text-slate-600 hover:text-slate-900'
@@ -755,7 +699,7 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
               <button
                 type="button"
                 onClick={() => setLayoutMode('GRID')}
-                className={`inline-flex items-center gap-1 px-2 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
+                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
                   layoutMode === 'GRID'
                     ? 'bg-slate-900 text-white shadow-2xs'
                     : 'text-slate-600 hover:text-slate-900'
@@ -767,42 +711,12 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
               </button>
             </div>
 
-            {/* Display Mode Toggle: Pagination vs Liste continue */}
-            <div className="inline-flex items-center p-0.5 bg-slate-100 border border-slate-200 rounded-lg text-[11px]">
-              <button
-                type="button"
-                onClick={() => setDisplayMode('PAGINATION')}
-                className={`inline-flex items-center gap-1 px-2 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
-                  displayMode === 'PAGINATION'
-                    ? 'bg-slate-900 text-white shadow-2xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-                title="Affichage page par page"
-              >
-                <BookOpen className="w-3 h-3" />
-                <span>Pagination</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setDisplayMode('INFINITE')}
-                className={`inline-flex items-center gap-1 px-2 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
-                  displayMode === 'INFINITE'
-                    ? 'bg-slate-900 text-white shadow-2xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-                title="Affichage en liste continue avec chargement progressif au défilement"
-              >
-                <List className="w-3 h-3" />
-                <span>Liste continue</span>
-              </button>
-            </div>
-
             {/* Page size selector */}
             <select
               value={pageSize}
               onChange={(e) => setPageSize(Number(e.target.value))}
-              className="px-2 py-1 bg-white border border-slate-200 rounded text-slate-700 font-mono text-[11px] focus:outline-none"
-              title="Nombre de références par bloc / page"
+              className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-700 font-mono text-[11px] focus:outline-none cursor-pointer"
+              title="Nombre de références par page"
             >
               <option value={25}>25 / page</option>
               <option value={50}>50 / page</option>
@@ -815,14 +729,15 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as any)}
-                className="px-2 py-1 bg-white border border-slate-200 rounded text-slate-700 font-medium focus:outline-none"
+                className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-700 font-medium focus:outline-none cursor-pointer"
               >
                 <option value="ref">Référence</option>
                 <option value="designation">Désignation</option>
               </select>
               <button
+                type="button"
                 onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')}
-                className="px-2 py-1 border border-slate-200 rounded bg-white font-mono hover:bg-slate-50"
+                className="px-2.5 py-1.5 border border-slate-200 rounded-lg bg-white font-mono hover:bg-slate-50 cursor-pointer"
                 title="Inverser l'ordre de tri"
               >
                 {sortDirection === 'asc' ? '↑' : '↓'}
@@ -849,8 +764,9 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
 
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={() => setSelectedArticleIds([])}
-              className="px-3 py-1.5 text-xs font-semibold bg-white/80 hover:bg-white text-slate-800 rounded-lg transition-colors"
+              className="bulk-deselect-btn px-3 py-1.5 text-xs font-bold bg-white hover:bg-slate-100 text-[#1B1B1B] border border-white/80 rounded-lg transition-colors cursor-pointer"
             >
               Tout désélectionner
             </button>
@@ -949,7 +865,7 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
                             </div>
                           )}
                           <div className="min-w-0">
-                            <span className="font-mono font-extrabold text-sm text-slate-950 bg-amber-100/90 border border-amber-300 px-2 py-0.5 rounded-md inline-block">
+                            <span className="font-mono font-extrabold text-[15px] text-slate-950 bg-amber-100/90 border border-amber-300 px-2.5 py-0.5 rounded-md inline-block">
                               {article.mainReference}
                             </span>
                             <h4
@@ -1169,7 +1085,7 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
                                 )}
                               </div>
                             )}
-                            <span className="font-mono font-bold text-slate-900 group-hover:text-amber-600 transition-colors">
+                            <span className="font-mono font-bold text-[13px] sm:text-sm text-slate-900 group-hover:text-amber-600 transition-colors">
                               {article.mainReference}
                             </span>
                           </div>

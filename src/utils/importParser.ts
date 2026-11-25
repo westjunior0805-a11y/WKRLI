@@ -1,17 +1,45 @@
-import { ArticleCategory, ImportFieldMapping, ParsedImportRow, Warehouse, Article, ImportMode } from '../types';
+import { ArticleCategory, ALL_ARTICLE_CATEGORIES, ImportFieldMapping, ParsedImportRow, Warehouse, Article, ImportMode } from '../types';
 import { prefixLocationWithWarehouse } from './articleHelpers';
 
-export const VALID_CATEGORIES: ArticleCategory[] = [
-  'Filtration',
-  'Moteur & Refroidissement',
-  'Système Injection & Carburant',
-  'Train de Roulement & Chenilles',
-  'Hydraulique & Vérins',
-  'Freinage & Friction',
-  'Électricité & Démarreurs',
-  'Transmission & Ponts',
-  'Outils d’Attaque au Sol (Dents/Lames)',
-];
+export const VALID_CATEGORIES: ArticleCategory[] = ALL_ARTICLE_CATEGORIES;
+
+function resolveImportCategory(rawCat: string): ArticleCategory | null {
+  const norm = rawCat
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+  if (!norm) return null;
+
+  const exact = VALID_CATEGORIES.find(
+    (c) =>
+      c
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') === norm
+  );
+  if (exact) return exact;
+
+  // Smart matching for transversal & system categories
+  if (/(joint|etancheite|torique|o-?ring|spi|duo-?cone|seal)/.test(norm)) return 'Étanchéité & Joints';
+  if (/(axe|bague|articulation|goupille|circlip|rotule|calage|pin|bushing)/.test(norm)) return 'Axes, Bagues & Articulations';
+  if (/(roulement|palier|courroie|poulie|tendeur|bearing|belt)/.test(norm)) return 'Roulements, Paliers & Courroies';
+  if (/(vis|boulon|ecrou|goujon|fixation|clavette|collier|bolt|nut)/.test(norm)) return 'Visserie, Boulonnerie & Fixations';
+  if (/(flexible|raccord|durite|tuyau|hose|fitting)/.test(norm)) return 'Flexibles, Raccords & Durites';
+  if (/(lubrifiant|huile|graisse|fluide|consommable|liquide|oil|grease)/.test(norm)) return 'Lubrifiants, Fluides & Consommables';
+  if (/(cabine|carrosserie|vitre|serrure|retroviseur|gyrophare|divers|autre)/.test(norm)) return 'Cabine, Carrosserie & Divers';
+  if (/(filtr)/.test(norm)) return 'Filtration';
+  if (/(moteur|refroidissement|turbo|radiateur|thermostat)/.test(norm)) return 'Moteur & Refroidissement';
+  if (/(injection|carburant|injecteur)/.test(norm)) return 'Système Injection & Carburant';
+  if (/(hydraulique|verin|pompe)/.test(norm)) return 'Hydraulique & Vérins';
+  if (/(transmission|pont|boite|differentiel)/.test(norm)) return 'Transmission & Ponts';
+  if (/(train|roulement.*chenille|chenille|galet|barbotin|patin)/.test(norm)) return 'Train de Roulement & Chenilles';
+  if (/(frein|friction|plaquette|disque)/.test(norm)) return 'Freinage & Friction';
+  if (/(electri|demarreur|alternateur|capteur|batterie)/.test(norm)) return 'Électricité & Démarreurs';
+  if (/(attaque|dent|lame|godet|get)/.test(norm)) return 'Outils d’Attaque au Sol (Dents/Lames)';
+
+  return null;
+}
 
 // 1. Modèle officiel pour l'Importation du Catalogue
 export const CATALOG_TEMPLATE_HEADERS = [
@@ -592,9 +620,7 @@ export function parseAndValidateImportRows(
     if (mapping.category) {
       const catRaw = String(raw[mapping.category] ?? raw[mapping.category.trim()] ?? '').trim();
       if (catRaw) {
-        const matched = VALID_CATEGORIES.find(
-          (c) => c.toLowerCase() === catRaw.toLowerCase()
-        );
+        const matched = resolveImportCategory(catRaw);
         if (matched) {
           category = matched;
         } else {

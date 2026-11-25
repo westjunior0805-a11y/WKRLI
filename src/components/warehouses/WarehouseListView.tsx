@@ -720,7 +720,7 @@ export const WarehouseListView: React.FC<WarehouseListViewProps> = ({
           <SearchField
             value={stockSearchQuery}
             onChange={setStockSearchQuery}
-            placeholder="Rechercher par référence, désignation, marque, emplacement, numéro de facture..."
+            placeholder="Référence, pièce ou dépôt..."
           />
 
           {/* Filters & View options row */}

@@ -565,7 +565,7 @@ export const PurchaseOrderListView: React.FC<PurchaseOrderListViewProps> = ({
               value={searchQuery}
               onChange={setSearchQuery}
               className="flex-1"
-              placeholder="Rechercher par N° commande, fournisseur, magasin, référence ou désignation de pièce..."
+              placeholder="N° commande ou fournisseur..."
             />
 
             <div className="flex items-center gap-2">
@@ -900,7 +900,7 @@ export const PurchaseOrderListView: React.FC<PurchaseOrderListViewProps> = ({
               value={supplierSearchQuery}
               onChange={setSupplierSearchQuery}
               className="flex-1"
-              placeholder="Rechercher un fournisseur par nom, code, contact, téléphone, pays ou marque..."
+              placeholder="Nom ou téléphone..."
             />
           </div>
 

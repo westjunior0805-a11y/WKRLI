@@ -1291,7 +1291,7 @@ CREATE TABLE public.customers (
                     setInspectorPage(1);
                   }}
                   className="flex-1 min-w-[200px]"
-                  placeholder={`Rechercher dans ${selectedTable.label} (${selectedTable.data.length} lignes)...`}
+                  placeholder={`Rechercher (${selectedTable.data.length})...`}
                 />
 
                 <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg">

@@ -247,16 +247,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
         />
       )}
 
-      {/* Sidebar container — Variation 19: EquipStock Pro Industrial Edition */}
+      {/* Sidebar container — Caterpillar SIS 2.0 Palette + Refined Spacing */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-70 bg-[#FDFDFD] dark:bg-slate-950 text-[#1B1B1B] dark:text-slate-200 border-r border-[#E5E5E5] dark:border-slate-800 flex flex-col justify-between transition-transform duration-200 ease-in-out lg:translate-x-0 lg:sticky lg:top-0 lg:h-screen lg:self-start lg:shrink-0 ${
+        className={`fixed inset-y-0 left-0 z-50 w-64 xl:w-[268px] bg-white dark:bg-slate-950 text-[#111111] dark:text-slate-200 border-r border-[#E0E0E0] dark:border-slate-800 flex flex-col justify-between transition-transform duration-200 ease-in-out lg:translate-x-0 lg:sticky lg:top-0 lg:h-screen lg:self-start lg:shrink-0 ${
           isOpenMobile ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        {/* Brand Header */}
+        {/* Boxed Monospace Brand Header (SIS 2.0 Black & Cat Yellow) */}
         <div
-          className={`flex items-center justify-between pt-8 pb-4 shrink-0 ${
-            isCollapsed ? 'px-3 lg:justify-center' : 'px-8'
+          className={`flex items-center justify-between pt-5 pb-5 border-b border-[#E0E0E0] dark:border-slate-800 shrink-0 ${
+            isCollapsed ? 'px-3 lg:justify-center' : 'px-6'
           }`}
         >
           <div className="flex items-center gap-3 min-w-0">
@@ -264,17 +264,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <img
                 src={companyInfo.logoUrl}
                 alt={companyInfo.name}
-                className="w-8 h-8 object-contain bg-white border border-[#E5E5E5] rounded p-0.5 shrink-0"
+                className="w-8 h-8 object-contain bg-white border border-[#E0E0E0] p-0.5 shrink-0"
               />
             )}
             {!isCollapsed && (
-              <div className="brand min-w-0">
-                <h1
-                  className="font-display text-xl sm:text-2xl font-extrabold uppercase tracking-[-0.04em] text-[#1B1B1B] dark:text-white truncate"
-                  title={displayCompanyName}
-                >
-                  {displayCompanyName}
-                </h1>
+              <div
+                className="font-mono font-bold text-xs tracking-[0.15em] uppercase px-3 py-1.5 bg-[#111111] text-white border-b-[3px] border-[#FFCD11] truncate max-w-[180px]"
+                title={displayCompanyName}
+              >
+                {displayCompanyName}
               </div>
             )}
           </div>
@@ -283,26 +281,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             type="button"
             onClick={onCloseMobile}
-            className="lg:hidden p-1 text-[#1B1B1B]/60 hover:text-[#1B1B1B]"
+            className="lg:hidden p-1.5 text-[#111111]/60 hover:text-[#111111]"
             aria-label="Fermer le menu"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Modular Navigation */}
-        <nav className="flex-1 px-6 py-4 space-y-5 overflow-y-auto">
-          {navGroups.map((group) => (
+        {/* Editorial Numbered Navigation */}
+        <nav className="flex-1 px-6 py-5 space-y-6 overflow-y-auto">
+          {navGroups.map((group, groupIndex) => (
             <div key={group.title}>
               {!isCollapsed ? (
-                <span className="label block px-2 mb-1.5">
-                  {group.title}
+                <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#595959] dark:text-slate-400 block mb-2">
+                  {String(groupIndex + 1).padStart(2, '0')}. {group.title}
                 </span>
               ) : (
-                <div className="h-px bg-[#E5E5E5] mx-2 my-2" />
+                <div className="h-px bg-[#E0E0E0] my-2" />
               )}
 
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col">
                 {group.items.map((item) => {
                   const Icon = item.icon;
                   const isActive = item.matchViews.includes(activeView);
@@ -313,10 +311,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       type="button"
                       onClick={() => handleNavClick(item.defaultView)}
                       title={isCollapsed ? `${item.label} — ${item.subLabel || ''}` : undefined}
-                      className={`nav-link w-full flex items-center justify-between text-left border-0 ${
+                      className={`nav-link w-full flex items-center justify-between text-left bg-transparent! border-0 border-b! transition-colors ${
                         isActive
-                          ? 'active bg-[#E35E2D]! text-white! font-semibold'
-                          : 'bg-transparent! text-[#1B1B1B] dark:text-slate-300 hover:bg-[#F0F0F0]! dark:hover:bg-slate-800!'
+                          ? 'active border-b-[2.5px]! border-[#FFCD11]! text-[#111111]! dark:text-white! font-semibold'
+                          : 'border-[#EBEBEB]! dark:border-slate-800! text-[#595959] dark:text-slate-400 hover:text-[#111111] dark:hover:text-white'
                       }`}
                     >
                       <div
@@ -326,25 +324,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       >
                         <Icon
                           className={`w-4 h-4 shrink-0 ${
-                            isActive ? 'text-white!' : 'text-[#1B1B1B]/60 dark:text-slate-400'
+                            isActive
+                              ? 'text-[#111111] dark:text-[#FFCD11]'
+                              : 'text-[#737373] dark:text-slate-500'
                           }`}
                         />
                         {!isCollapsed && (
-                          <span
-                            className={`text-[13px] truncate leading-snug ${
-                              isActive ? 'text-white!' : ''
-                            }`}
-                          >
+                          <span className="text-[13px] truncate leading-snug">
                             {item.label}
                           </span>
                         )}
                       </div>
 
-                      {/* Tabular Counter */}
+                      {/* Subtle Monospace Counter Chip */}
                       {!isCollapsed && item.count !== undefined && (
                         <span
-                          className={`text-[11px] font-mono tabular-nums font-semibold shrink-0 ml-2 ${
-                            isActive ? 'text-white!' : 'text-[#E35E2D]'
+                          className={`nav-count font-mono tabular-nums text-[10.5px] shrink-0 ml-2 ${
+                            isActive
+                              ? 'bg-[#FFCD11]! text-[#111111]! font-bold'
+                              : 'bg-[#ECECEC] text-[#3D3D3D] dark:bg-slate-800 dark:text-slate-300'
                           }`}
                         >
                           {item.count}
@@ -358,13 +356,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           ))}
         </nav>
 
-        {/* Bottom System Telemetry & Utility Bar */}
-        <div className="border-t border-[#E5E5E5] dark:border-slate-800 px-8 py-5 shrink-0 space-y-2">
-          <div className="meta">
-            SYSTEM_V2.4
-          </div>
+        {/* Bottom Utility Bar */}
+        <div className="border-t border-[#E0E0E0] dark:border-slate-800 px-6 py-4 shrink-0">
           <div
-            className={`flex items-center justify-between text-[11px] text-[#1B1B1B]/60 dark:text-slate-400 ${
+            className={`flex items-center justify-between text-[11px] text-[#595959] dark:text-slate-400 ${
               isCollapsed ? 'lg:flex-col lg:gap-1.5' : ''
             }`}
           >
@@ -372,17 +367,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 type="button"
                 onClick={() => handleNavClick('database')}
-                className="font-mono tabular-nums truncate hover:text-[#E35E2D] transition-colors cursor-pointer text-left font-semibold text-[11px] border-0! bg-transparent! p-0!"
+                className="font-mono tabular-nums truncate hover:text-[#111111] transition-colors cursor-pointer text-left font-bold text-[11px] border-0! bg-transparent! p-0!"
                 title="Ouvrir le module Bases de Données"
               >
                 {articles.length} RÉF. EN BASE
               </button>
             )}
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={exportDatabaseJson}
-                className="p-1.5 text-[#1B1B1B]/60 hover:text-[#E35E2D] border border-[#E5E5E5] bg-white rounded transition-colors cursor-pointer"
+                className="p-1.5 text-[#595959] hover:text-[#111111] border border-[#D4D4D4] bg-white transition-colors cursor-pointer"
                 title="Exporter une sauvegarde complète (JSON)"
               >
                 <Download className="w-3.5 h-3.5" />
@@ -391,7 +386,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   type="button"
                   onClick={onWipeData}
-                  className="p-1.5 text-[#1B1B1B]/60 hover:text-rose-600 border border-[#E5E5E5] bg-white rounded transition-colors cursor-pointer"
+                  className="p-1.5 text-[#595959] hover:text-rose-600 border border-[#D4D4D4] bg-white transition-colors cursor-pointer"
                   title="Purger la base de données (Table rase)"
                 >
                   <Trash2 className="w-3.5 h-3.5" />

@@ -573,7 +573,7 @@ export const AlertsAndReportsView: React.FC<AlertsAndReportsViewProps> = ({
               value={pieceSearchQuery}
               onChange={setPieceSearchQuery}
               className="flex-1"
-              placeholder="Rechercher une pièce par référence, désignation, marque, catégorie, fournisseur ou N° BC..."
+              placeholder="Référence ou pièce..."
             />
 
             <div className="flex items-center gap-1.5 flex-wrap">

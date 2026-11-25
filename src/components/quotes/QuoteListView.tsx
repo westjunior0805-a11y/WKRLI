@@ -213,7 +213,7 @@ export const QuoteListView: React.FC<QuoteListViewProps> = ({ onNavigateToSales 
           value={searchQuery}
           onChange={setSearchQuery}
           className="flex-1"
-          placeholder="Rechercher par N° devis, nom client, magasin ou référence..."
+          placeholder="N° devis ou client..."
         />
 
         <div className="flex items-center gap-2">

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useStock } from '../../context/StockContext';
-import { InventorySession, InventoryItemCount, ArticleCategory } from '../../types';
+import { InventorySession, InventoryItemCount, ArticleCategory, ARTICLE_CATEGORY_GROUPS } from '../../types';
 import { formatFCFA, formatDate, exportToCSV } from '../../utils/formatters';
 import {
   Search,
@@ -66,18 +66,6 @@ type CountStatusFilter =
   | 'VARIANCE_NEGATIVE'
   | 'VARIANCE_POSITIVE'
   | 'CONFORM';
-
-const CATEGORIES: ArticleCategory[] = [
-  'Filtration',
-  'Moteur & Refroidissement',
-  'Système Injection & Carburant',
-  'Train de Roulement & Chenilles',
-  'Hydraulique & Vérins',
-  'Freinage & Friction',
-  'Électricité & Démarreurs',
-  'Transmission & Ponts',
-  'Outils d’Attaque au Sol (Dents/Lames)',
-];
 
 const DEFAULT_BRANDS = [
   'Caterpillar',
@@ -1297,7 +1285,7 @@ export const InventorySessionView: React.FC<InventorySessionViewProps> = ({
             <SearchField
               value={searchQuery}
               onChange={setSearchQuery}
-              placeholder="Rechercher réf, marque, désignation, emplacement..."
+              placeholder="Référence ou emplacement..."
             />
           </div>
 
@@ -2222,10 +2210,14 @@ export const InventorySessionView: React.FC<InventorySessionViewProps> = ({
                     onChange={(e) => setNewCategory(e.target.value as ArticleCategory)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white focus:outline-none focus:border-amber-500"
                   >
-                    {CATEGORIES.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
+                    {ARTICLE_CATEGORY_GROUPS.map((group) => (
+                      <optgroup key={group.label} label={group.label}>
+                        {group.categories.map((cat) => (
+                          <option key={cat} value={cat}>
+                            {cat}
+                          </option>
+                        ))}
+                      </optgroup>
                     ))}
                   </select>
                 </div>

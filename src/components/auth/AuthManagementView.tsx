@@ -986,7 +986,7 @@ export const AuthManagementView: React.FC = () => {
                 value={searchQuery}
                 onChange={setSearchQuery}
                 className="flex-1"
-                placeholder="Rechercher par nom, email ou téléphone..."
+                placeholder="Nom, email ou téléphone..."
               />
 
               <div className="flex items-center gap-2">

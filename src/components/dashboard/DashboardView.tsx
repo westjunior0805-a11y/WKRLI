@@ -181,33 +181,33 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     <div className="space-y-6">
       {/* Clean Production Welcome Banner when database is empty */}
       {articles.length === 0 && (
-        <div className="card p-6 bg-white border border-[#E5E5E5] rounded-lg flex flex-col md:flex-row md:items-center justify-between gap-5">
-          <div className="space-y-1.5 max-w-xl">
-            <div className="label text-[#E35E2D] opacity-100">
-              SYSTÈME OPÉRATIONNEL · EXPLOITATION
+        <div className="card p-6 sm:p-7 bg-white border border-[#E0E0E0] flex flex-col md:flex-row md:items-center justify-between gap-5">
+          <div className="space-y-2 max-w-xl">
+            <div className="label text-[#7A5C00]">
+              Exploitation · Base prête
             </div>
-            <h3 className="font-display text-2xl font-bold text-[#1B1B1B] tracking-[-0.04em]">
+            <h3 className="font-display text-3xl font-semibold text-[#111111] tracking-[-0.02em] leading-tight">
               Bienvenue dans votre espace {companyInfo?.name || 'WKRLI'}
             </h3>
-            <p className="text-xs text-[#1B1B1B]/70 leading-relaxed">
+            <p className="text-xs text-[#595959] leading-relaxed">
               Votre base de données est vierge et prête à recevoir votre inventaire réel. Créez vos premières références manuellement ou importez votre catalogue Excel / CSV.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
             <button
               onClick={onNavigateToCatalog}
-              className="cta-btn px-4 py-2.5 bg-[#1B1B1B] hover:bg-[#E35E2D] text-white text-xs font-semibold rounded transition-all flex items-center gap-1.5 cursor-pointer"
+              className="cta-btn px-5 py-2.5 bg-[#FFCD11] hover:bg-[#E5B700] text-[#111111] text-xs font-bold uppercase tracking-[0.05em] transition-all flex items-center gap-1.5 cursor-pointer"
             >
-              <Boxes className="w-4 h-4 text-white" />
+              <Boxes className="w-4 h-4 text-[#111111]" />
               <span>Ajouter une pièce</span>
             </button>
             {onNavigateToImport && (
               <button
                 onClick={onNavigateToImport}
-                className="px-3.5 py-2.5 bg-white hover:border-[#E35E2D] text-[#1B1B1B] text-xs font-semibold border border-[#E5E5E5] rounded transition-colors flex items-center gap-1.5 cursor-pointer"
+                className="px-4 py-2.5 bg-white hover:border-[#FFCD11] hover:bg-[#FFF9DF] text-[#111111] text-xs font-semibold border border-[#E0E0E0] transition-colors flex items-center gap-1.5 cursor-pointer"
               >
-                <FileSpreadsheet className="w-4 h-4 text-[#E35E2D]" />
+                <FileSpreadsheet className="w-4 h-4 text-[#7A5C00]" />
                 <span>Importer Excel / CSV</span>
               </button>
             )}
@@ -217,21 +217,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
       {/* Top Banner if warehouse is filtered */}
       {selectedWhObj && (
-        <div className="flex items-center justify-between p-3.5 bg-white border border-[#E5E5E5] border-l-4 border-l-[#E35E2D] rounded-lg text-[#1B1B1B] text-sm">
+        <div className="flex items-center justify-between px-5 py-3.5 bg-white border border-[#E5C130] border-l-[4px] border-l-[#FFCD11] text-[#111111] text-sm">
           <div className="flex items-center gap-2.5">
-            <Building2 className="w-4 h-4 text-[#E35E2D] shrink-0" />
-            <span>
-              FILTRE MAGASIN ACTIF : <strong className="text-[#E35E2D]">{selectedWhObj.name}</strong> ({selectedWhObj.code})
+            <Building2 className="w-4 h-4 text-[#111111] shrink-0" />
+            <span className="font-mono text-xs uppercase tracking-[0.08em]">
+              Magasin actif : <strong className="text-[#7A5C00]">{selectedWhObj.name}</strong> ({selectedWhObj.code})
             </span>
           </div>
-          <span className="text-xs font-mono font-semibold text-[#1B1B1B]/60">
+          <span className="text-xs font-mono text-[#595959]">
             {selectedWhObj.location}
           </span>
         </div>
       )}
 
-      {/* KPI Cards Strip — Variation 19 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* KPI Cards Strip — SIS 2.0 Industrial */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {/* KPI 1: Total Stock */}
         <div className="stat-card">
           <div className="label">Total Stock</div>
@@ -241,9 +241,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
             <span className="meta uppercase">PIÈCES</span>
           </div>
-          <div className="mt-4 pt-2.5 border-t border-[#E5E5E5] flex items-center justify-between text-xs">
-            <span className="text-[#1B1B1B]/60">Références actives</span>
-            <span className="font-mono font-semibold text-[#E35E2D]">
+          <div className="mt-4 pt-3 border-t border-[#E0E0E0] flex items-center justify-between text-xs">
+            <span className="text-[#595959]">Références actives</span>
+            <span className="font-mono font-bold text-[#7A5C00]">
               {totalReferencesCount}
             </span>
           </div>
@@ -253,16 +253,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="stat-card">
           <div className="label">Valeur (Achat)</div>
           <div className="mt-3">
-            <div className="stat-val text-2xl sm:text-3xl tabular-nums">
+            <div className="stat-val text-3xl sm:text-[2.15rem] tabular-nums">
               {stockPurchaseValue.toLocaleString('fr-FR')}
             </div>
             <div className="meta font-bold uppercase mt-1">
               FCFA
             </div>
           </div>
-          <div className="mt-3 pt-2.5 border-t border-[#E5E5E5] flex items-center justify-between text-xs">
-            <span className="text-[#1B1B1B]/60">Valeur vente estimée</span>
-            <span className="font-mono font-semibold text-emerald-600">
+          <div className="mt-3 pt-3 border-t border-[#E0E0E0] flex items-center justify-between text-xs">
+            <span className="text-[#595959]">Valeur vente estimée</span>
+            <span className="font-mono font-bold text-emerald-700">
               {formatFCFA(stockSaleValue)}
             </span>
           </div>
@@ -271,19 +271,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* KPI 3: Ruptures */}
         <div
           onClick={onNavigateToReports}
-          className="stat-card cursor-pointer hover:border-[#E35E2D] transition-colors"
+          className="stat-card cursor-pointer hover:border-[#FFCD11] transition-colors"
         >
-          <div className="label text-rose-600 opacity-100">Ruptures</div>
+          <div className="label text-rose-600">Ruptures</div>
           <div className="mt-3 flex items-baseline gap-2">
             <div className="stat-val text-rose-600 tabular-nums">
               {outOfStockAlerts.length}
             </div>
             <span className="meta text-rose-600/80">RÉF.</span>
           </div>
-          <div className="mt-4 pt-2.5 border-t border-[#E5E5E5] flex items-center justify-between text-xs">
-            <span className="text-[#1B1B1B]/60">Niveau critique</span>
-            <span className="text-[#E35E2D] font-semibold text-[11px]">
-              Urgent à commander
+          <div className="mt-4 pt-3 border-t border-[#E0E0E0] flex items-center justify-between text-xs">
+            <span className="text-[#595959]">Niveau critique</span>
+            <span className="text-[#7A5C00] font-mono font-bold text-[11px]">
+              À commander
             </span>
           </div>
         </div>
@@ -291,7 +291,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* KPI 4: Sous seuil */}
         <div
           onClick={onNavigateToReports}
-          className="stat-card cursor-pointer hover:border-[#E35E2D] transition-colors"
+          className="stat-card cursor-pointer hover:border-[#FFCD11] transition-colors"
         >
           <div className="label">Sous seuil</div>
           <div className="mt-3 flex items-baseline gap-2">
@@ -300,9 +300,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
             <span className="meta">RÉF.</span>
           </div>
-          <div className="mt-4 pt-2.5 border-t border-[#E5E5E5] flex items-center justify-between text-xs">
-            <span className="text-[#1B1B1B]/60">Total des alertes</span>
-            <span className="font-mono font-semibold text-[#E35E2D]">
+          <div className="mt-4 pt-3 border-t border-[#E0E0E0] flex items-center justify-between text-xs">
+            <span className="text-[#595959]">Total des alertes</span>
+            <span className="font-mono font-bold text-[#7A5C00]">
               {alerts.length}
             </span>
           </div>
@@ -310,53 +310,53 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
 
       {/* Warehouses Summary Grid */}
-      <div className="card bg-white border border-[#E5E5E5] rounded-lg p-6">
-        <div className="flex items-center justify-between mb-4">
+      <div className="card bg-white border border-[#E0E0E0] p-5 sm:p-6">
+        <div className="flex items-center justify-between mb-5">
           <div>
             <div className="label">Logistique Multi-Sites</div>
-            <h3 className="font-display text-xl font-bold text-[#1B1B1B] tracking-[-0.04em] mt-0.5">
+            <h3 className="font-display text-2xl sm:text-[1.75rem] font-semibold text-[#111111] tracking-[-0.02em] leading-tight mt-0.5">
               Répartition du stock par magasin
             </h3>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
           {warehouseStats.map((item) => (
             <div
               key={item.warehouse.id}
-              className={`p-4 border rounded-lg transition-colors ${
+              className={`p-4 sm:p-5 border transition-colors ${
                 selectedWarehouseId === item.warehouse.id
-                  ? 'border-[#E35E2D] bg-[#F9FAFB]'
-                  : 'border-[#E5E5E5] bg-[#F9FAFB]/60'
+                  ? 'border-[#FFCD11] bg-[#FFF9DF]'
+                  : 'border-[#E0E0E0] bg-[#F4F4F4]/60'
               }`}
             >
-              <div className="flex items-start justify-between">
+              <div className="flex items-start justify-between gap-3">
                 <div>
-                  <span className="text-xs font-mono font-semibold text-[#E35E2D]">
+                  <span className="text-xs font-mono font-bold text-[#7A5C00]">
                     {item.warehouse.code}
                   </span>
-                  <h4 className="text-sm font-semibold text-[#1B1B1B] mt-0.5">
+                  <h4 className="text-sm font-semibold text-[#111111] mt-0.5">
                     {item.warehouse.name}
                   </h4>
                   <p className="meta mt-0.5">
                     {item.warehouse.location}
                   </p>
                 </div>
-                <div className="p-2 bg-white border border-[#E5E5E5] rounded text-[#E35E2D]">
+                <div className="p-2 bg-white border border-[#E0E0E0] text-[#111111]">
                   <Building2 className="w-4 h-4" />
                 </div>
               </div>
 
-              <div className="mt-4 pt-3 border-t border-[#E5E5E5] flex items-center justify-between">
+              <div className="mt-4 pt-3 border-t border-[#E0E0E0] flex items-center justify-between">
                 <div>
                   <span className="label block">Pièces en stock</span>
-                  <span className="text-lg font-bold font-mono text-[#1B1B1B] tabular-nums">
+                  <span className="text-lg font-bold font-mono text-[#111111] tabular-nums">
                     {item.pieceCount.toLocaleString('fr-FR')}
                   </span>
                 </div>
                 <div className="text-right">
                   <span className="label block">Valeur d'achat</span>
-                  <span className="text-sm font-semibold font-mono text-[#E35E2D] tabular-nums">
+                  <span className="text-sm font-bold font-mono text-[#7A5C00] tabular-nums">
                     {formatFCFA(item.value)}
                   </span>
                 </div>
@@ -367,19 +367,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
 
       {/* 2-Column Split: Urgent Replenishment & Recent Movements */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left: RÉAPPROVISIONNEMENT URGENT */}
-        <div className="card bg-white border border-[#E5E5E5] rounded-lg p-6 flex flex-col">
-          <div className="flex items-baseline justify-between mb-3">
+        <div className="card bg-white border border-[#E0E0E0] p-5 sm:p-6 flex flex-col">
+          <div className="flex items-baseline justify-between gap-3 mb-5">
             <div>
-              <div className="label text-[#E35E2D] opacity-100">Priorité critique</div>
-              <h2 className="font-display text-xl font-bold text-[#1B1B1B] tracking-[-0.04em] mt-0.5">
+              <div className="label text-[#7A5C00]">Priorité critique</div>
+              <h2 className="font-display text-2xl sm:text-[1.75rem] font-semibold text-[#111111] tracking-[-0.02em] leading-tight mt-0.5">
                 Réapprovisionnement urgent
               </h2>
             </div>
             <button
               onClick={onNavigateToReports}
-              className="text-xs font-semibold text-[#E35E2D] hover:underline border-0! bg-transparent! p-0! cursor-pointer"
+              className="text-xs font-mono font-bold text-[#7A5C00] hover:underline border-0! bg-transparent! p-0! cursor-pointer shrink-0"
             >
               Voir tout ({alerts.length})
             </button>
@@ -387,7 +387,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           <div className="flex-1 w-full">
             {sortedAlerts.length === 0 ? (
-              <div className="text-center py-10 text-[#1B1B1B]/40 text-sm">
+              <div className="text-center py-10 text-[#595959] text-sm">
                 Tous les niveaux de stock sont conformes aux seuils minimaux.
               </div>
             ) : (
@@ -399,24 +399,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       <SortableTh label="Désignation" active={alertSort.field === 'designation'} direction={alertSort.dir} onClick={() => toggleAlertSort('designation')} className="w-[31%]" />
                       <SortableTh label="Dispo." active={alertSort.field === 'stock'} direction={alertSort.dir} onClick={() => toggleAlertSort('stock')} align="right" className="w-[16%]" />
                       <SortableTh label="Statut" active={alertSort.field === 'status'} direction={alertSort.dir} onClick={() => toggleAlertSort('status')} align="center" className="w-[18%]" />
-                      <th className="text-right py-2 px-1.5 w-12">Opt.</th>
+                      <th className="text-right py-2.5 px-2 w-12">Opt.</th>
                     </tr>
                   </thead>
                   <tbody>
                     {paginatedAlerts.map((alert) => {
                       const linkedOrder = getActiveOrderForArticle(alert.articleId);
                       return (
-                        <tr key={alert.articleId} className="hover:bg-[#F9FAFB]">
+                        <tr key={alert.articleId} className="hover:bg-[#FFFDF2]">
                           <td className="ref truncate" title={alert.mainReference}>
                             <span className="block truncate">{alert.mainReference}</span>
                             <span className="block meta font-normal truncate">
                               {alert.brand}
                             </span>
                           </td>
-                          <td className="text-[#1B1B1B] font-medium truncate" title={alert.designation}>
+                          <td className="text-[#111111] font-medium truncate" title={alert.designation}>
                             {alert.designation}
                           </td>
-                          <td className="text-right mono font-semibold text-[#1B1B1B] tabular-nums whitespace-nowrap">
+                          <td className="text-right mono font-bold text-[#111111] tabular-nums whitespace-nowrap">
                             {alert.currentStock}{' '}
                             <span className="meta font-normal">
                               /{alert.minThreshold}
@@ -424,10 +424,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           </td>
                           <td className="text-center">
                             <span
-                              className={`font-mono font-semibold text-[10px] uppercase tracking-wider ${
+                              className={`font-mono font-bold text-[10px] uppercase tracking-wider ${
                                 alert.alertType === 'RUPTURE'
                                   ? 'text-rose-600'
-                                  : 'text-[#E35E2D]'
+                                  : 'text-[#7A5C00]'
                               }`}
                             >
                               {alert.alertType === 'RUPTURE' ? 'RUPTURE' : 'BAS'}
@@ -466,7 +466,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     })}
                   </tbody>
                 </table>
-                <div className="-mx-6 mt-2">
+                <div className="-mx-5 sm:-mx-6 mt-3">
                   <TablePagination
                     currentPage={alertPage}
                     totalItems={sortedAlerts.length}
@@ -481,29 +481,29 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             )}
           </div>
 
-          <div className="mt-4 pt-3 border-t border-[#E5E5E5] flex items-center justify-end gap-2">
+          <div className="mt-4 pt-4 border-t border-[#E0E0E0] flex items-center justify-end gap-2">
             <button
               onClick={() => (onOpenPurchaseOrder ? onOpenPurchaseOrder() : onOpenStockIn())}
-              className="cta-btn px-4 py-2 text-xs font-semibold text-white bg-[#1B1B1B] hover:bg-[#E35E2D] rounded transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+              className="cta-btn px-4 py-2 text-xs font-bold text-[#111111] bg-[#FFCD11] hover:bg-[#E5B700] transition-colors inline-flex items-center gap-1.5 cursor-pointer"
             >
-              <Truck className="w-3.5 h-3.5 text-white" />
+              <Truck className="w-3.5 h-3.5 text-[#111111]" />
               <span>Nouvelle Commande Fournisseur</span>
             </button>
           </div>
         </div>
 
         {/* Right: DERNIERS MOUVEMENTS ENREGISTRÉS */}
-        <div className="card bg-white border border-[#E5E5E5] rounded-lg p-6 flex flex-col">
-          <div className="flex items-baseline justify-between mb-3">
+        <div className="card bg-white border border-[#E0E0E0] p-5 sm:p-6 flex flex-col">
+          <div className="flex items-baseline justify-between gap-3 mb-5">
             <div>
-              <div className="label">Journal temps réel</div>
-              <h2 className="font-display text-xl font-bold text-[#1B1B1B] tracking-[-0.04em] mt-0.5">
+              <div className="label">Journal des flux</div>
+              <h2 className="font-display text-2xl sm:text-[1.75rem] font-semibold text-[#111111] tracking-[-0.02em] leading-tight mt-0.5">
                 Derniers mouvements
               </h2>
             </div>
             <button
               onClick={onNavigateToMovements}
-              className="text-xs font-semibold text-[#E35E2D] hover:underline border-0! bg-transparent! p-0! cursor-pointer"
+              className="text-xs font-mono font-bold text-[#7A5C00] hover:underline border-0! bg-transparent! p-0! cursor-pointer shrink-0"
             >
               Historique complet
             </button>
@@ -511,7 +511,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           <div className="flex-1 w-full">
             {sortedDashboardMovements.length === 0 ? (
-              <div className="text-center py-10 text-[#1B1B1B]/40 text-sm">
+              <div className="text-center py-10 text-[#595959] text-sm">
                 Aucun mouvement enregistré pour le moment.
               </div>
             ) : (
@@ -529,12 +529,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <tbody>
                     {paginatedDashboardMovements.map((mvt, idx) => {
                       const art = getArticleById(mvt.articleId);
-                      let statusColor = 'text-[#1B1B1B]';
+                      let statusColor = 'text-[#111111]';
                       let label: string = mvt.type;
                       let sign = '+';
 
                       if (mvt.type === 'ENTREE') {
-                        statusColor = 'text-emerald-600';
+                        statusColor = 'text-emerald-700';
                         label = 'ENTRÉE';
                         sign = '+';
                       } else if (mvt.type === 'SORTIE') {
@@ -542,19 +542,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         label = 'SORTIE';
                         sign = '-';
                       } else if (mvt.type === 'TRANSFERT') {
-                        statusColor = 'text-[#E35E2D]';
+                        statusColor = 'text-[#7A5C00]';
                         label = 'TRANSF.';
                         sign = '↔';
                       } else if (mvt.type === 'AJUSTEMENT') {
-                        statusColor = 'text-[#E35E2D]';
+                        statusColor = 'text-[#7A5C00]';
                         label = 'AJUST.';
                         sign = '±';
                       }
 
                       return (
-                        <tr key={`${mvt.id}-${idx}`} className="hover:bg-[#F9FAFB]">
+                        <tr key={`${mvt.id}-${idx}`} className="hover:bg-[#FFFDF2]">
                           <td>
-                            <span className={`font-mono font-semibold text-[10px] uppercase tracking-wider ${statusColor}`}>
+                            <span className={`font-mono font-bold text-[10px] uppercase tracking-wider ${statusColor}`}>
                               {label}
                             </span>
                           </td>
@@ -566,7 +566,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                               {art?.designation || ''}
                             </span>
                           </td>
-                          <td className="text-right mono font-semibold text-[#1B1B1B] tabular-nums whitespace-nowrap">
+                          <td className="text-right mono font-bold text-[#111111] tabular-nums whitespace-nowrap">
                             {sign}{mvt.quantity}
                           </td>
                           <td className="hidden sm:table-cell meta truncate" title={mvt.documentRef}>
@@ -580,7 +580,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     })}
                   </tbody>
                 </table>
-                <div className="-mx-6 mt-2">
+                <div className="-mx-5 sm:-mx-6 mt-3">
                   <TablePagination
                     currentPage={mvtPage}
                     totalItems={sortedDashboardMovements.length}
@@ -595,11 +595,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             )}
           </div>
 
-          <div className="mt-4 pt-3 border-t border-[#E5E5E5] flex items-center justify-between text-xs text-[#1B1B1B]/50">
+          <div className="mt-4 pt-4 border-t border-[#E0E0E0] flex items-center justify-between text-xs text-[#595959]">
             <span>Traçabilité atomique des flux physiques</span>
             <button
               onClick={() => onOpenTransfer()}
-              className="text-xs font-semibold text-[#E35E2D] hover:underline border-0! bg-transparent! p-0! cursor-pointer"
+              className="text-xs font-mono font-bold text-[#7A5C00] hover:underline border-0! bg-transparent! p-0! cursor-pointer"
             >
               Effectuer un transfert
             </button>

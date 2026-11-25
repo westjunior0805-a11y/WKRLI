@@ -8,6 +8,7 @@ import {
   getBrandLocation,
 } from '../../utils/articleHelpers';
 import { Search, X, Check, Package, Boxes, ChevronDown, MapPin, Building2 } from 'lucide-react';
+import { VoiceSearchButton } from './VoiceSearchButton';
 
 interface ArticleSearchSelectProps {
   articles: Article[];
@@ -53,7 +54,7 @@ export const ArticleSearchSelect: React.FC<ArticleSearchSelectProps> = ({
   label = 'Article / Pièce Détachée',
   required = true,
   disabled = false,
-  placeholder = 'Tapez une référence (ex: 1R-0716, 1R0716), une désignation, une marque...',
+  placeholder = 'Référence ou désignation...',
   helperText,
   hideBrandInSelector = false,
 }) => {
@@ -416,10 +417,14 @@ export const ArticleSearchSelect: React.FC<ArticleSearchSelectProps> = ({
       ) : (
         /* Search Input when open or no selection */
         <div className="relative">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <Search
+            className="w-4 h-4 text-[#595959] dark:text-slate-400 absolute left-1 top-1/2 -translate-y-1/2 pointer-events-none"
+            aria-hidden="true"
+          />
           <input
             ref={inputRef}
             type="text"
+            data-search-input="true"
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
@@ -428,22 +433,33 @@ export const ArticleSearchSelect: React.FC<ArticleSearchSelectProps> = ({
             onFocus={() => setIsOpen(true)}
             placeholder={placeholder}
             disabled={disabled}
-            className="w-full pl-9 pr-9 py-2 text-xs sm:text-sm border border-amber-500 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 shadow-xs"
+            className="search-input-prominent w-full pl-8 pr-20 py-2 text-xs sm:text-sm border-0 border-b-2 border-[#CCCCCC] bg-transparent focus:outline-none focus:border-[#FFCD11]"
           />
-          {searchQuery ? (
-            <button
-              type="button"
-              onClick={() => {
-                setSearchQuery('');
+          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  inputRef.current?.focus();
+                }}
+                className="text-slate-400 hover:text-slate-600 p-1 bg-transparent! border-0! cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <VoiceSearchButton
+              size="sm"
+              onTranscript={(text) => {
+                setSearchQuery(text);
+                setIsOpen(true);
                 inputRef.current?.focus();
               }}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          ) : (
-            <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-          )}
+            />
+            {!searchQuery && (
+              <ChevronDown className="w-4 h-4 text-slate-400 pointer-events-none" />
+            )}
+          </div>
         </div>
       )}
 

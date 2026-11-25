@@ -264,7 +264,7 @@ export const MovementHistoryView: React.FC = () => {
             value={searchQuery}
             onChange={setSearchQuery}
             className="flex-1"
-            placeholder="Recherche multi-critères : référence (1R-0716, 1R0716), désignation, marque, magasin, N° document, tiers, motif..."
+            placeholder="Référence, document ou tiers..."
           />
 
           <button

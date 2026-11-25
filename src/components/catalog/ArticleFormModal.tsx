@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Article, ArticleCategory, MachineApplication } from '../../types';
+import { Article, ArticleCategory, ARTICLE_CATEGORY_GROUPS, MachineApplication } from '../../types';
 import { X, Plus, Trash2, Image as ImageIcon, Upload, Link as LinkIcon, Camera, Tractor } from 'lucide-react';
 import { compressImageFile } from '../../utils/imageCompressor';
 import { NumericInput } from '../common/NumericInput';
@@ -15,18 +15,6 @@ interface ArticleFormModalProps {
   };
   catalogOnlyMode?: boolean;
 }
-
-const CATEGORIES: ArticleCategory[] = [
-  'Filtration',
-  'Moteur & Refroidissement',
-  'Système Injection & Carburant',
-  'Train de Roulement & Chenilles',
-  'Hydraulique & Vérins',
-  'Freinage & Friction',
-  'Électricité & Démarreurs',
-  'Transmission & Ponts',
-  'Outils d’Attaque au Sol (Dents/Lames)',
-];
 
 const COMMON_BRANDS = [
   'Caterpillar',
@@ -489,10 +477,14 @@ export const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
                   onChange={(e) => setCategory(e.target.value as ArticleCategory)}
                   className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white"
                 >
-                  {CATEGORIES.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
+                  {ARTICLE_CATEGORY_GROUPS.map((group) => (
+                    <optgroup key={group.label} label={group.label}>
+                      {group.categories.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
               </div>
