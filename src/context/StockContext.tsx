@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Article,
   ArticleBrandOffer,
@@ -447,6 +447,25 @@ interface StockContextType {
     newPurchasePrice: number;
     newSalePrice: number;
     invoiceNumber?: string;
+  }) => { success: boolean; error?: string; message?: string };
+  quickUpdateArticleStocks: (params: {
+    articleId: string;
+    brandUpdates: Array<{
+      originalBrandKey: string;
+      brandName: string;
+      purchasePrice: number;
+      salePrice: number;
+      invoiceNumber?: string;
+      isNew?: boolean;
+    }>;
+    cellUpdates: Array<{
+      warehouseId: string;
+      originalBrandKey: string;
+      brandName: string;
+      newQuantity: number;
+      newLocation: string;
+      invoiceNumber?: string;
+    }>;
   }) => { success: boolean; error?: string; message?: string };
   deleteArticle: (articleId: string) => {
     success: boolean;
@@ -1236,35 +1255,110 @@ const mergeEntities = <T extends { id: string; updatedAt?: string; date?: string
 };
 
 const reconcileWarehouseStock = (st: WarehouseStock): WarehouseStock => {
-  const cleanQty = Math.max(0, Number(st.quantity) || 0);
+  const cleanQty = Math.max(0, Math.round(Number(st.quantity) || 0));
   if (!st.brandBreakdown || typeof st.brandBreakdown !== 'object') {
     return st.quantity === cleanQty ? st : { ...st, quantity: cleanQty };
   }
-  const nextBd: Record<string, number> = {};
-  const keys = Object.keys(st.brandBreakdown);
-  let modified = st.quantity !== cleanQty;
-  for (const k of keys) {
-    const val = cleanQty === 0 ? 0 : Math.max(0, Number(st.brandBreakdown[k]) || 0);
-    if (st.brandBreakdown[k] !== val) modified = true;
-    nextBd[k] = val;
+
+  const rawKeys = Object.keys(st.brandBreakdown);
+  if (rawKeys.length === 0) {
+    return st.quantity === cleanQty ? st : { ...st, quantity: cleanQty };
   }
-  if (cleanQty > 0 && keys.length > 0) {
-    const sum = keys.reduce((acc, k) => acc + nextBd[k], 0);
-    if (sum > cleanQty) {
-      modified = true;
-      let excess = sum - cleanQty;
-      for (const k of keys) {
-        if (excess <= 0) break;
-        const cur = nextBd[k];
-        if (cur > 0) {
-          const cut = Math.min(cur, excess);
-          nextBd[k] = cur - cut;
-          excess -= cut;
-        }
+
+  // 1. Canonicalize & merge duplicate keys (e.g., "CAT" + "cat ", "" + "Générique")
+  const namedMap = new Map<string, { label: string; qty: number }>();
+  let placeholderQty = 0;
+  let hadPlaceholderKey = false;
+  let hadDuplicateOrDirtyKey = false;
+
+  for (const rawKey of rawKeys) {
+    const val = cleanQty === 0 ? 0 : Math.max(0, Math.round(Number(st.brandBreakdown[rawKey]) || 0));
+    const cleanKey = cleanBrandName(rawKey);
+    if (!cleanKey) {
+      hadPlaceholderKey = true;
+      placeholderQty += val;
+      if (rawKey !== '') hadDuplicateOrDirtyKey = true;
+    } else {
+      const norm = cleanKey.toLowerCase();
+      const existing = namedMap.get(norm);
+      if (existing) {
+        hadDuplicateOrDirtyKey = true;
+        existing.qty += val;
+      } else {
+        if (rawKey !== cleanKey) hadDuplicateOrDirtyKey = true;
+        namedMap.set(norm, { label: cleanKey, qty: val });
       }
     }
   }
-  return modified ? { ...st, quantity: cleanQty, brandBreakdown: nextBd } : st;
+
+  const nextBd: Record<string, number> = {};
+  let namedSum = 0;
+  for (const entry of namedMap.values()) {
+    nextBd[entry.label] = entry.qty;
+    namedSum += entry.qty;
+  }
+
+  let droppedGhostPlaceholder = false;
+  if (namedMap.size > 0) {
+    if (hadPlaceholderKey) {
+      if (namedSum > 0) {
+        // Real named brands already hold stock -> drop ghost placeholder key left by legacy edits
+        droppedGhostPlaceholder = true;
+      } else if (placeholderQty > 0) {
+        // All named brands are 0 -> preserve stock by migrating placeholder qty to primary named brand
+        const firstLabel = Array.from(namedMap.values())[0].label;
+        nextBd[firstLabel] = placeholderQty;
+        namedSum = placeholderQty;
+      }
+    }
+  } else if (hadPlaceholderKey) {
+    nextBd[''] = placeholderQty;
+  }
+
+  const finalKeys = Object.keys(nextBd);
+  const bdSum = finalKeys.reduce((acc, k) => acc + nextBd[k], 0);
+  let finalQty = cleanQty;
+
+  if (cleanQty === 0) {
+    for (const k of finalKeys) nextBd[k] = 0;
+    finalQty = 0;
+  } else if (droppedGhostPlaceholder || hadDuplicateOrDirtyKey) {
+    // Breakdown was canonicalized/cleaned -> exact sum of real brands is authoritative
+    finalQty = bdSum;
+  } else if (bdSum > 0 && bdSum !== cleanQty) {
+    // Strictly align quantity with the exact sum of its brand breakdown so Total === Sum(brands)
+    finalQty = bdSum;
+  } else if (bdSum === 0 && cleanQty > 0 && finalKeys.length === 1) {
+    // Single-brand record with uninitialized 0 breakdown -> restore cleanQty to that brand
+    nextBd[finalKeys[0]] = cleanQty;
+  }
+
+  const unchanged =
+    st.quantity === finalQty &&
+    rawKeys.length === finalKeys.length &&
+    finalKeys.every((k) => Object.prototype.hasOwnProperty.call(st.brandBreakdown, k) && st.brandBreakdown![k] === nextBd[k]);
+
+  return unchanged ? st : { ...st, quantity: finalQty, brandBreakdown: nextBd };
+};
+
+const deduplicateStocksList = (list: WarehouseStock[]): WarehouseStock[] => {
+  const map = new Map<string, WarehouseStock>();
+  for (const raw of list) {
+    if (!raw || !raw.articleId || !raw.warehouseId) continue;
+    const st = reconcileWarehouseStock(raw);
+    const key = `${st.articleId}__${st.warehouseId}`;
+    const prev = map.get(key);
+    if (!prev) {
+      map.set(key, st);
+    } else {
+      const prevTime = new Date(prev.updatedAt || prev.lastInventoryDate || 0).getTime();
+      const curTime = new Date(st.updatedAt || st.lastInventoryDate || 0).getTime();
+      if (curTime >= prevTime) {
+        map.set(key, st);
+      }
+    }
+  }
+  return Array.from(map.values());
 };
 
 const mergeStocks = (localStocks: WarehouseStock[], remoteStocks: WarehouseStock[]): WarehouseStock[] => {
@@ -1442,15 +1536,15 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       try {
         const parsed = JSON.parse(saved) as WarehouseStock[];
         if (Array.isArray(parsed) && (parsed.length > 0 || !IS_AI_STUDIO_DEMO)) {
-          return parsed
-            .filter((s) => !isLegacyDemoRecord(s, 'stocks'))
-            .map(reconcileWarehouseStock);
+          return deduplicateStocksList(
+            parsed.filter((s) => !isLegacyDemoRecord(s, 'stocks'))
+          );
         }
       } catch {
         // ignore
       }
     }
-    return IS_AI_STUDIO_DEMO ? INITIAL_WAREHOUSE_STOCKS.map(reconcileWarehouseStock) : [];
+    return IS_AI_STUDIO_DEMO ? deduplicateStocksList(INITIAL_WAREHOUSE_STOCKS) : [];
   });
 
   const [movements, setMovements] = useState<StockMovement[]>(() => {
@@ -2214,18 +2308,78 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [sales]);
 
   const { stockByArticleAndWarehouseMap, totalStockByArticleMap } = useMemo(() => {
-    const pairMap = new Map<string, number>();
-    const totalMap = new Map<string, number>();
+    const activeWhIds = new Set(warehouses.map((w) => w.id));
+    const latestRecordByPair = new Map<string, WarehouseStock>();
     for (let i = 0; i < stocks.length; i++) {
       const s = stocks[i];
-      const qty = s.quantity || 0;
-      pairMap.set(`${s.articleId}__${s.warehouseId}`, qty);
-      totalMap.set(s.articleId, (totalMap.get(s.articleId) || 0) + qty);
+      if (!s || !s.articleId || !s.warehouseId) continue;
+      if (activeWhIds.size > 0 && !activeWhIds.has(s.warehouseId)) continue;
+      const pairKey = `${s.articleId}__${s.warehouseId}`;
+      const prev = latestRecordByPair.get(pairKey);
+      if (!prev) {
+        latestRecordByPair.set(pairKey, s);
+      } else {
+        const prevTime = new Date(prev.updatedAt || prev.lastInventoryDate || 0).getTime();
+        const curTime = new Date(s.updatedAt || s.lastInventoryDate || 0).getTime();
+        if (curTime >= prevTime) {
+          latestRecordByPair.set(pairKey, s);
+        }
+      }
     }
+
+    const pairMap = new Map<string, number>();
+    const totalMap = new Map<string, number>();
+    for (const [pairKey, rec] of latestRecordByPair.entries()) {
+      const reconciled = reconcileWarehouseStock(rec);
+      const qty = Math.max(0, Number(reconciled.quantity) || 0);
+      pairMap.set(pairKey, qty);
+      totalMap.set(rec.articleId, (totalMap.get(rec.articleId) || 0) + qty);
+    }
+
     return {
       stockByArticleAndWarehouseMap: pairMap,
       totalStockByArticleMap: totalMap,
     };
+  }, [stocks, warehouses]);
+
+  // Automatic one-time self-healing for any legacy stocks with duplicate entries or quantity/brandBreakdown mismatch
+  const lastHealedStockSigRef = useRef<string>('');
+  useEffect(() => {
+    if (stocks.length === 0) return;
+    const deduped = deduplicateStocksList(stocks);
+    let needsHeal = deduped.length !== stocks.length;
+    if (!needsHeal) {
+      for (let i = 0; i < stocks.length; i++) {
+        if (deduped[i] !== stocks[i]) {
+          needsHeal = true;
+          break;
+        }
+      }
+    }
+    if (!needsHeal) return;
+
+    const sig = deduped.map((s) => `${s.articleId}_${s.warehouseId}:${s.quantity}`).join('|');
+    if (lastHealedStockSigRef.current === sig) return;
+    lastHealedStockSigRef.current = sig;
+
+    const nowIso = new Date().toISOString();
+    const prevMap = new Map(stocks.map((s) => [`${s.articleId}__${s.warehouseId}`, s]));
+    const changedRecords: WarehouseStock[] = [];
+    const healedStocks = deduped.map((s) => {
+      const prev = prevMap.get(`${s.articleId}__${s.warehouseId}`);
+      if (prev !== s) {
+        const stamped = { ...s, updatedAt: nowIso };
+        changedRecords.push(stamped);
+        return stamped;
+      }
+      return s;
+    });
+
+    setStocks(healedStocks);
+    safeSetLocalStorage('stocks', healedStocks);
+    if (changedRecords.length > 0) {
+      saveMultipleStocksToFirebase(changedRecords).catch(console.warn);
+    }
   }, [stocks]);
 
   // Stock Getters (O(1) lookups)
@@ -6082,8 +6236,59 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             },
           ];
 
-    // 1. Update WarehouseStock for targetWh
-    const nextStocks = [...stocks];
+    // 1. Update WarehouseStock for targetWh (and propagate any brand rename across ALL warehouses of this article)
+    const nextStocks = deduplicateStocksList(stocks);
+    const isRenamingBrand =
+      normPrevBrand !== undefined &&
+      normPrevBrand !== '__new__' &&
+      normPrevBrand !== normBrand;
+
+    // If renaming an existing brand, propagate the rename across ALL other warehouses for this article so no stock becomes orphaned
+    if (isRenamingBrand) {
+      for (let i = 0; i < nextStocks.length; i++) {
+        const st = nextStocks[i];
+        if (st.articleId !== existing.id || st.warehouseId === targetWh.id) continue;
+        let touched = false;
+        const bd: Record<string, number> = { ...(st.brandBreakdown || {}) };
+        let movedQty = 0;
+        for (const k of Object.keys(bd)) {
+          if (cleanBrandName(k).toLowerCase() === normPrevBrand) {
+            movedQty += Math.max(0, Number(bd[k]) || 0);
+            delete bd[k];
+            touched = true;
+          }
+        }
+        if (touched) {
+          const existingTargetKey =
+            Object.keys(bd).find((k) => cleanBrandName(k).toLowerCase() === normBrand) || targetBrand;
+          bd[existingTargetKey] = (Math.max(0, Number(bd[existingTargetKey]) || 0)) + movedQty;
+
+          const bl: Record<string, string> = { ...(st.brandLocations || {}) };
+          for (const k of Object.keys(bl)) {
+            if (cleanBrandName(k).toLowerCase() === normPrevBrand) {
+              if (!bl[targetBrand]) bl[targetBrand] = bl[k];
+              delete bl[k];
+            }
+          }
+          const bi: Record<string, string> = { ...(st.brandInvoices || {}) };
+          for (const k of Object.keys(bi)) {
+            if (cleanBrandName(k).toLowerCase() === normPrevBrand) {
+              if (!bi[targetBrand]) bi[targetBrand] = bi[k];
+              delete bi[k];
+            }
+          }
+          nextStocks[i] = reconcileWarehouseStock({
+            ...st,
+            brandBreakdown: bd,
+            brandLocations: bl,
+            brandInvoices: bi,
+            quantity: Object.values(bd).reduce((s, q) => s + Math.max(0, Number(q) || 0), 0),
+            updatedAt: nowIso,
+          });
+        }
+      }
+    }
+
     const stockIdx = nextStocks.findIndex(
       (s) => s.articleId === existing.id && s.warehouseId === targetWh.id
     );
@@ -6092,20 +6297,34 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     let newTotalWhQty = cleanQty;
 
     if (stockIdx !== -1) {
-      const prevStock = nextStocks[stockIdx];
-      const nextBreakdown: Record<string, number> = {
-        ...(prevStock.brandBreakdown || {}),
-      };
+      const prevStock = reconcileWarehouseStock(nextStocks[stockIdx]);
+      const nextBreakdown: Record<string, number> = {};
+
+      // Canonicalize existing breakdown entries (merging duplicate casing keys)
+      if (prevStock.brandBreakdown) {
+        for (const [k, v] of Object.entries(prevStock.brandBreakdown)) {
+          const ck = cleanBrandName(k);
+          const q = Math.max(0, Math.round(Number(v) || 0));
+          const existingKey = Object.keys(nextBreakdown).find(
+            (ek) => cleanBrandName(ek).toLowerCase() === ck.toLowerCase()
+          );
+          if (existingKey !== undefined) {
+            nextBreakdown[existingKey] += q;
+          } else {
+            nextBreakdown[ck] = q;
+          }
+        }
+      }
 
       // If this warehouse previously had positive quantity but no brandBreakdown, assign existing wh quantity to primary brand before updating targetBrand
       if (Object.keys(nextBreakdown).length === 0 && prevStock.quantity > 0) {
         const primaryBrand =
           (currentOffers.find((o) => o.isDefault) || currentOffers[0])?.brand || targetBrand;
-        nextBreakdown[primaryBrand] = prevStock.quantity;
+        nextBreakdown[cleanBrandName(primaryBrand)] = prevStock.quantity;
       }
 
-      // If renaming an existing brand (or replacing a placeholder brand), remove the old key in breakdown
-      if (normPrevBrand !== undefined && normPrevBrand !== normBrand) {
+      // If renaming an existing brand (or replacing a placeholder brand), remove ALL matching old keys in breakdown
+      if (isRenamingBrand) {
         for (const k of Object.keys(nextBreakdown)) {
           if (cleanBrandName(k).toLowerCase() === normPrevBrand) {
             delete nextBreakdown[k];
@@ -6113,16 +6332,20 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       }
 
-      const existingBrandKey =
-        Object.keys(nextBreakdown).find(
-          (k) => cleanBrandName(k).toLowerCase() === normBrand
-        ) || targetBrand;
-      nextBreakdown[existingBrandKey] = cleanQty;
+      // Remove any existing duplicate keys matching normBrand before writing targetBrand cleanly
+      for (const k of Object.keys(nextBreakdown)) {
+        if (cleanBrandName(k).toLowerCase() === normBrand) {
+          delete nextBreakdown[k];
+        }
+      }
+      nextBreakdown[targetBrand] = cleanQty;
 
-      // Remove any stale placeholder keys ("Générique", "Non spécifié", "") when a real brand is set on a single-brand article
-      if (targetBrand && currentOffers.length <= 1) {
+      // Always strip stale placeholder keys ("", "Générique", "Non spécifié", "Sans marque") whenever any real named brand exists
+      const hasRealNamedBrand =
+        Boolean(targetBrand) || Object.keys(nextBreakdown).some((k) => Boolean(cleanBrandName(k)));
+      if (hasRealNamedBrand) {
         for (const k of Object.keys(nextBreakdown)) {
-          if (cleanBrandName(k).toLowerCase() !== normBrand && isPlaceholderBrand(k)) {
+          if (isPlaceholderBrand(k)) {
             delete nextBreakdown[k];
           }
         }
@@ -6136,35 +6359,37 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const nextBrandLocations: Record<string, string> = {
         ...(prevStock.brandLocations || {}),
       };
-      if (normPrevBrand !== undefined && normPrevBrand !== normBrand) {
+      if (isRenamingBrand) {
         for (const k of Object.keys(nextBrandLocations)) {
           if (cleanBrandName(k).toLowerCase() === normPrevBrand) {
             delete nextBrandLocations[k];
           }
         }
       }
-      const existingLocKey =
-        Object.keys(nextBrandLocations).find(
-          (k) => cleanBrandName(k).toLowerCase() === normBrand
-        ) || targetBrand;
-      nextBrandLocations[existingLocKey] = cleanLocation;
+      for (const k of Object.keys(nextBrandLocations)) {
+        if (cleanBrandName(k).toLowerCase() === normBrand && k !== targetBrand) {
+          delete nextBrandLocations[k];
+        }
+      }
+      nextBrandLocations[targetBrand] = cleanLocation;
 
       const nextBrandInvoices: Record<string, string> = {
         ...(prevStock.brandInvoices || {}),
       };
       if (cleanInvoice !== undefined) {
-        if (normPrevBrand !== undefined && normPrevBrand !== normBrand) {
+        if (isRenamingBrand) {
           for (const k of Object.keys(nextBrandInvoices)) {
             if (cleanBrandName(k).toLowerCase() === normPrevBrand) {
               delete nextBrandInvoices[k];
             }
           }
         }
-        const existingInvKey =
-          Object.keys(nextBrandInvoices).find(
-            (k) => cleanBrandName(k).toLowerCase() === normBrand
-          ) || targetBrand;
-        nextBrandInvoices[existingInvKey] = cleanInvoice;
+        for (const k of Object.keys(nextBrandInvoices)) {
+          if (cleanBrandName(k).toLowerCase() === normBrand && k !== targetBrand) {
+            delete nextBrandInvoices[k];
+          }
+        }
+        nextBrandInvoices[targetBrand] = cleanInvoice;
       }
 
       nextStocks[stockIdx] = {
@@ -6177,6 +6402,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           ? { invoiceNumber: cleanInvoice, brandInvoices: nextBrandInvoices }
           : {}),
         lastInventoryDate: nowIso,
+        updatedAt: nowIso,
       };
     } else {
       const newStockRecord: WarehouseStock = {
@@ -6190,6 +6416,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           ? { invoiceNumber: cleanInvoice, brandInvoices: { [targetBrand]: cleanInvoice } }
           : {}),
         lastInventoryDate: nowIso,
+        updatedAt: nowIso,
       };
       nextStocks.push(newStockRecord);
     }
@@ -6345,6 +6572,477 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return {
       success: true,
       message: `Mise à jour enregistrée pour ${existing.mainReference} (${targetBrand}) : Qté ${cleanQty}, Empl. "${cleanLocation}", Achat ${cleanPurchasePrice.toLocaleString('fr-FR')} F, Vente ${cleanSalePrice.toLocaleString('fr-FR')} F.`,
+    };
+  };
+
+  // Atomic batch update for ALL modified warehouses & brands of an article in one save
+  const quickUpdateArticleStocks = (params: {
+    articleId: string;
+    brandUpdates: Array<{
+      originalBrandKey: string;
+      brandName: string;
+      purchasePrice: number;
+      salePrice: number;
+      invoiceNumber?: string;
+      isNew?: boolean;
+    }>;
+    cellUpdates: Array<{
+      warehouseId: string;
+      originalBrandKey: string;
+      brandName: string;
+      newQuantity: number;
+      newLocation: string;
+      invoiceNumber?: string;
+    }>;
+  }): { success: boolean; error?: string; message?: string } => {
+    const existing = articles.find((a) => a.id === params.articleId);
+    if (!existing) {
+      return { success: false, error: 'Article introuvable dans le catalogue.' };
+    }
+
+    const effectiveWarehouses =
+      warehouses.length > 0 ? warehouses : CLEAN_DEFAULT_WAREHOUSES;
+    const activeWhIds = new Set(effectiveWarehouses.map((w) => w.id));
+    const nowIso = new Date().toISOString();
+
+    const nextStocks = deduplicateStocksList(stocks);
+    const prevQtyByWh = new Map<string, number>();
+    for (const st of nextStocks) {
+      if (st.articleId === existing.id) {
+        prevQtyByWh.set(st.warehouseId, Math.max(0, Number(st.quantity) || 0));
+      }
+    }
+
+    // Build rename map (normOld -> cleanNew) for existing brands that were renamed
+    const renameMap = new Map<string, string>();
+    for (const bu of params.brandUpdates) {
+      if (bu.isNew || bu.originalBrandKey.startsWith('__NEW__')) continue;
+      const oldClean = cleanBrandName(bu.originalBrandKey);
+      const newClean = cleanBrandName(bu.brandName);
+      if (oldClean.toLowerCase() !== newClean.toLowerCase()) {
+        renameMap.set(oldClean.toLowerCase(), newClean);
+      }
+    }
+
+    // 1. Apply any brand renames across ALL existing warehouses of this article
+    const touchedWhIds = new Set<string>();
+    if (renameMap.size > 0) {
+      for (let i = 0; i < nextStocks.length; i++) {
+        const st = nextStocks[i];
+        if (st.articleId !== existing.id) continue;
+        const bd: Record<string, number> = {};
+        let renamedHere = false;
+        for (const [k, v] of Object.entries(st.brandBreakdown || {})) {
+          const ck = cleanBrandName(k);
+          const mapped = renameMap.has(ck.toLowerCase()) ? renameMap.get(ck.toLowerCase())! : ck;
+          if (mapped !== ck) renamedHere = true;
+          const existingKey = Object.keys(bd).find(
+            (ek) => cleanBrandName(ek).toLowerCase() === mapped.toLowerCase()
+          );
+          const q = Math.max(0, Math.round(Number(v) || 0));
+          if (existingKey !== undefined) {
+            bd[existingKey] += q;
+          } else {
+            bd[mapped] = q;
+          }
+        }
+        const bl: Record<string, string> = {};
+        for (const [k, v] of Object.entries(st.brandLocations || {})) {
+          const ck = cleanBrandName(k);
+          const mapped = renameMap.has(ck.toLowerCase()) ? renameMap.get(ck.toLowerCase())! : ck;
+          if (mapped !== ck) renamedHere = true;
+          if (!bl[mapped] || (v && v !== 'Non renseigné')) {
+            bl[mapped] = v;
+          }
+        }
+        const bi: Record<string, string> = {};
+        for (const [k, v] of Object.entries(st.brandInvoices || {})) {
+          const ck = cleanBrandName(k);
+          const mapped = renameMap.has(ck.toLowerCase()) ? renameMap.get(ck.toLowerCase())! : ck;
+          if (mapped !== ck) renamedHere = true;
+          if (!bi[mapped] || v) {
+            bi[mapped] = v;
+          }
+        }
+        if (renamedHere) {
+          touchedWhIds.add(st.warehouseId);
+          nextStocks[i] = reconcileWarehouseStock({
+            ...st,
+            brandBreakdown: bd,
+            brandLocations: bl,
+            brandInvoices: bi,
+            quantity: Object.values(bd).reduce((s, q) => s + Math.max(0, Number(q) || 0), 0),
+            lastInventoryDate: nowIso,
+            updatedAt: nowIso,
+          });
+        }
+      }
+    }
+
+    // 2. Group cell updates by warehouseId and apply cleanly
+    const cellsByWh = new Map<string, typeof params.cellUpdates>();
+    for (const cell of params.cellUpdates) {
+      if (!cell.warehouseId) continue;
+      const list = cellsByWh.get(cell.warehouseId) || [];
+      list.push(cell);
+      cellsByWh.set(cell.warehouseId, list);
+    }
+
+    const baseOffers = getArticleBrandOffers(existing);
+    const fallbackPrimaryBrand = cleanBrandName(
+      (baseOffers.find((o) => o.isDefault) || baseOffers[0])?.brand || existing.brand
+    );
+
+    for (const [whId, whCells] of cellsByWh.entries()) {
+      const targetWh =
+        effectiveWarehouses.find((w) => w.id === whId) ||
+        effectiveWarehouses.find((w) => w.isDefault) ||
+        effectiveWarehouses[0] ||
+        CLEAN_DEFAULT_WAREHOUSES[0];
+
+      const stockIdx = nextStocks.findIndex(
+        (s) => s.articleId === existing.id && s.warehouseId === targetWh.id
+      );
+
+      const prevStock =
+        stockIdx !== -1 ? reconcileWarehouseStock(nextStocks[stockIdx]) : undefined;
+
+      const nextBreakdown: Record<string, number> = {};
+      if (prevStock?.brandBreakdown) {
+        for (const [k, v] of Object.entries(prevStock.brandBreakdown)) {
+          const ck = cleanBrandName(k);
+          const q = Math.max(0, Math.round(Number(v) || 0));
+          const ek = Object.keys(nextBreakdown).find(
+            (key) => cleanBrandName(key).toLowerCase() === ck.toLowerCase()
+          );
+          if (ek !== undefined) nextBreakdown[ek] += q;
+          else nextBreakdown[ck] = q;
+        }
+      } else if (prevStock && prevStock.quantity > 0) {
+        nextBreakdown[fallbackPrimaryBrand] = prevStock.quantity;
+      }
+
+      const nextBrandLocations: Record<string, string> = {
+        ...(prevStock?.brandLocations || {}),
+      };
+      const nextBrandInvoices: Record<string, string> = {
+        ...(prevStock?.brandInvoices || {}),
+      };
+
+      let lastLoc = prevStock?.shelfLocation || 'Non renseigné';
+      let lastInv = prevStock?.invoiceNumber;
+
+      for (const cell of whCells) {
+        const targetBrand = cleanBrandName(cell.brandName);
+        const normBrand = targetBrand.toLowerCase();
+        const cleanQty = Math.max(0, Math.round(Number(cell.newQuantity) || 0));
+        const cleanLoc = prefixLocationWithWarehouse(
+          cell.newLocation,
+          targetWh.name,
+          effectiveWarehouses
+        );
+        const cleanInv = cell.invoiceNumber !== undefined ? cell.invoiceNumber.trim() : undefined;
+
+        for (const k of Object.keys(nextBreakdown)) {
+          if (cleanBrandName(k).toLowerCase() === normBrand) {
+            delete nextBreakdown[k];
+          }
+        }
+        nextBreakdown[targetBrand] = cleanQty;
+
+        for (const k of Object.keys(nextBrandLocations)) {
+          if (cleanBrandName(k).toLowerCase() === normBrand && k !== targetBrand) {
+            delete nextBrandLocations[k];
+          }
+        }
+        nextBrandLocations[targetBrand] = cleanLoc;
+        if (cleanLoc !== 'Non renseigné') lastLoc = cleanLoc;
+
+        if (cleanInv !== undefined) {
+          for (const k of Object.keys(nextBrandInvoices)) {
+            if (cleanBrandName(k).toLowerCase() === normBrand && k !== targetBrand) {
+              delete nextBrandInvoices[k];
+            }
+          }
+          nextBrandInvoices[targetBrand] = cleanInv;
+          lastInv = cleanInv;
+        }
+      }
+
+      // Always strip placeholder keys whenever real named brands exist in breakdown or brandUpdates
+      const hasAnyNamedBrand =
+        Object.keys(nextBreakdown).some((k) => Boolean(cleanBrandName(k))) ||
+        params.brandUpdates.some((b) => Boolean(cleanBrandName(b.brandName)));
+      if (hasAnyNamedBrand) {
+        for (const k of Object.keys(nextBreakdown)) {
+          if (isPlaceholderBrand(k)) delete nextBreakdown[k];
+        }
+      }
+
+      const newTotalWhQty = Object.values(nextBreakdown).reduce(
+        (sum, q) => sum + Math.max(0, Number(q) || 0),
+        0
+      );
+
+      const whLocVals = Object.values(nextBrandLocations).filter(
+        (l) => l && l !== 'Non renseigné'
+      );
+      const consolidatedWhShelf =
+        whLocVals.length > 0 ? Array.from(new Set(whLocVals)).join(' • ') : lastLoc;
+
+      touchedWhIds.add(targetWh.id);
+
+      if (stockIdx !== -1) {
+        nextStocks[stockIdx] = {
+          ...prevStock!,
+          quantity: newTotalWhQty,
+          brandBreakdown: nextBreakdown,
+          shelfLocation: consolidatedWhShelf,
+          brandLocations: nextBrandLocations,
+          brandInvoices: nextBrandInvoices,
+          ...(lastInv !== undefined ? { invoiceNumber: lastInv } : {}),
+          lastInventoryDate: nowIso,
+          updatedAt: nowIso,
+        };
+      } else {
+        nextStocks.push({
+          articleId: existing.id,
+          warehouseId: targetWh.id,
+          quantity: newTotalWhQty,
+          brandBreakdown: nextBreakdown,
+          shelfLocation: consolidatedWhShelf,
+          brandLocations: nextBrandLocations,
+          brandInvoices: nextBrandInvoices,
+          ...(lastInv ? { invoiceNumber: lastInv } : {}),
+          lastInventoryDate: nowIso,
+          updatedAt: nowIso,
+        });
+      }
+    }
+
+    // 3. Rebuild synchronized brandOffers on the Article
+    const currentOffers: ArticleBrandOffer[] = baseOffers.map((o) => ({
+      ...o,
+      brand: cleanBrandName(o.brand),
+    }));
+
+    for (const bu of params.brandUpdates) {
+      const targetBrand = cleanBrandName(bu.brandName);
+      const normTarget = targetBrand.toLowerCase();
+      const origClean = bu.originalBrandKey.startsWith('__NEW__')
+        ? '__NEW__'
+        : cleanBrandName(bu.originalBrandKey);
+      const normOrig = origClean.toLowerCase();
+      const cleanPurchase = Math.max(0, Math.round(Number(bu.purchasePrice) || 0));
+      const cleanSale = Math.max(0, Math.round(Number(bu.salePrice) || 0));
+      const cleanInv = bu.invoiceNumber !== undefined ? bu.invoiceNumber.trim() : undefined;
+
+      let offerIdx = -1;
+      if (!bu.isNew && origClean !== '__NEW__') {
+        offerIdx = currentOffers.findIndex(
+          (o) => cleanBrandName(o.brand).toLowerCase() === normOrig
+        );
+      }
+      if (offerIdx === -1) {
+        offerIdx = currentOffers.findIndex(
+          (o) => cleanBrandName(o.brand).toLowerCase() === normTarget
+        );
+      }
+      if (
+        offerIdx === -1 &&
+        !bu.isNew &&
+        currentOffers.length === 1 &&
+        !cleanBrandName(currentOffers[0].brand)
+      ) {
+        offerIdx = 0;
+      }
+
+      if (offerIdx !== -1) {
+        currentOffers[offerIdx] = {
+          ...currentOffers[offerIdx],
+          brand: targetBrand,
+          purchasePrice: cleanPurchase,
+          salePrice: cleanSale,
+          ...(cleanInv !== undefined
+            ? {
+                invoiceNumber: cleanInv || undefined,
+                invoiceNumbers: cleanInv ? [cleanInv] : undefined,
+              }
+            : {}),
+        };
+      } else {
+        currentOffers.push({
+          id: `bo_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          brand: targetBrand,
+          brandReference: existing.mainReference,
+          purchasePrice: cleanPurchase,
+          salePrice: cleanSale,
+          ...(cleanInv ? { invoiceNumber: cleanInv, invoiceNumbers: [cleanInv] } : {}),
+          isDefault: currentOffers.length === 0,
+        });
+      }
+    }
+
+    const affectedStocks = nextStocks.filter(
+      (s) => s.articleId === existing.id && (activeWhIds.size === 0 || activeWhIds.has(s.warehouseId))
+    );
+
+    // Ensure every named brand with positive stock in any active warehouse has a corresponding brandOffer
+    for (const st of affectedStocks) {
+      if (!st.brandBreakdown) continue;
+      for (const [rawKey, rawQty] of Object.entries(st.brandBreakdown)) {
+        const qty = Math.max(0, Number(rawQty) || 0);
+        const ck = cleanBrandName(rawKey);
+        if (qty > 0 && ck) {
+          const existsInOffers = currentOffers.some(
+            (o) => cleanBrandName(o.brand).toLowerCase() === ck.toLowerCase()
+          );
+          if (!existsInOffers) {
+            currentOffers.push({
+              id: `bo_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+              brand: ck,
+              brandReference: existing.mainReference,
+              purchasePrice: existing.purchasePrice || 0,
+              salePrice: existing.salePrice || 0,
+              isDefault: false,
+            });
+          }
+        }
+      }
+    }
+
+    // Deduplicate offers & strip empty placeholder offers when real brands exist
+    const dedupOfferMap = new Map<string, ArticleBrandOffer>();
+    const hasRealOffer = currentOffers.some((o) => Boolean(cleanBrandName(o.brand)));
+    for (const o of currentOffers) {
+      const cb = cleanBrandName(o.brand);
+      if (!cb && hasRealOffer) continue;
+      const key = cb.toLowerCase();
+      const prev = dedupOfferMap.get(key);
+      if (!prev) {
+        dedupOfferMap.set(key, { ...o, brand: cb });
+      } else {
+        dedupOfferMap.set(key, {
+          ...prev,
+          ...o,
+          brand: cb || prev.brand,
+          isDefault: Boolean(prev.isDefault || o.isDefault),
+        });
+      }
+    }
+
+    const cleanedOffers = Array.from(dedupOfferMap.values()).map((offer) => {
+      const normB = cleanBrandName(offer.brand).toLowerCase();
+      let brandTotalQty = 0;
+      const brandLocSet = new Set<string>();
+
+      for (const st of affectedStocks) {
+        const whObj =
+          effectiveWarehouses.find((w) => w.id === st.warehouseId) || effectiveWarehouses[0];
+        if (st.brandBreakdown) {
+          for (const [k, v] of Object.entries(st.brandBreakdown)) {
+            if (cleanBrandName(k).toLowerCase() === normB) {
+              brandTotalQty += Math.max(0, Number(v) || 0);
+            }
+          }
+        }
+        if (st.brandLocations) {
+          const lKey = Object.keys(st.brandLocations).find(
+            (k) => cleanBrandName(k).toLowerCase() === normB
+          );
+          if (lKey && st.brandLocations[lKey] && st.brandLocations[lKey] !== 'Non renseigné') {
+            const pref = prefixLocationWithWarehouse(st.brandLocations[lKey], whObj?.name);
+            if (pref !== 'Non renseigné') brandLocSet.add(pref);
+          }
+        }
+      }
+
+      const locs = Array.from(brandLocSet);
+      return {
+        ...offer,
+        stockQuantity: brandTotalQty,
+        location: locs.length > 0 ? locs.join(' • ') : offer.location || 'Non renseigné',
+        locations: locs.length > 0 ? locs : offer.locations,
+      };
+    });
+
+    const primaryOffer = cleanedOffers.find((o) => o.isDefault) || cleanedOffers[0];
+    const allOfferLocs = Array.from(
+      new Set(
+        cleanedOffers
+          .map((o) => o.location?.trim())
+          .filter((l): l is string => Boolean(l && l !== 'Non renseigné'))
+      )
+    );
+
+    const updatedArticle: Article = {
+      ...existing,
+      brand: cleanBrandName(primaryOffer?.brand) || cleanBrandName(existing.brand),
+      purchasePrice: primaryOffer ? primaryOffer.purchasePrice : existing.purchasePrice,
+      salePrice: primaryOffer ? primaryOffer.salePrice : existing.salePrice,
+      defaultLocation:
+        allOfferLocs.length > 0 ? allOfferLocs.join(' • ') : existing.defaultLocation,
+      brandOffers: cleanedOffers,
+      updatedAt: nowIso,
+    };
+
+    // Persist stocks & article atomically
+    setStocks(nextStocks);
+    safeSetLocalStorage('stocks', nextStocks);
+    saveMultipleStocksToFirebase(affectedStocks).catch(console.warn);
+
+    const nextArticles = articles.map((a) => (a.id === existing.id ? updatedArticle : a));
+    setArticles(nextArticles);
+    safeSetLocalStorage('articles', nextArticles);
+    saveArticleToFirebase(updatedArticle).catch(console.warn);
+
+    // 4. Record adjustment movements for each warehouse whose total changed
+    const newMovements: StockMovement[] = [];
+    for (const whId of touchedWhIds) {
+      const prevQty = prevQtyByWh.get(whId) || 0;
+      const updatedRec = nextStocks.find(
+        (s) => s.articleId === existing.id && s.warehouseId === whId
+      );
+      const nextQty = updatedRec ? updatedRec.quantity : 0;
+      const qtyDelta = nextQty - prevQty;
+      if (qtyDelta !== 0) {
+        const whName = effectiveWarehouses.find((w) => w.id === whId)?.name || whId;
+        newMovements.push({
+          id: generateMovementId(),
+          date: nowIso,
+          type: 'AJUSTEMENT',
+          articleId: existing.id,
+          quantity: Math.abs(qtyDelta),
+          ...(qtyDelta > 0
+            ? { targetWarehouseId: whId }
+            : { sourceWarehouseId: whId }),
+          userId: currentUser.id,
+          userName: currentUser.name,
+          documentRef: `MOD-STOCK-${Date.now().toString().slice(-5)}`,
+          reason: `Correction directe du stock (${whName})`,
+          unitPrice: updatedArticle.purchasePrice,
+          totalPrice: Math.abs(qtyDelta) * updatedArticle.purchasePrice,
+          stockBefore: prevQty,
+          stockAfter: nextQty,
+        });
+      }
+    }
+
+    if (newMovements.length > 0) {
+      const nextMovements = [...newMovements, ...movements];
+      setMovements(nextMovements);
+      safeSetLocalStorage('movements', nextMovements);
+      newMovements.forEach((m) => saveMovementToFirebase(m).catch(console.warn));
+    }
+
+    const totalPieceQty = affectedStocks.reduce(
+      (sum, st) => sum + Math.max(0, Number(st.quantity) || 0),
+      0
+    );
+
+    return {
+      success: true,
+      message: `Modifications enregistrées pour ${existing.mainReference} — Stock total synchronisé : ${totalPieceQty} ${existing.unit}.`,
     };
   };
 
@@ -7162,6 +7860,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                   ? { invoiceNumber: prevStock.invoiceNumber }
                   : {}),
                 lastInventoryDate: nowIso,
+                updatedAt: nowIso,
               };
 
               if (shouldApplyStock) {
@@ -10477,6 +11176,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         importMachineApplicationsForArticle,
         importMachineApplications,
         quickUpdateStockItem,
+        quickUpdateArticleStocks,
         deleteArticle,
         deleteMultipleArticles,
         executeImport,

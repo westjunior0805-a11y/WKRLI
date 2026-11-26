@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { StockProvider, useStock } from './context/StockContext';
 import { Header } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
+import { MobileBottomNav } from './components/layout/MobileBottomNav';
 import { DashboardView } from './components/dashboard/DashboardView';
 import { ArticleCatalogView } from './components/catalog/ArticleCatalogView';
 import { ImportCatalogView } from './components/catalog/ImportCatalogView';
@@ -177,6 +178,115 @@ function AppContent() {
     setTheme((prev) => (prev === 'light' ? 'soft' : prev === 'soft' ? 'dark' : 'light'));
   };
 
+  // Raccourcis clavier globaux : Échap ferme la fenêtre active ; Ctrl+K ou "/" place le curseur dans la recherche
+  useEffect(() => {
+    if (!isAuthenticated || showAuthGate) return;
+
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // 1. Ctrl+K / Cmd+K ou "/" (hors champ de saisie) -> focus recherche
+      const target = e.target as HTMLElement | null;
+      const isTypingTarget =
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable);
+
+      if (((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') || (e.key === '/' && !isTypingTarget)) {
+        e.preventDefault();
+        const searchInputs = Array.from(
+          document.querySelectorAll<HTMLInputElement>('input[data-search-input="true"]')
+        ).filter((el) => el.offsetParent !== null);
+
+        if (searchInputs.length > 0) {
+          searchInputs[0].focus();
+          searchInputs[0].select();
+        } else {
+          setActiveView('new_sale');
+          setTimeout(() => {
+            const input = document.querySelector<HTMLInputElement>('input[data-search-input="true"]');
+            input?.focus();
+          }, 80);
+        }
+        return;
+      }
+
+      // 2. Touche Échap -> ferme la modale ou le menu mobile au premier plan
+      if (e.key === 'Escape') {
+        if (isWipeConfirmOpen) {
+          setIsWipeConfirmOpen(false);
+          return;
+        }
+        if (isPurchaseOrderOpen) {
+          setIsPurchaseOrderOpen(false);
+          return;
+        }
+        if (isTransferOpen) {
+          setIsTransferOpen(false);
+          return;
+        }
+        if (isStockOutOpen) {
+          setIsStockOutOpen(false);
+          return;
+        }
+        if (isStockInOpen) {
+          setIsStockInOpen(false);
+          return;
+        }
+        if (isSidebarMobileOpen) {
+          setIsSidebarMobileOpen(false);
+          return;
+        }
+
+        // Fermer la fenêtre modale (fixed inset-0) la plus au premier plan si présente
+        const overlays = Array.from(
+          document.querySelectorAll<HTMLElement>('.fixed.inset-0')
+        ).filter((el) => el.offsetParent !== null);
+
+        if (overlays.length > 0) {
+          const topOverlay = overlays[overlays.length - 1];
+          const explicitClose =
+            topOverlay.querySelector<HTMLButtonElement>('button[aria-label="Fermer"]') ||
+            topOverlay.querySelector<HTMLButtonElement>('button[title="Fermer"]') ||
+            topOverlay.querySelector<HTMLButtonElement>('button[data-modal-close="true"]');
+
+          if (explicitClose) {
+            explicitClose.click();
+            return;
+          }
+
+          // Sinon rechercher le bouton Annuler ou l'icône X en haut à droite de la modale
+          const buttons = Array.from(topOverlay.querySelectorAll<HTMLButtonElement>('button'));
+          const xButton = buttons.find(
+            (btn) => btn.textContent?.trim() === '' && btn.querySelector('svg')
+          );
+          if (xButton) {
+            xButton.click();
+            return;
+          }
+          const cancelBtn = buttons.find((btn) =>
+            /^(annuler|fermer)$/i.test(btn.textContent?.trim() || '')
+          );
+          if (cancelBtn) {
+            cancelBtn.click();
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [
+    isAuthenticated,
+    showAuthGate,
+    isWipeConfirmOpen,
+    isPurchaseOrderOpen,
+    isTransferOpen,
+    isStockOutOpen,
+    isStockInOpen,
+    isSidebarMobileOpen,
+  ]);
+
   // Enforce authentication: require valid PIN-verified Operator session or local Email login
   if (!isAuthenticated || showAuthGate) {
     return (
@@ -321,7 +431,7 @@ function AppContent() {
             onSelectTheme={(t) => setTheme(t)}
           />
 
-          <main className="flex-1 px-3 py-4 sm:px-8 sm:py-6 lg:px-10 lg:py-8 max-w-[1400px] w-full mx-auto space-y-4 sm:space-y-6">
+          <main className="flex-1 px-3 py-4 pb-20 sm:px-8 sm:py-6 sm:pb-24 lg:px-10 lg:py-8 lg:pb-8 max-w-[1400px] w-full mx-auto space-y-4 sm:space-y-6">
             {/* Unified Module Editorial Sub-Navigation Bar */}
             {moduleSubNav && (
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-0 sm:gap-3 bg-white border border-[#E0E0E0] px-3 sm:px-5 py-0 shadow-[0_2px_10px_rgba(0,0,0,0.03)]">
@@ -607,6 +717,13 @@ function AppContent() {
           </div>
         </div>
       )}
+
+      {/* Barre de navigation mobile fixe en bas d'écran */}
+      <MobileBottomNav
+        activeView={activeView}
+        onSelectView={(v) => setActiveView(v)}
+        onOpenMenu={() => setIsSidebarMobileOpen(true)}
+      />
 
       {/* Notification Toast Layer */}
       <NotificationToast toasts={toasts} onDismiss={removeToast} />

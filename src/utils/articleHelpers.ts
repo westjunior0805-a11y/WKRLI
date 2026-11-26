@@ -283,6 +283,50 @@ export function formatPurchasePriceRange(article: Article): string {
 }
 
 /**
+ * Returns all brand offers for an article, also including any named brand that currently holds
+ * positive stock in any warehouse record so no physical stock can ever be hidden from the UI.
+ */
+export function getEffectiveArticleBrandOffers(
+  article: Article,
+  articleStocks?: WarehouseStock[]
+): ArticleBrandOffer[] {
+  const baseOffers = getArticleBrandOffers(article);
+  if (!articleStocks || articleStocks.length === 0) return baseOffers;
+
+  const existingKeys = new Set(
+    baseOffers.map((o) => cleanBrandName(o.brand).toLowerCase())
+  );
+  const extras: ArticleBrandOffer[] = [];
+
+  for (const st of articleStocks) {
+    if (st.articleId !== article.id || !st.brandBreakdown) continue;
+    for (const [rawKey, rawQty] of Object.entries(st.brandBreakdown)) {
+      const qty = Math.max(0, Number(rawQty) || 0);
+      if (qty <= 0) continue;
+      const cleanKey = cleanBrandName(rawKey);
+      if (!cleanKey) continue;
+      const norm = cleanKey.toLowerCase();
+      if (!existingKeys.has(norm)) {
+        existingKeys.add(norm);
+        extras.push({
+          id: `bo_stock_${article.id}_${norm}`,
+          brand: cleanKey,
+          brandReference: article.mainReference,
+          purchasePrice: article.purchasePrice || 0,
+          salePrice: article.salePrice || 0,
+          location: st.brandLocations?.[rawKey] || st.shelfLocation || article.defaultLocation,
+          invoiceNumber: st.brandInvoices?.[rawKey] || st.invoiceNumber || article.invoiceNumber,
+          stockQuantity: qty,
+          isDefault: false,
+        });
+      }
+    }
+  }
+
+  return extras.length > 0 ? [...baseOffers, ...extras] : baseOffers;
+}
+
+/**
  * Computes the specific physical stock of a given brand inside a single warehouse stock record.
  */
 export function getBrandStock(
@@ -303,17 +347,22 @@ export function getBrandStock(
       0
     );
     if (bdSum > 0) {
-      const key = keys.find(
-        (b) =>
+      let matchedSum = 0;
+      let foundMatch = false;
+      for (const b of keys) {
+        if (
           b.toLowerCase().trim() === brandName.toLowerCase().trim() ||
           cleanBrandName(b).toLowerCase() === normBrand
-      );
-      if (key !== undefined) {
-        const rawVal = Math.max(0, Number(stock.brandBreakdown[key]) || 0);
-        if (bdSum > whQty) {
-          return keys.length === 1 ? whQty : Math.round((rawVal / bdSum) * whQty);
+        ) {
+          foundMatch = true;
+          matchedSum += Math.max(0, Number(stock.brandBreakdown[b]) || 0);
         }
-        return rawVal;
+      }
+      if (foundMatch) {
+        if (bdSum > whQty) {
+          return keys.length === 1 ? whQty : Math.round((matchedSum / bdSum) * whQty);
+        }
+        return matchedSum;
       }
       if (keys.length === 1 && isPlaceholderBrand(keys[0])) {
         return whQty;
@@ -333,11 +382,22 @@ export function getBrandStockAcrossWarehouses(
   brandName: string,
   selectedWarehouseId?: string | null
 ): number {
-  const relevantStocks = stocks.filter(
-    (s) =>
-      s.articleId === article.id &&
-      (!selectedWarehouseId || s.warehouseId === selectedWarehouseId)
-  );
+  // Deduplicate by warehouseId so duplicate records can never double-count
+  const byWh = new Map<string, WarehouseStock>();
+  for (const s of stocks) {
+    if (s.articleId !== article.id) continue;
+    if (selectedWarehouseId && s.warehouseId !== selectedWarehouseId) continue;
+    const prev = byWh.get(s.warehouseId);
+    if (!prev) {
+      byWh.set(s.warehouseId, s);
+    } else {
+      const prevTime = new Date(prev.updatedAt || prev.lastInventoryDate || 0).getTime();
+      const curTime = new Date(s.updatedAt || s.lastInventoryDate || 0).getTime();
+      if (curTime >= prevTime) {
+        byWh.set(s.warehouseId, s);
+      }
+    }
+  }
 
   const normBrand = cleanBrandName(brandName).toLowerCase();
   const offers = getArticleBrandOffers(article);
@@ -349,7 +409,7 @@ export function getBrandStockAcrossWarehouses(
 
   let totalForBrand = 0;
 
-  for (const st of relevantStocks) {
+  for (const st of byWh.values()) {
     const whQty = Math.max(0, Number(st.quantity) || 0);
     if (whQty === 0) continue;
 
@@ -360,18 +420,23 @@ export function getBrandStockAcrossWarehouses(
         0
       );
       if (bdSum > 0) {
-        const matchKey = keys.find(
-          (k) =>
+        let matchedSum = 0;
+        let foundMatch = false;
+        for (const k of keys) {
+          if (
             k.toLowerCase().trim() === brandName.toLowerCase().trim() ||
             cleanBrandName(k).toLowerCase() === normBrand
-        );
-        if (matchKey !== undefined) {
-          const rawVal = Math.max(0, Number(st.brandBreakdown[matchKey]) || 0);
+          ) {
+            foundMatch = true;
+            matchedSum += Math.max(0, Number(st.brandBreakdown[k]) || 0);
+          }
+        }
+        if (foundMatch) {
           if (bdSum > whQty) {
             totalForBrand +=
-              keys.length === 1 ? whQty : Math.round((rawVal / bdSum) * whQty);
+              keys.length === 1 ? whQty : Math.round((matchedSum / bdSum) * whQty);
           } else {
-            totalForBrand += rawVal;
+            totalForBrand += matchedSum;
           }
         } else if (offers.length === 1 && keys.length === 1 && isPlaceholderBrand(keys[0])) {
           totalForBrand += whQty;

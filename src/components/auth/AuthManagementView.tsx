@@ -299,8 +299,8 @@ export const AuthManagementView: React.FC = () => {
         );
       case 'RESPONSABLE':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200">
-            <Lock className="w-3.5 h-3.5 text-blue-600" />
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-[#FFF9DF] text-[#111111] border border-[#E5C130]">
+            <Lock className="w-3.5 h-3.5 text-[#7A5C00]" />
             Responsable
           </span>
         );
@@ -1476,7 +1476,7 @@ export const AuthManagementView: React.FC = () => {
           <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 my-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div className="flex items-center gap-2">
-                <div className="p-2 bg-blue-100 text-blue-700 rounded-xl">
+                <div className="p-2 bg-[#FFF9DF] text-[#7A5C00] rounded-xl">
                   <Edit2 className="w-5 h-5" />
                 </div>
                 <div>
@@ -1571,7 +1571,7 @@ export const AuthManagementView: React.FC = () => {
               <div className="border border-slate-200 rounded-xl p-3.5 bg-slate-50/60 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                    <Sliders className="w-3.5 h-3.5 text-blue-600" />
+                    <Sliders className="w-3.5 h-3.5 text-[#7A5C00]" />
                     Autorisations individuelles
                   </span>
                 </div>
@@ -1579,7 +1579,7 @@ export const AuthManagementView: React.FC = () => {
                   {PERMISSION_DEFINITIONS.map((perm) => (
                     <label
                       key={perm.key}
-                      className="flex items-center gap-2 p-2 rounded-lg bg-white border border-slate-200/80 text-xs cursor-pointer hover:border-blue-300"
+                      className="flex items-center gap-2 p-2 rounded-lg bg-white border border-slate-200/80 text-xs cursor-pointer hover:border-[#E5C130]"
                     >
                       <input
                         type="checkbox"
@@ -1591,7 +1591,7 @@ export const AuthManagementView: React.FC = () => {
                             [perm.key]: e.target.checked,
                           })
                         }
-                        className="w-3.5 h-3.5 text-blue-600 rounded border-slate-300"
+                        className="w-3.5 h-3.5 text-[#7A5C00] rounded border-slate-300"
                       />
                       <span className="font-medium text-slate-800 truncate" title={perm.description}>
                         {perm.label}
@@ -1636,7 +1636,7 @@ export const AuthManagementView: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isSubmittingEdit}
-                  className="px-4 py-2 text-xs sm:text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-xl shadow-xs transition-colors flex items-center gap-2 cursor-pointer"
+                  className="px-4 py-2 text-xs sm:text-sm font-bold text-[#111111] bg-[#FFCD11] hover:bg-[#E5B700] disabled:opacity-50 rounded-xl shadow-xs transition-colors flex items-center gap-2 cursor-pointer"
                 >
                   <Check className="w-4 h-4" />
                   <span>{isSubmittingEdit ? 'Enregistrement...' : 'Mettre à jour'}</span>

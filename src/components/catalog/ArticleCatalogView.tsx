@@ -575,7 +575,7 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
               ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
               : actionFeedback.type === 'error'
               ? 'bg-rose-50 border-rose-200 text-rose-900'
-              : 'bg-blue-50 border-blue-200 text-blue-900'
+              : 'bg-[#FFF9DF] border-[#E5C130] text-[#111111]'
           }`}
         >
           <div className="flex items-start gap-2.5">
@@ -586,7 +586,7 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
               <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
             )}
             {actionFeedback.type === 'info' && (
-              <AlertTriangle className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+              <AlertTriangle className="w-5 h-5 text-[#7A5C00] shrink-0 mt-0.5" />
             )}
             <p className="text-xs sm:text-sm font-medium leading-relaxed">
               {actionFeedback.message}

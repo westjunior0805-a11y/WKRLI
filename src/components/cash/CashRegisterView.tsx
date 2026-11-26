@@ -655,10 +655,10 @@ export const CashRegisterView: React.FC = () => {
                   setTransferSuccess('');
                   setIsTransferModalActive(true);
                 }}
-                className="px-3 py-2 text-xs font-semibold text-[#1B1B1B] bg-white hover:border-[#E35E2D] border border-[#E5E5E5] rounded transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+                className="px-3 py-2 text-xs font-semibold text-[#1B1B1B] bg-white hover:border-[#FFCD11] border border-[#E5E5E5] rounded transition-colors inline-flex items-center gap-1.5 cursor-pointer"
                 title="Transférer une écriture électronique (Wave, Orange Money, Banque) vers les espèces du tiroir"
               >
-                <ArrowLeftRight className="w-3.5 h-3.5 text-[#E35E2D]" />
+                <ArrowLeftRight className="w-3.5 h-3.5 text-[#7A5C00]" />
                 <span>Transfert vers Espèces</span>
               </button>
 
@@ -670,7 +670,7 @@ export const CashRegisterView: React.FC = () => {
                   setIsExpenseModalActive(true);
                 }}
                 title="Enregistrer une dépense, un retrait banque ou un apport d'espèces"
-                className="px-3 py-2 text-xs font-semibold text-[#1B1B1B] bg-white hover:border-[#E35E2D] border border-[#E5E5E5] rounded transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+                className="px-3 py-2 text-xs font-semibold text-[#1B1B1B] bg-white hover:border-[#FFCD11] border border-[#E5E5E5] rounded transition-colors inline-flex items-center gap-1.5 cursor-pointer"
               >
                 <Minus className="w-3.5 h-3.5 text-rose-600" />
                 <span>Dépense / Retrait</span>
@@ -679,7 +679,7 @@ export const CashRegisterView: React.FC = () => {
               <button
                 onClick={handlePrepareClose}
                 title="Compter les espèces du tiroir et clôturer la session de caisse"
-                className="px-3.5 py-2 text-xs font-semibold text-white bg-[#1B1B1B] hover:bg-[#E35E2D] rounded transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+                className="px-3.5 py-2 text-xs font-semibold text-white bg-[#111111] hover:bg-[#FFCD11] hover:text-[#111111] rounded transition-colors inline-flex items-center gap-1.5 cursor-pointer"
               >
                 <Lock className="w-3.5 h-3.5 text-white" />
                 <span>Clôturer la caisse</span>
@@ -743,7 +743,7 @@ export const CashRegisterView: React.FC = () => {
                   setReopenError('');
                 }}
                 title="Rouvrir cette session clôturée pour effectuer des corrections (Administrateur)"
-                className="px-3 py-1.5 rounded bg-[#E35E2D] hover:bg-[#C94D1E] text-white font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                className="px-3 py-1.5 rounded bg-[#FFCD11] hover:bg-[#E5B700] text-[#111111] font-semibold inline-flex items-center gap-1.5 cursor-pointer"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>Rouvrir la caisse</span>
@@ -871,17 +871,17 @@ export const CashRegisterView: React.FC = () => {
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               {/* Wave */}
-              <div className="p-3 bg-sky-50 border border-sky-200 rounded-xl flex flex-col justify-between space-y-2">
+              <div className="p-3 bg-[#FFF9DF] border border-[#E5C130] rounded-xl flex flex-col justify-between space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-sky-900 flex items-center gap-1.5">
-                    <QrCode className="w-3.5 h-3.5 text-sky-600" />
+                  <span className="font-semibold text-[#111111] flex items-center gap-1.5">
+                    <QrCode className="w-3.5 h-3.5 text-[#7A5C00]" />
                     Wave Sénégal
                   </span>
                   {currentOpenSession && sessionStats.totalWave > 0 && (
                     <button
                       type="button"
                       onClick={() => handleOpenTransferFor('WAVE', sessionStats.totalWave)}
-                      className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-200/80 hover:bg-sky-300 text-sky-950 transition-colors inline-flex items-center gap-1 cursor-pointer"
+                      className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#FFCD11]/25 hover:bg-[#FFCD11]/35 text-[#111111] transition-colors inline-flex items-center gap-1 cursor-pointer"
                       title="Transférer le solde Wave vers les espèces du tiroir"
                     >
                       <ArrowLeftRight className="w-2.5 h-2.5" />
@@ -890,10 +890,10 @@ export const CashRegisterView: React.FC = () => {
                   )}
                 </div>
                 <div>
-                  <div className="font-mono font-bold text-base text-sky-900 tabular-nums">
+                  <div className="font-mono font-bold text-base text-[#111111] tabular-nums">
                     {formatFCFA(sessionStats.totalWave)}
                   </div>
-                  <span className="text-[10px] text-sky-700">Solde disponible</span>
+                  <span className="text-[10px] text-[#7A5C00]">Solde disponible</span>
                 </div>
               </div>
 
@@ -1075,7 +1075,95 @@ export const CashRegisterView: React.FC = () => {
                   Aucun mouvement enregistré pour cette session de caisse.
                 </div>
               ) : (
-                <table className="w-full table-fixed text-left text-xs">
+                <>
+                {/* Mobile Cards */}
+                <div className="md:hidden divide-y divide-[#E0E0E0]">
+                  {paginatedSessionMovements.map((m, idx) => {
+                    const mDateObj = new Date(m.date);
+                    const datePart = mDateObj.toLocaleDateString('fr-FR', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                    });
+                    const timePart = mDateObj.toLocaleTimeString('fr-FR', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    });
+                    const isInitMvt =
+                      m.id.startsWith('CSM-INIT') ||
+                      m.reason === 'Fond de caisse initial à l’ouverture';
+                    const isLinkedCustomerPayment =
+                      m.type === 'ACOMPTE_CLIENT' || m.type === 'REGLEMENT_CREANCE';
+                    const canDeleteManualMvt =
+                      isAdmin && !isInitMvt && !m.saleId && !isLinkedCustomerPayment;
+
+                    return (
+                      <div key={`m-${m.id}-${idx}`} className="p-3.5 space-y-1.5 bg-white">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <span
+                              className={`inline-block px-1.5 py-0.5 text-[10px] font-bold uppercase ${
+                                m.type === 'TRANSFERT_ELECTRONIQUE_TIROIR'
+                                  ? 'bg-[#FFF9DF] text-[#7A5C00] border border-[#FFCD11]'
+                                  : m.type === 'VENTE_ESPECES' || m.type === 'APPORT_ESPECES'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : m.type === 'REGLEMENT_CREANCE' || m.type === 'ACOMPTE_CLIENT'
+                                  ? 'bg-[#FFF9DF] text-[#111111] border border-[#E5C130]'
+                                  : m.type === 'DEPENSE' || m.type === 'REMBOURSEMENT' || m.type === 'RETRAIT_BANQUE'
+                                  ? 'bg-rose-100 text-rose-800'
+                                  : 'bg-[#F4F4F4] text-[#111111] border border-[#D4D4D4]'
+                              }`}
+                            >
+                              {m.type === 'TRANSFERT_ELECTRONIQUE_TIROIR'
+                                ? m.isCashInDrawer
+                                  ? 'TRANSFERT ➔ TIROIR (+)'
+                                  : 'TRANSFERT ➔ TIROIR (-)'
+                                : m.type === 'REGLEMENT_CREANCE'
+                                ? 'RÈGLEMENT CRÉANCE'
+                                : m.type === 'ACOMPTE_CLIENT'
+                                ? 'ACOMPTE CLIENT'
+                                : m.type}
+                            </span>
+                            <div className="text-[11px] font-mono text-[#595959] mt-1">
+                              {datePart} • {timePart} • {m.method}
+                            </div>
+                          </div>
+
+                          <div className="text-right shrink-0 flex items-center gap-2">
+                            <span
+                              className={`font-mono text-sm font-bold tabular-nums ${
+                                m.direction === 'IN' ? 'text-emerald-700' : 'text-rose-600'
+                              }`}
+                            >
+                              {m.direction === 'IN' ? '+' : '-'} {formatFCFA(m.amount)}
+                            </span>
+                            {canDeleteManualMvt && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteMovement(m)}
+                                className="p-1 text-rose-700 bg-rose-50 border border-rose-200 cursor-pointer"
+                                title="Supprimer cette écriture"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="text-xs text-[#111111]">
+                          {m.reason}
+                          {m.documentRef && (
+                            <span className="font-mono text-[10px] text-[#595959] ml-1">
+                              ({m.documentRef})
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <table className="hidden md:table w-full table-fixed text-left text-xs">
                   <thead className="bg-slate-50/60 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold text-[10px]">
                     <tr>
                       <SortableTh label="Date" active={ledgerSortField === 'date'} direction={ledgerSortOrder === 'ASC' ? 'asc' : 'desc'} onClick={() => handleLedgerSort('date')} className="w-[12%]" />
@@ -1131,10 +1219,10 @@ export const CashRegisterView: React.FC = () => {
                                   : m.type === 'VENTE_ESPECES' || m.type === 'APPORT_ESPECES'
                                   ? 'bg-emerald-100 text-emerald-800'
                                   : m.type === 'REGLEMENT_CREANCE' || m.type === 'ACOMPTE_CLIENT'
-                                  ? 'bg-indigo-100 text-indigo-800 border border-indigo-200'
+                                  ? 'bg-[#FFF9DF] text-[#111111] border border-[#E5C130]'
                                   : m.type === 'DEPENSE' || m.type === 'REMBOURSEMENT' || m.type === 'RETRAIT_BANQUE'
                                   ? 'bg-rose-100 text-rose-800'
-                                  : 'bg-sky-100 text-sky-800'
+                                  : 'bg-[#FFF9DF] text-[#111111]'
                               }`}
                             >
                               {m.type === 'TRANSFERT_ELECTRONIQUE_TIROIR'
@@ -1216,6 +1304,7 @@ export const CashRegisterView: React.FC = () => {
                     })}
                   </tbody>
                 </table>
+                </>
               )}
             </div>
             <TablePagination
@@ -1708,15 +1797,15 @@ export const CashRegisterView: React.FC = () => {
                     }}
                     className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
                       transferSource === 'WAVE'
-                        ? 'bg-sky-50 border-sky-400 ring-2 ring-sky-400/20'
+                        ? 'bg-[#FFF9DF] border-[#FFCD11] ring-2 ring-[#FFCD11]/25'
                         : 'bg-white border-slate-200 hover:border-slate-300'
                     }`}
                   >
-                    <span className="font-bold text-sky-950 flex items-center gap-1.5">
-                      <QrCode className="w-3.5 h-3.5 text-sky-600" />
+                    <span className="font-bold text-[#111111] flex items-center gap-1.5">
+                      <QrCode className="w-3.5 h-3.5 text-[#7A5C00]" />
                       Wave
                     </span>
-                    <span className="font-mono font-extrabold text-xs text-sky-900 mt-1">
+                    <span className="font-mono font-extrabold text-xs text-[#111111] mt-1">
                       {formatFCFA(sessionStats.totalWave)}
                     </span>
                   </button>

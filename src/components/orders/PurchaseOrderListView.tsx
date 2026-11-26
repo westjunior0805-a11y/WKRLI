@@ -439,7 +439,7 @@ export const PurchaseOrderListView: React.FC<PurchaseOrderListViewProps> = ({
         );
       case 'TO_ORDER':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-100 text-blue-800">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#FFF9DF] text-[#111111]">
             <Clock className="w-3 h-3" />
             À commander
           </span>
@@ -453,7 +453,7 @@ export const PurchaseOrderListView: React.FC<PurchaseOrderListViewProps> = ({
         );
       case 'PARTIALLY_RECEIVED':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-100 text-indigo-800">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#FFF9DF] text-[#111111]">
             <PackageCheck className="w-3 h-3" />
             Partiellement reçu
           </span>
@@ -598,7 +598,125 @@ export const PurchaseOrderListView: React.FC<PurchaseOrderListViewProps> = ({
                   </p>
                 </div>
               ) : (
-                <table className="w-full table-fixed text-left text-xs">
+                <>
+                {/* Mobile Cards */}
+                <div className="md:hidden divide-y divide-[#E0E0E0]">
+                  {paginatedOrders.map((order) => {
+                    const totalQtyOrdered = order.items.reduce((s, it) => s + it.quantityOrdered, 0);
+                    const totalQtyReceived = order.items.reduce((s, it) => s + it.quantityReceived, 0);
+                    const canReceive =
+                      order.status === 'ORDERED' || order.status === 'PARTIALLY_RECEIVED';
+                    const canEditOrder =
+                      order.status === 'DRAFT' ||
+                      order.status === 'TO_ORDER' ||
+                      order.status === 'ORDERED';
+                    const canValidateOrder =
+                      order.status === 'DRAFT' || order.status === 'TO_ORDER';
+                    const isHighlighted = highlightedOrderId === order.id;
+
+                    return (
+                      <div
+                        key={`m-${order.id}`}
+                        className={`p-3.5 space-y-2 ${
+                          isHighlighted ? 'bg-[#FFF9DF]' : 'bg-white'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setOrderToInspect(order)}
+                            className="min-w-0 text-left flex-1 bg-transparent! border-0! p-0! cursor-pointer"
+                          >
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-mono text-sm font-bold text-[#111111]">
+                                {order.orderNumber}
+                              </span>
+                              {getStatusBadge(order.status)}
+                            </div>
+                            <div className="text-xs font-semibold text-[#111111] mt-0.5 truncate">
+                              {order.supplierName}
+                            </div>
+                            <div className="text-[11px] text-[#595959]">
+                              {formatDate(order.date)} • {order.targetWarehouseName}
+                            </div>
+                          </button>
+
+                          <RowActionsMenu
+                            actions={[
+                              {
+                                label: 'Consulter les pièces',
+                                icon: <Eye className="w-3.5 h-3.5" />,
+                                onClick: () => setOrderToInspect(order),
+                              },
+                              {
+                                label: 'Imprimer le bon de commande',
+                                icon: <Printer className="w-3.5 h-3.5" />,
+                                onClick: () => setOrderToPrint(order),
+                              },
+                              {
+                                label: 'Ajouter produits / Modifier',
+                                icon: <Edit2 className="w-3.5 h-3.5" />,
+                                tone: 'primary',
+                                hidden: !canEditOrder,
+                                onClick: () => {
+                                  setOrderToEdit(order);
+                                  setPrefilledItemsForPO([]);
+                                  setPrefilledSupplierName(undefined);
+                                  setIsCreateModalOpen(true);
+                                },
+                              },
+                              {
+                                label: 'Valider la commande',
+                                icon: <CheckCircle2 className="w-3.5 h-3.5" />,
+                                tone: 'warning',
+                                hidden: !canValidateOrder,
+                                onClick: () => {
+                                  updateSupplierOrderStatus(order.id, 'ORDERED');
+                                  setNotification(
+                                    `Commande ${order.orderNumber} validée avec succès ! Elle est maintenant prête pour réception.`
+                                  );
+                                },
+                              },
+                              {
+                                label: 'Réceptionner en magasin',
+                                icon: <PackageCheck className="w-3.5 h-3.5" />,
+                                tone: 'success',
+                                hidden: !canReceive,
+                                onClick: () => setOrderToReceive(order),
+                              },
+                              {
+                                label: 'Annuler la commande',
+                                icon: <Ban className="w-3.5 h-3.5" />,
+                                tone: 'warning',
+                                dividerBefore: true,
+                                hidden: order.status === 'RECEIVED' || order.status === 'CANCELLED',
+                                onClick: () => setOrderToCancel(order),
+                              },
+                              {
+                                label: 'Supprimer définitivement',
+                                icon: <Trash2 className="w-3.5 h-3.5" />,
+                                tone: 'danger',
+                                dividerBefore: order.status === 'RECEIVED' || order.status === 'CANCELLED',
+                                onClick: () => setOrderToDelete(order),
+                              },
+                            ]}
+                          />
+                        </div>
+
+                        <div className="pt-2 border-t border-[#EFEFEF] flex items-center justify-between text-xs">
+                          <span className="font-mono text-[#595959]">
+                            {order.items.length} réf. ({totalQtyReceived}/{totalQtyOrdered} reçu)
+                          </span>
+                          <span className="font-mono font-bold text-[#111111]">
+                            {formatFCFA(order.totalAmount)}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <table className="hidden md:table w-full table-fixed text-left text-xs">
                   <thead className="bg-slate-50 text-slate-600 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-200">
                     <tr>
                       <th
@@ -773,6 +891,7 @@ export const PurchaseOrderListView: React.FC<PurchaseOrderListViewProps> = ({
                     })}
                   </tbody>
                 </table>
+                </>
               )}
             </div>
 

@@ -49,6 +49,7 @@ import { scoreArticleByScope } from '../../utils/fuzzySearch';
 import {
   cleanBrandName,
   getArticleBrandOffers,
+  getEffectiveArticleBrandOffers,
   getBrandStockAcrossWarehouses,
   getBrandLocation,
   getBrandInvoiceNumber,
@@ -181,11 +182,13 @@ export const WarehouseListView: React.FC<WarehouseListViewProps> = ({
       ? null
       : warehouses.find((w) => w.id === inspectedWarehouseId) || null;
 
-  // O(1) stocks map by articleId
+  // O(1) stocks map by articleId (scoped to active warehouses to guarantee strict parity with totals)
   const stocksByArticleId = useMemo(() => {
+    const activeWhIds = new Set(warehouses.map((w) => w.id));
     const map = new Map<string, WarehouseStock[]>();
     for (let i = 0; i < stocks.length; i++) {
       const s = stocks[i];
+      if (activeWhIds.size > 0 && !activeWhIds.has(s.warehouseId)) continue;
       const existing = map.get(s.articleId);
       if (existing) {
         existing.push(s);
@@ -194,7 +197,7 @@ export const WarehouseListView: React.FC<WarehouseListViewProps> = ({
       }
     }
     return map;
-  }, [stocks]);
+  }, [stocks, warehouses]);
 
   // Unique brands across all articles and stock records
   const uniqueBrands = useMemo(() => {
@@ -902,7 +905,7 @@ export const WarehouseListView: React.FC<WarehouseListViewProps> = ({
                   const isLow = !isOut && totalQty <= art.minStockThreshold;
 
                   const articleStocks = stocksByArticleId.get(art.id) || [];
-                  const allOffers = getArticleBrandOffers(art);
+                  const allOffers = getEffectiveArticleBrandOffers(art, articleStocks);
                   const displayedOffers =
                     selectedBrand !== 'ALL'
                       ? allOffers.filter((o) => o.brand === selectedBrand)
@@ -1220,7 +1223,7 @@ export const WarehouseListView: React.FC<WarehouseListViewProps> = ({
                   const isLow = !isOut && totalQty <= art.minStockThreshold;
 
                   const articleStocks = stocksByArticleId.get(art.id) || [];
-                  const allOffers = getArticleBrandOffers(art);
+                  const allOffers = getEffectiveArticleBrandOffers(art, articleStocks);
                   const displayedOffers =
                     selectedBrand !== 'ALL'
                       ? allOffers.filter((o) => o.brand === selectedBrand)

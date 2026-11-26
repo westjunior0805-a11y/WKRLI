@@ -9,7 +9,6 @@ import {
   ShieldCheck,
   LogOut,
   Download,
-  Trash2,
   X,
   Layers,
   Database,
@@ -379,19 +378,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onClick={exportDatabaseJson}
                 className="p-1.5 text-[#595959] hover:text-[#111111] border border-[#D4D4D4] bg-white transition-colors cursor-pointer"
                 title="Exporter une sauvegarde complète (JSON)"
+                aria-label="Exporter une sauvegarde complète"
               >
                 <Download className="w-3.5 h-3.5" />
               </button>
-              {currentPermissions.canManageDatabase && (
-                <button
-                  type="button"
-                  onClick={onWipeData}
-                  className="p-1.5 text-[#595959] hover:text-rose-600 border border-[#D4D4D4] bg-white transition-colors cursor-pointer"
-                  title="Purger la base de données (Table rase)"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              )}
             </div>
           </div>
         </div>

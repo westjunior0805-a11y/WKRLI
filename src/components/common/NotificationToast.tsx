@@ -32,8 +32,8 @@ export const NotificationToast: React.FC<NotificationToastProps> = ({ toasts, on
           bgIconClass = 'text-rose-600';
           Icon = AlertCircle;
         } else {
-          borderClass = 'border-sky-200 bg-white shadow-lg';
-          bgIconClass = 'text-sky-600';
+          borderClass = 'border-[#E5C130] bg-white shadow-lg';
+          bgIconClass = 'text-[#7A5C00]';
           Icon = Info;
         }
 

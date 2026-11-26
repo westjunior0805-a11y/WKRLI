@@ -336,7 +336,7 @@ export const MovementHistoryView: React.FC = () => {
               onClick={() => setSelectedType('TRANSFERT')}
               className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
                 selectedType === 'TRANSFERT'
-                  ? 'bg-white text-blue-800 shadow-xs font-semibold'
+                  ? 'bg-white text-[#111111] shadow-xs font-semibold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -507,10 +507,10 @@ export const MovementHistoryView: React.FC = () => {
                     qtySign = '-';
                     qtyColor = 'text-rose-700';
                   } else if (mvt.type === 'TRANSFERT') {
-                    badgeClass = 'bg-blue-100 text-blue-800';
+                    badgeClass = 'bg-[#FFF9DF] text-[#111111]';
                     label = 'Transfert';
                     qtySign = '↔';
-                    qtyColor = 'text-blue-700';
+                    qtyColor = 'text-[#7A5C00]';
                   } else if (mvt.type === 'AJUSTEMENT') {
                     badgeClass = 'bg-amber-100 text-amber-800';
                     label = 'Ajustement';
@@ -639,10 +639,10 @@ export const MovementHistoryView: React.FC = () => {
                 qtySign = '-';
                 qtyColor = 'text-rose-700';
               } else if (mvt.type === 'TRANSFERT') {
-                badgeClass = 'bg-blue-100 text-blue-800';
+                badgeClass = 'bg-[#FFF9DF] text-[#111111]';
                 label = 'Transfert';
                 qtySign = '↔';
-                qtyColor = 'text-blue-700';
+                qtyColor = 'text-[#7A5C00]';
               } else if (mvt.type === 'AJUSTEMENT') {
                 badgeClass = 'bg-amber-100 text-amber-800';
                 label = 'Ajustement';

@@ -419,7 +419,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                         )}
 
                         {rb.avoirAmount > 0 && (
-                          <div className="p-2 flex justify-between border-b border-black text-indigo-800 font-semibold">
+                          <div className="p-2 flex justify-between border-b border-black text-[#111111] font-semibold">
                             <span>Retour (Avoir client) :</span>
                             <span className="font-mono tabular-nums">
                               -{formatFCFA(rb.avoirAmount)}

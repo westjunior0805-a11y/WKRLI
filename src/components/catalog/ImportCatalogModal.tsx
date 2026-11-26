@@ -940,10 +940,10 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
                     <span className="text-[10px] text-emerald-600 block">variables constructeurs</span>
                   </div>
 
-                  <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                    <span className="text-[11px] text-blue-700 font-medium block">Stock physique total</span>
-                    <span className="text-xl font-bold text-blue-800 font-mono">{totalQtySum}</span>
-                    <span className="text-[10px] text-blue-600 block">sur {positiveQtyRowsCount} ligne(s)</span>
+                  <div className="p-3 bg-[#FFF9DF] rounded-lg border border-[#E5C130]">
+                    <span className="text-[11px] text-[#7A5C00] font-medium block">Stock physique total</span>
+                    <span className="text-xl font-bold text-[#111111] font-mono">{totalQtySum}</span>
+                    <span className="text-[10px] text-[#7A5C00] block">sur {positiveQtyRowsCount} ligne(s)</span>
                   </div>
 
                   <div className="p-3 bg-rose-50 rounded-lg border border-rose-200">
@@ -1160,7 +1160,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
                                 <span
                                   className={`px-2 py-0.5 rounded ${
                                     row.initialQuantity > 0
-                                      ? 'bg-blue-100 text-blue-800'
+                                      ? 'bg-[#FFF9DF] text-[#111111]'
                                       : 'text-slate-500 bg-slate-100'
                                   }`}
                                 >
@@ -1246,20 +1246,20 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
                   <span className="text-[10px] text-purple-600 block">fiches complétées</span>
                 </div>
 
-                <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-center">
-                  <span className="text-[11px] text-indigo-700 font-medium block">Variables marques</span>
-                  <span className="text-xl font-bold text-indigo-800 font-mono">
+                <div className="p-3 bg-[#FFF9DF] border border-[#E5C130] rounded-xl text-center">
+                  <span className="text-[11px] text-[#7A5C00] font-medium block">Variables marques</span>
+                  <span className="text-xl font-bold text-[#111111] font-mono">
                     {resultReport.brandOffersCreatedCount ?? resultReport.totalRows}
                   </span>
-                  <span className="text-[10px] text-indigo-600 block">offres constructeurs</span>
+                  <span className="text-[10px] text-[#7A5C00] block">offres constructeurs</span>
                 </div>
 
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-center">
-                  <span className="text-[11px] text-blue-700 font-medium block">Stock mis à jour</span>
-                  <span className="text-xl font-bold text-blue-800 font-mono">
+                <div className="p-3 bg-[#FFF9DF] border border-[#E5C130] rounded-xl text-center">
+                  <span className="text-[11px] text-[#7A5C00] font-medium block">Stock mis à jour</span>
+                  <span className="text-xl font-bold text-[#111111] font-mono">
                     {resultReport.totalQuantityImported ?? 0}
                   </span>
-                  <span className="text-[10px] text-blue-600 block">
+                  <span className="text-[10px] text-[#7A5C00] block">
                     {resultReport.positiveStockEntriesCount ?? resultReport.createdMovements} réf. actualisée(s)
                   </span>
                 </div>

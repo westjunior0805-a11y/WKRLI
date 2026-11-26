@@ -489,7 +489,144 @@ export const SalesHistoryView: React.FC = () => {
               Aucune vente ne correspond aux critères de recherche actuels.
             </div>
           ) : (
-            <table className="w-full table-fixed text-left text-xs">
+            <>
+            {/* Mobile Cards */}
+            <div className="md:hidden divide-y divide-[#E0E0E0]">
+              {paginatedSales.map((sale, idx) => {
+                const isCancelled = sale.status === 'CANCELLED';
+                const isPaid = sale.paymentStatus === 'PAID';
+                const isPartial = sale.paymentStatus === 'PARTIALLY_PAID';
+                const returnBreakdown = getSaleReturnBreakdown(sale);
+                const netSaleTotal = getNetSaleAmount(sale);
+
+                return (
+                  <div
+                    key={`m-${sale.id}-${idx}`}
+                    className={`p-3.5 space-y-2 ${isCancelled ? 'opacity-55 bg-[#F8F8F8]' : 'bg-white'}`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-mono text-sm font-bold text-[#111111]">
+                            {sale.receiptNumber}
+                          </span>
+                          {isCancelled ? (
+                            <span className="px-1.5 py-0.5 text-[10px] font-bold bg-[#EAEAEA] text-[#595959]">
+                              Annulée
+                            </span>
+                          ) : sale.status === 'REFUNDED' ? (
+                            <span className="px-1.5 py-0.5 text-[10px] font-bold bg-rose-100 text-rose-800">
+                              {returnBreakdown.avoirAmount > 0 && returnBreakdown.reimbursedAmount === 0
+                                ? 'Avoir'
+                                : 'Remb.'}
+                            </span>
+                          ) : isPaid ? (
+                            <span className="px-1.5 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                              Payé
+                            </span>
+                          ) : isPartial ? (
+                            <span className="px-1.5 py-0.5 text-[10px] font-bold bg-[#FFF9DF] text-[#7A5C00] border border-[#FFCD11]">
+                              Partiel
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.5 text-[10px] font-bold bg-rose-100 text-rose-800">
+                              Crédit
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs font-semibold text-[#111111] mt-0.5 truncate">
+                          {sale.customerName}
+                        </div>
+                        <div className="text-[11px] text-[#595959]">
+                          {formatDateTime(sale.date)} • {sale.warehouseName}
+                        </div>
+                      </div>
+
+                      <RowActionsMenu
+                        actions={[
+                          {
+                            label: 'Imprimer Facture / Ticket',
+                            icon: <Printer className="w-3.5 h-3.5" />,
+                            onClick: () => setActiveReceiptSale(sale),
+                          },
+                          {
+                            label: 'Bon de Livraison (BL)',
+                            icon: <FileCheck className="w-3.5 h-3.5" />,
+                            tone: 'primary',
+                            onClick: () => setActiveDeliveryNoteSale(sale),
+                          },
+                          {
+                            label: 'Modifier la vente',
+                            icon: <Edit2 className="w-3.5 h-3.5" />,
+                            tone: 'warning',
+                            hidden: !(currentUser.role === 'ADMIN' && !isCancelled),
+                            onClick: () => handleOpenEditModal(sale),
+                          },
+                          {
+                            label: 'Retour pièce / Avoir',
+                            icon: <Undo2 className="w-3.5 h-3.5" />,
+                            tone: 'primary',
+                            hidden: isCancelled,
+                            onClick: () => handleOpenReturnModal(sale),
+                          },
+                          {
+                            label: 'Annuler & remettre en stock',
+                            icon: <RotateCcw className="w-3.5 h-3.5" />,
+                            tone: 'danger',
+                            dividerBefore: true,
+                            hidden: !(!isCancelled && currentUser.role !== 'MAGASINIER'),
+                            onClick: () => {
+                              setSaleToCancel(sale);
+                              setCancelReason('');
+                              setCancelError('');
+                            },
+                          },
+                          {
+                            label: 'Supprimer définitivement',
+                            icon: <Trash2 className="w-3.5 h-3.5" />,
+                            tone: 'danger',
+                            dividerBefore: isCancelled,
+                            hidden: currentUser.role === 'MAGASINIER',
+                            onClick: () => setSaleToDelete(sale),
+                          },
+                        ]}
+                      />
+                    </div>
+
+                    <div className="text-[11px] text-[#595959] truncate">
+                      {sale.items.map((i) => `${i.quantity}x ${i.mainReference}`).join(', ')}
+                    </div>
+
+                    <div className="pt-2 border-t border-[#EFEFEF] grid grid-cols-3 gap-2 text-[11px]">
+                      <div>
+                        <span className="block text-[10px] text-[#595959]">Net</span>
+                        <span className="font-mono font-bold text-[#111111]">
+                          {formatFCFA(netSaleTotal)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] text-[#595959]">Encaissé</span>
+                        <span className="font-mono font-bold text-emerald-700">
+                          {formatFCFA(sale.totalPaid)}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="block text-[10px] text-[#595959]">Reste</span>
+                        <span
+                          className={`font-mono font-bold ${
+                            sale.remainingDue > 0 ? 'text-rose-600' : 'text-[#595959]'
+                          }`}
+                        >
+                          {sale.remainingDue > 0 ? formatFCFA(sale.remainingDue) : '0'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <table className="hidden md:table w-full table-fixed text-left text-xs">
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold text-[10px]">
                 <tr>
                   <th
@@ -570,7 +707,7 @@ export const SalesHistoryView: React.FC = () => {
                           <span className="text-slate-900 truncate">{sale.receiptNumber}</span>
                           {sale.isHistoricalFrozen && (
                             <span
-                              className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-bold bg-sky-100 text-sky-800"
+                              className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-bold bg-[#FFF9DF] text-[#111111]"
                               title="Vente enregistrée avec le stock gelé (saisie historique sans déduction)"
                             >
                               <Snowflake className="w-2.5 h-2.5" />
@@ -586,7 +723,7 @@ export const SalesHistoryView: React.FC = () => {
                           </span>
                         )}
                         {returnBreakdown.avoirAmount > 0 && (
-                          <span className="inline-flex items-center gap-0.5 mt-0.5 px-1 py-0.2 rounded text-[9px] font-bold bg-indigo-100 text-indigo-800">
+                          <span className="inline-flex items-center gap-0.5 mt-0.5 px-1 py-0.2 rounded text-[9px] font-bold bg-[#FFF9DF] text-[#111111]">
                             Avoir: -{formatFCFA(returnBreakdown.avoirAmount)}
                           </span>
                         )}
@@ -734,6 +871,7 @@ export const SalesHistoryView: React.FC = () => {
                 })}
               </tbody>
             </table>
+            </>
           )}
         </div>
         <TablePagination
@@ -1099,7 +1237,7 @@ export const SalesHistoryView: React.FC = () => {
           <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-sky-500 text-white flex items-center justify-center font-bold">
+                <div className="w-8 h-8 rounded-lg bg-[#FFCD11] text-[#111111] flex items-center justify-center font-bold">
                   <Undo2 className="w-4 h-4" />
                 </div>
                 <div>
@@ -1164,7 +1302,7 @@ export const SalesHistoryView: React.FC = () => {
                         key={it.articleId}
                         className={`p-3 rounded-lg border transition-all ${
                           sel.selected
-                            ? 'bg-white dark:bg-slate-800 border-sky-300 dark:border-sky-700 shadow-2xs'
+                            ? 'bg-white dark:bg-slate-800 border-[#E5C130] dark:border-[#FFCD11]/40 shadow-2xs'
                             : 'bg-white/60 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 opacity-70'
                         }`}
                       >
@@ -1184,7 +1322,7 @@ export const SalesHistoryView: React.FC = () => {
                                   },
                                 }));
                               }}
-                              className="mt-1 rounded text-sky-600 focus:ring-sky-500"
+                              className="mt-1 rounded text-[#7A5C00] focus:ring-[#FFCD11]"
                             />
                             <div>
                               <span className="font-mono font-bold text-slate-900 dark:text-white">
@@ -1368,18 +1506,18 @@ export const SalesHistoryView: React.FC = () => {
                   returnMethod === 'ORANGE_MONEY';
 
                 return (
-                  <div className="p-3.5 bg-sky-50 dark:bg-sky-950/40 rounded-xl border border-sky-200 dark:border-sky-800 space-y-2">
+                  <div className="p-3.5 bg-[#FFF9DF] dark:bg-[#FFCD11]/10 rounded-xl border border-[#E5C130] dark:border-[#FFCD11]/30 space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] text-sky-900 dark:text-sky-200 font-bold">
+                      <span className="text-[11px] text-[#111111] dark:text-[#FFCD11] font-bold">
                         Valeur totale des pièces retournées :
                       </span>
-                      <span className="text-base font-mono font-black text-sky-950 dark:text-white">
+                      <span className="text-base font-mono font-black text-[#111111] dark:text-white">
                         {formatFCFA(totalRefundEst)}
                       </span>
                     </div>
 
                     {currentDebt > 0 && (
-                      <div className="pt-2 border-t border-sky-200/80 dark:border-sky-800/80 space-y-1.5 text-[11px]">
+                      <div className="pt-2 border-t border-[#E5C130] dark:border-[#FFCD11]/30 space-y-1.5 text-[11px]">
                         <div className="flex justify-between items-center text-amber-900 dark:text-amber-300 font-semibold">
                           <span>Déduction directe sur la créance de cette facture :</span>
                           <span className="font-mono font-bold">- {formatFCFA(debtDeductionEst)}</span>
@@ -1391,7 +1529,7 @@ export const SalesHistoryView: React.FC = () => {
                       </div>
                     )}
 
-                    <div className="flex justify-between items-center font-bold pt-1.5 border-t border-dashed border-sky-200 dark:border-sky-800 text-[11px]">
+                    <div className="flex justify-between items-center font-bold pt-1.5 border-t border-dashed border-[#E5C130] dark:border-[#FFCD11]/30 text-[11px]">
                       <span className="text-slate-800 dark:text-slate-200">
                         {returnMethod === 'AVOIR_CLIENT'
                           ? 'Montant comptabilisé en Avoir client :'
@@ -1402,7 +1540,7 @@ export const SalesHistoryView: React.FC = () => {
                       <span
                         className={`font-mono text-xs ${
                           returnMethod === 'AVOIR_CLIENT'
-                            ? 'text-indigo-700 font-black'
+                            ? 'text-[#7A5C00] font-black'
                             : isDirectRefund && surplusRefundEst > 0
                             ? 'text-rose-700 font-black'
                             : 'text-slate-600'
@@ -1416,7 +1554,7 @@ export const SalesHistoryView: React.FC = () => {
                       </span>
                     </div>
 
-                    <div className="text-[10px] text-sky-700 dark:text-sky-300">
+                    <div className="text-[10px] text-[#7A5C00] dark:text-[#FFCD11]">
                       {returnMethod === 'RETOUR_STOCK_SEUL'
                         ? 'Retour stock seul sans remboursement ni avoir.'
                         : isDirectRefund
@@ -1450,7 +1588,7 @@ export const SalesHistoryView: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-lg shadow-xs cursor-pointer inline-flex items-center gap-1.5"
+                  className="px-4 py-2 bg-[#FFCD11] hover:bg-[#E5B700] text-[#111111] font-bold rounded-lg shadow-xs cursor-pointer inline-flex items-center gap-1.5"
                 >
                   <Check className="w-4 h-4" />
                   <span>Valider le retour</span>

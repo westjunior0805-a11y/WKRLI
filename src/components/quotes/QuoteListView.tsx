@@ -136,7 +136,7 @@ export const QuoteListView: React.FC<QuoteListViewProps> = ({ onNavigateToSales 
         );
       case 'SENT':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-800">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#FFF9DF] text-[#111111]">
             <Clock className="w-3 h-3 shrink-0" />
             Envoyé
           </span>
@@ -245,7 +245,95 @@ export const QuoteListView: React.FC<QuoteListViewProps> = ({ onNavigateToSales 
               </p>
             </div>
           ) : (
-            <table className="w-full table-fixed text-left text-xs">
+            <>
+            {/* Mobile Cards */}
+            <div className="md:hidden divide-y divide-[#E0E0E0]">
+              {paginatedQuotes.map((quote) => {
+                const canEdit = quote.status !== 'CONVERTED';
+                const canConvert = quote.status !== 'CONVERTED' && quote.status !== 'REJECTED';
+
+                return (
+                  <div key={`m-${quote.id}`} className="p-3.5 space-y-2 bg-white">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-mono text-sm font-bold text-[#111111]">
+                            {quote.quoteNumber}
+                          </span>
+                          {getStatusBadge(quote.status)}
+                        </div>
+                        <div className="text-xs font-semibold text-[#111111] mt-0.5 truncate">
+                          {quote.customerName}
+                        </div>
+                        <div className="text-[11px] text-[#595959]">
+                          {formatDate(quote.date)} • {quote.warehouseName}
+                        </div>
+                      </div>
+
+                      <RowActionsMenu
+                        actions={[
+                          {
+                            label: 'Modifier le devis',
+                            icon: <Edit2 className="w-3.5 h-3.5" />,
+                            tone: 'warning',
+                            hidden: !canEdit,
+                            onClick: () => {
+                              setQuoteToEdit(quote);
+                              setIsCreateOpen(true);
+                            },
+                          },
+                          {
+                            label: 'Imprimer / Proforma',
+                            icon: <Printer className="w-3.5 h-3.5" />,
+                            onClick: () => setQuoteToPrint(quote),
+                          },
+                          {
+                            label: 'Marquer comme accepté',
+                            icon: <CheckCircle2 className="w-3.5 h-3.5" />,
+                            tone: 'success',
+                            hidden: quote.status !== 'SENT' && quote.status !== 'DRAFT',
+                            onClick: () => updateQuoteStatus(quote.id, 'ACCEPTED'),
+                          },
+                          {
+                            label: 'Convertir en Vente',
+                            icon: <ShoppingCart className="w-3.5 h-3.5" />,
+                            tone: 'primary',
+                            hidden: !canConvert,
+                            onClick: () => setQuoteToConvert(quote),
+                          },
+                          {
+                            label: 'Voir dans Factures & Ventes',
+                            icon: <ExternalLink className="w-3.5 h-3.5" />,
+                            tone: 'primary',
+                            hidden: !(quote.status === 'CONVERTED' && onNavigateToSales),
+                            onClick: () => onNavigateToSales && onNavigateToSales(),
+                          },
+                          {
+                            label: 'Supprimer ce devis',
+                            icon: <Trash2 className="w-3.5 h-3.5" />,
+                            tone: 'danger',
+                            dividerBefore: true,
+                            onClick: () => setQuoteToDelete(quote),
+                          },
+                        ]}
+                      />
+                    </div>
+
+                    <div className="pt-2 border-t border-[#EFEFEF] flex items-center justify-between text-xs">
+                      <span className="text-[#595959]">
+                        <strong className="font-mono text-[#111111]">{quote.items.length}</strong> pièce
+                        {quote.items.length > 1 ? 's' : ''}
+                      </span>
+                      <span className="font-mono font-bold text-[#111111] tabular-nums">
+                        {formatFCFA(quote.totalAmount)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <table className="hidden md:table w-full table-fixed text-left text-xs">
               <thead className="bg-slate-50 text-slate-600 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-200">
                 <tr>
                   <SortableTh
@@ -388,6 +476,7 @@ export const QuoteListView: React.FC<QuoteListViewProps> = ({ onNavigateToSales 
                 })}
               </tbody>
             </table>
+            </>
           )}
         </div>
         <TablePagination

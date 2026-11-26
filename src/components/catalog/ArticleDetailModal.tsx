@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Article, Warehouse } from '../../types';
 import { formatFCFA, formatDate } from '../../utils/formatters';
 import {
-  getArticleBrandOffers,
+  getEffectiveArticleBrandOffers,
   formatSalePriceRange,
   formatPurchasePriceRange,
   getBrandStockAcrossWarehouses,
@@ -73,9 +73,13 @@ export const ArticleDetailModal: React.FC<ArticleDetailModalProps> = ({
 
   if (!article) return null;
 
+  const activeWhIds = new Set(warehouses.map((w) => w.id));
+  const articleStocks = stocks.filter(
+    (s) => s.articleId === article.id && (activeWhIds.size === 0 || activeWhIds.has(s.warehouseId))
+  );
   const totalStock = getTotalStockForArticle(article.id);
   const totalPurchaseVal = totalStock * article.purchasePrice;
-  const brandOffers = getArticleBrandOffers(article);
+  const brandOffers = getEffectiveArticleBrandOffers(article, articleStocks);
   const activeOrder = getActiveOrderForArticle(article.id);
 
   return (
@@ -107,7 +111,7 @@ export const ArticleDetailModal: React.FC<ArticleDetailModalProps> = ({
                         onClose();
                         onNavigateToPurchaseOrder(activeOrder.id);
                       }}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/30 text-[11px] font-semibold transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#FFCD11]/20 hover:bg-[#FFCD11]/30 text-[#FFCD11] border border-[#FFCD11]/40 text-[11px] font-semibold transition-colors cursor-pointer"
                       title={`Ouvrir la liste de commande ${activeOrder.orderNumber}`}
                     >
                       <span>{activeOrder.orderNumber}</span>
@@ -303,9 +307,9 @@ export const ArticleDetailModal: React.FC<ArticleDetailModalProps> = ({
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {brandOffers.map((bo, idx) => {
-                    const brandQty = getBrandStockAcrossWarehouses(stocks, article, bo.brand);
-                    const brandLoc = getBrandLocation(stocks, article, bo.brand, null, warehouses);
-                    const brandInv = getBrandInvoiceNumber(stocks, article, bo.brand);
+                    const brandQty = getBrandStockAcrossWarehouses(articleStocks, article, bo.brand);
+                    const brandLoc = getBrandLocation(articleStocks, article, bo.brand, null, warehouses);
+                    const brandInv = getBrandInvoiceNumber(articleStocks, article, bo.brand);
                     const isBrandOrdered = activeOrder?.items.some(
                       (it) =>
                         it.articleId === article.id &&

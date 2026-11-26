@@ -184,16 +184,17 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
-          {/* Stock Rupture Alert Button (Desktop xl+) */}
+          {/* Stock Rupture Alert Button (visible dès md / portable 13") */}
           {criticalCount > 0 && (
             <button
               type="button"
               onClick={onNavigateToReports}
-              className="sis-header-ctrl hidden xl:flex items-center gap-1.5 px-3 py-2 text-xs font-mono font-bold text-white bg-[#1F1F1F] hover:border-[#FFCD11] border border-[#3A3A3A] transition-colors cursor-pointer whitespace-nowrap"
+              className="sis-header-ctrl hidden md:flex items-center gap-1.5 px-2.5 xl:px-3 py-2 text-xs font-mono font-bold text-white bg-[#1F1F1F] hover:border-[#FFCD11] border border-[#3A3A3A] transition-colors cursor-pointer whitespace-nowrap"
               title={`${criticalCount} référence(s) en rupture totale — Cliquer pour voir les alertes`}
             >
               <AlertTriangle className="w-3.5 h-3.5 text-[#FFCD11] shrink-0" />
-              <span>
+              <span className="xl:hidden">{criticalCount}</span>
+              <span className="hidden xl:inline">
                 {criticalCount} RUPTURE{criticalCount > 1 ? 'S' : ''}
               </span>
             </button>

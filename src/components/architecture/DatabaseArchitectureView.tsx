@@ -1049,7 +1049,7 @@ CREATE TABLE public.customers (
             </div>
             <div
               className={`text-[11px] font-medium mt-1 ${
-                firebaseEnvInfo.isAiStudioPreview ? 'text-[#E35E2D]' : 'text-emerald-700'
+                firebaseEnvInfo.isAiStudioPreview ? 'text-[#7A5C00]' : 'text-emerald-700'
               }`}
             >
               {firebaseEnvInfo.isAiStudioPreview

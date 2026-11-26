@@ -544,7 +544,7 @@ export const CustomerListView: React.FC = () => {
               type="checkbox"
               checked={filterDebtOnly}
               onChange={(e) => setFilterDebtOnly(e.target.checked)}
-              className="rounded accent-[#E35E2D]"
+              className="rounded accent-[#111111]"
             />
             <span>Avec créance uniquement</span>
           </label>
@@ -552,7 +552,7 @@ export const CustomerListView: React.FC = () => {
           <button
             type="button"
             onClick={handleOpenCreateModal}
-            className="inline-flex items-center gap-1.5 px-3 py-2 font-semibold text-white bg-[#E35E2D] hover:bg-[#1B1B1B] rounded transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-2 font-semibold text-[#111111] bg-[#FFCD11] hover:bg-[#E5B700] rounded transition-colors cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             Nouveau client
@@ -564,7 +564,7 @@ export const CustomerListView: React.FC = () => {
             className="inline-flex items-center gap-1.5 px-3 py-2 font-semibold text-[#1B1B1B] bg-white hover:bg-[#F8F7F4] border border-[#E5E5E5] rounded transition-colors cursor-pointer"
             title="Importer une liste de clients depuis Excel ou CSV"
           >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-[#E35E2D]" />
+            <FileSpreadsheet className="w-3.5 h-3.5 text-[#7A5C00]" />
             Importer
           </button>
 
@@ -621,7 +621,7 @@ export const CustomerListView: React.FC = () => {
           <div className="mt-1">
             <span
               className={`text-xl font-bold font-mono ${
-                globalTotals.totalCreances > 0 ? 'text-[#E35E2D]' : 'text-emerald-700'
+                globalTotals.totalCreances > 0 ? 'text-[#7A5C00]' : 'text-emerald-700'
               }`}
             >
               {formatFCFA(globalTotals.totalCreances)}
@@ -638,7 +638,125 @@ export const CustomerListView: React.FC = () => {
               Aucun compte client ne correspond à votre recherche.
             </div>
           ) : (
-            <table className="w-full table-fixed text-left text-xs">
+            <>
+            {/* Mobile Cards */}
+            <div className="md:hidden divide-y divide-[#E0E0E0]">
+              {paginatedCustomers.map((c, idx) => {
+                const summary = customerSummaryMap.get(c.id);
+                const totalPurchases = summary ? summary.totalPurchases : 0;
+                const totalAcomptes = summary ? summary.totalAcomptes : 0;
+                const creance = summary ? summary.creance : 0;
+                const avance = summary ? summary.avanceDisponible : 0;
+                const hasDebt = creance > 0;
+                const hasAvance = avance > 0;
+
+                return (
+                  <div key={`m-${c.id}-${idx}`} className="p-3.5 space-y-2 bg-white">
+                    <div className="flex items-start justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setInspectingCustomer(c);
+                          setActiveHistoryTab('SALES');
+                        }}
+                        className="min-w-0 text-left flex-1 bg-transparent! border-0! p-0! cursor-pointer"
+                      >
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-mono text-xs font-bold text-[#7A5C00]">
+                            {c.code}
+                          </span>
+                          {hasDebt ? (
+                            <span className="px-1.5 py-0.5 text-[10px] font-bold bg-rose-100 text-rose-800">
+                              Créance
+                            </span>
+                          ) : hasAvance ? (
+                            <span className="px-1.5 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                              Avance
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.5 text-[10px] font-bold bg-[#F4F4F4] text-[#595959] border border-[#E0E0E0]">
+                              À jour
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-sm font-bold text-[#111111] mt-0.5 truncate">
+                          {c.name}
+                        </div>
+                        {c.phone && (
+                          <div className="text-[11px] font-mono text-[#595959]">{c.phone}</div>
+                        )}
+                      </button>
+
+                      <RowActionsMenu
+                        actions={[
+                          {
+                            label: hasDebt ? 'Verser un acompte / règlement' : 'Enregistrer un acompte',
+                            icon: <DollarSign className="w-3.5 h-3.5" />,
+                            tone: 'success',
+                            onClick: () => handleOpenSettleModal(c),
+                          },
+                          {
+                            label: 'Ajuster la créance',
+                            icon: <SlidersHorizontal className="w-3.5 h-3.5" />,
+                            tone: 'warning',
+                            onClick: () => handleOpenAdjustDebtModal(c),
+                          },
+                          {
+                            label: 'Historique achats & acomptes',
+                            icon: <History className="w-3.5 h-3.5" />,
+                            onClick: () => {
+                              setInspectingCustomer(c);
+                              setActiveHistoryTab('SALES');
+                            },
+                          },
+                          {
+                            label: 'Modifier la fiche client',
+                            icon: <Edit2 className="w-3.5 h-3.5" />,
+                            tone: 'primary',
+                            onClick: () => handleOpenEditModal(c),
+                          },
+                          {
+                            label: 'Supprimer ce client',
+                            icon: <Trash2 className="w-3.5 h-3.5" />,
+                            tone: 'danger',
+                            dividerBefore: true,
+                            hidden: !(currentUser.role === 'ADMIN' || currentUser.role === 'RESPONSABLE'),
+                            onClick: () => setCustomerToDelete(c),
+                          },
+                        ]}
+                      />
+                    </div>
+
+                    <div className="pt-2 border-t border-[#EFEFEF] grid grid-cols-3 gap-2 text-[11px]">
+                      <div>
+                        <span className="block text-[10px] text-[#595959]">Achats</span>
+                        <span className="font-mono font-bold text-[#111111]">
+                          {formatFCFA(totalPurchases)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] text-[#595959]">Acomptes</span>
+                        <span className="font-mono font-bold text-emerald-700">
+                          {formatFCFA(totalAcomptes)}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="block text-[10px] text-[#595959]">Créance</span>
+                        <span
+                          className={`font-mono font-bold ${
+                            hasDebt ? 'text-rose-600' : 'text-[#595959]'
+                          }`}
+                        >
+                          {formatFCFA(creance)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <table className="hidden md:table w-full table-fixed text-left text-xs">
               <thead className="bg-[#F8F7F4] border-b border-[#E5E5E5] text-[#1B1B1B]/60 uppercase tracking-wider font-semibold text-[10px]">
                 <tr>
                   <SortableTh label="Code" active={sortField === 'code'} direction={sortDir} onClick={() => handleSort('code')} className="w-[10%]" />
@@ -677,7 +795,7 @@ export const CustomerListView: React.FC = () => {
                             setInspectingCustomer(c);
                             setActiveHistoryTab('SALES');
                           }}
-                          className="text-left hover:text-[#E35E2D] transition-colors cursor-pointer block truncate w-full"
+                          className="text-left hover:text-[#7A5C00] transition-colors cursor-pointer block truncate w-full"
                           title={c.name}
                         >
                           {c.name}
@@ -711,7 +829,7 @@ export const CustomerListView: React.FC = () => {
                       </td>
 
                       <td className="py-2.5 px-2.5 text-right font-mono font-bold tabular-nums">
-                        <span className={`block truncate ${hasDebt ? 'text-[#E35E2D] text-xs' : 'text-[#1B1B1B]/40'}`}>
+                        <span className={`block truncate ${hasDebt ? 'text-[#7A5C00] text-xs' : 'text-[#1B1B1B]/40'}`}>
                           {formatFCFA(creance)}
                         </span>
                         {hasAvance && (
@@ -723,7 +841,7 @@ export const CustomerListView: React.FC = () => {
 
                       <td className="py-2.5 px-2 text-center">
                         {hasDebt ? (
-                          <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[#E35E2D]/10 text-[#E35E2D]">
+                          <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[#FFF9DF] text-[#7A5C00]">
                             Créance
                           </span>
                         ) : hasAvance ? (
@@ -782,6 +900,7 @@ export const CustomerListView: React.FC = () => {
                 })}
               </tbody>
             </table>
+            </>
           )}
         </div>
         <TablePagination
@@ -829,7 +948,7 @@ export const CustomerListView: React.FC = () => {
                     value={customerCode}
                     onChange={(e) => setCustomerCode(e.target.value)}
                     placeholder="Ex: CLI-001"
-                    className="w-full px-3 py-2 text-xs font-mono font-bold bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#E35E2D]"
+                    className="w-full px-3 py-2 text-xs font-mono font-bold bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#FFCD11]"
                   />
                 </div>
 
@@ -843,7 +962,7 @@ export const CustomerListView: React.FC = () => {
                     value={creditLimit}
                     onChange={(val) => setCreditLimit(val)}
                     placeholder="0"
-                    className="w-full px-3 py-2 text-xs font-mono bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#E35E2D]"
+                    className="w-full px-3 py-2 text-xs font-mono bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#FFCD11]"
                   />
                 </div>
               </div>
@@ -858,7 +977,7 @@ export const CustomerListView: React.FC = () => {
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
                   placeholder="Nom de l'entreprise ou du client..."
-                  className="w-full px-3 py-2 text-sm bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#E35E2D]"
+                  className="w-full px-3 py-2 text-sm bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#FFCD11]"
                 />
               </div>
 
@@ -872,7 +991,7 @@ export const CustomerListView: React.FC = () => {
                     value={customerPhone}
                     onChange={(e) => setCustomerPhone(e.target.value)}
                     placeholder="Ex: +221 77 000 00 00"
-                    className="w-full px-3 py-2 text-xs font-mono bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#E35E2D]"
+                    className="w-full px-3 py-2 text-xs font-mono bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#FFCD11]"
                   />
                 </div>
 
@@ -885,7 +1004,7 @@ export const CustomerListView: React.FC = () => {
                     value={customerEmail}
                     onChange={(e) => setCustomerEmail(e.target.value)}
                     placeholder="client@entreprise.com"
-                    className="w-full px-3 py-2 text-xs bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#E35E2D]"
+                    className="w-full px-3 py-2 text-xs bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#FFCD11]"
                   />
                 </div>
               </div>
@@ -899,7 +1018,7 @@ export const CustomerListView: React.FC = () => {
                   value={customerAddress}
                   onChange={(e) => setCustomerAddress(e.target.value)}
                   placeholder="Adresse ou localisation..."
-                  className="w-full px-3 py-2 text-xs bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#E35E2D]"
+                  className="w-full px-3 py-2 text-xs bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#FFCD11]"
                 />
               </div>
 
@@ -914,7 +1033,7 @@ export const CustomerListView: React.FC = () => {
                     value={initialDebtInput}
                     onChange={(val) => setInitialDebtInput(val)}
                     placeholder="0"
-                    className="w-full px-3 py-2 text-xs font-mono bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#E35E2D]"
+                    className="w-full px-3 py-2 text-xs font-mono bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#FFCD11]"
                   />
                   <span className="text-[10px] text-[#1B1B1B]/50 mt-0.5 block">
                     Optionnel : si ce client vous doit déjà un solde antérieur à l’ouverture du compte.
@@ -938,7 +1057,7 @@ export const CustomerListView: React.FC = () => {
                           setIsCustomerModalOpen(false);
                           handleOpenAdjustDebtModal(target);
                         }}
-                        className="px-2 py-1 text-[11px] font-semibold text-[#E35E2D] bg-white hover:bg-[#FFF5F1] border border-[#E5E5E5] rounded inline-flex items-center gap-1 cursor-pointer"
+                        className="px-2 py-1 text-[11px] font-semibold text-[#7A5C00] bg-white hover:bg-[#FFF9DF] border border-[#E5E5E5] rounded inline-flex items-center gap-1 cursor-pointer"
                       >
                         <SlidersHorizontal className="w-3 h-3" />
                         <span>Ajuster la créance</span>
@@ -959,7 +1078,7 @@ export const CustomerListView: React.FC = () => {
                       </div>
                       <div>
                         <span className="text-[10px] text-[#1B1B1B]/60 block">Créance</span>
-                        <span className="font-mono font-bold text-[#E35E2D]">
+                        <span className="font-mono font-bold text-[#7A5C00]">
                           {formatFCFA(summary.creance)}
                         </span>
                       </div>
@@ -977,7 +1096,7 @@ export const CustomerListView: React.FC = () => {
                   value={customerNotes}
                   onChange={(e) => setCustomerNotes(e.target.value)}
                   placeholder="Notes sur le compte client..."
-                  className="w-full px-3 py-2 text-xs bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#E35E2D]"
+                  className="w-full px-3 py-2 text-xs bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#FFCD11]"
                 />
               </div>
 
@@ -991,7 +1110,7 @@ export const CustomerListView: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-[#E35E2D] hover:bg-[#1B1B1B] text-white rounded font-bold transition-colors cursor-pointer"
+                  className="px-5 py-2 bg-[#FFCD11] hover:bg-[#E5B700] text-[#111111] rounded font-bold transition-colors cursor-pointer"
                 >
                   {editingCustomer ? 'Enregistrer' : 'Créer le client'}
                 </button>
@@ -1038,7 +1157,7 @@ export const CustomerListView: React.FC = () => {
               </div>
               <div>
                 <span className="text-[10px] text-[#1B1B1B]/60 block uppercase">Créance actuelle</span>
-                <span className="font-mono font-bold text-[#E35E2D]">
+                <span className="font-mono font-bold text-[#7A5C00]">
                   {formatFCFA(settlingSummary.creance)}
                 </span>
               </div>
@@ -1066,7 +1185,7 @@ export const CustomerListView: React.FC = () => {
                     }}
                     className={`py-2 px-2.5 rounded border text-xs font-semibold transition-colors cursor-pointer ${
                       settleType === 'REGLEMENT_CREANCE'
-                        ? 'bg-[#E35E2D] text-white border-[#E35E2D]'
+                        ? 'bg-[#FFCD11] text-[#111111] border-[#E5B700]'
                         : 'bg-[#F9FAFB] text-[#1B1B1B] border-[#E5E5E5] hover:bg-[#F3F4F6]'
                     }`}
                   >
@@ -1082,7 +1201,7 @@ export const CustomerListView: React.FC = () => {
                     }}
                     className={`py-2 px-2.5 rounded border text-xs font-semibold transition-colors cursor-pointer ${
                       settleType === 'ACOMPTE_AVANCE'
-                        ? 'bg-[#E35E2D] text-white border-[#E35E2D]'
+                        ? 'bg-[#FFCD11] text-[#111111] border-[#E5B700]'
                         : 'bg-[#F9FAFB] text-[#1B1B1B] border-[#E5E5E5] hover:bg-[#F3F4F6]'
                     }`}
                   >
@@ -1103,7 +1222,7 @@ export const CustomerListView: React.FC = () => {
                   value={settleAmount}
                   onChange={(val) => setSettleAmount(val)}
                   placeholder="0"
-                  className="w-full px-3 py-2 text-base font-mono font-bold bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#E35E2D]"
+                  className="w-full px-3 py-2 text-base font-mono font-bold bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#FFCD11]"
                 />
                 {settleAmount > 0 && (
                   <div className="mt-1.5 flex justify-between text-[11px] text-[#1B1B1B]/70">
@@ -1121,13 +1240,13 @@ export const CustomerListView: React.FC = () => {
                     Date de l’opération *
                   </label>
                   <div className="relative">
-                    <Calendar className="w-3.5 h-3.5 text-[#E35E2D] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <Calendar className="w-3.5 h-3.5 text-[#7A5C00] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="date"
                       required
                       value={settleDate}
                       onChange={(e) => setSettleDate(e.target.value)}
-                      className="w-full pl-8 pr-2.5 py-2 font-mono bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#E35E2D]"
+                      className="w-full pl-8 pr-2.5 py-2 font-mono bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#FFCD11]"
                     />
                   </div>
                 </div>
@@ -1139,7 +1258,7 @@ export const CustomerListView: React.FC = () => {
                   <select
                     value={settleMethod}
                     onChange={(e) => setSettleMethod(e.target.value as PaymentMethod)}
-                    className="w-full px-2.5 py-2 bg-[#F9FAFB] border border-[#E5E5E5] rounded font-medium focus:outline-none focus:border-[#E35E2D]"
+                    className="w-full px-2.5 py-2 bg-[#F9FAFB] border border-[#E5E5E5] rounded font-medium focus:outline-none focus:border-[#FFCD11]"
                   >
                     <option value="WAVE">Wave</option>
                     <option value="ESPECES">Espèces</option>
@@ -1158,7 +1277,7 @@ export const CustomerListView: React.FC = () => {
                   <select
                     value={settleWarehouseId}
                     onChange={(e) => setSettleWarehouseId(e.target.value)}
-                    className="w-full px-2.5 py-2 bg-[#F9FAFB] border border-[#E5E5E5] rounded font-medium focus:outline-none focus:border-[#E35E2D]"
+                    className="w-full px-2.5 py-2 bg-[#F9FAFB] border border-[#E5E5E5] rounded font-medium focus:outline-none focus:border-[#FFCD11]"
                   >
                     {warehouses.map((w) => (
                       <option key={w.id} value={w.id}>
@@ -1178,7 +1297,7 @@ export const CustomerListView: React.FC = () => {
                   value={settleRef}
                   onChange={(e) => setSettleRef(e.target.value)}
                   placeholder="Ex: REG-12345"
-                  className="w-full px-3 py-2 font-mono bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#E35E2D]"
+                  className="w-full px-3 py-2 font-mono bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#FFCD11]"
                 />
               </div>
 
@@ -1191,7 +1310,7 @@ export const CustomerListView: React.FC = () => {
                   value={settleNotes}
                   onChange={(e) => setSettleNotes(e.target.value)}
                   placeholder="Acompte / règlement sur achats à crédit..."
-                  className="w-full px-3 py-2 bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#E35E2D]"
+                  className="w-full px-3 py-2 bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#FFCD11]"
                 />
               </div>
 
@@ -1205,7 +1324,7 @@ export const CustomerListView: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-[#E35E2D] hover:bg-[#1B1B1B] text-white rounded font-bold transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+                  className="px-5 py-2 bg-[#FFCD11] hover:bg-[#E5B700] text-[#111111] rounded font-bold transition-colors inline-flex items-center gap-1.5 cursor-pointer"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>
@@ -1226,7 +1345,7 @@ export const CustomerListView: React.FC = () => {
           <div className="bg-white h-full max-w-lg w-full border-l border-[#E5E5E5] shadow-2xl flex flex-col p-6 space-y-4">
             <div className="flex items-start justify-between border-b border-[#E5E5E5] pb-3">
               <div>
-                <span className="font-mono text-xs font-bold text-[#E35E2D]">
+                <span className="font-mono text-xs font-bold text-[#7A5C00]">
                   {inspectingCustomer.code}
                 </span>
                 <h3 className="text-base font-bold text-[#1B1B1B] mt-0.5">
@@ -1265,7 +1384,7 @@ export const CustomerListView: React.FC = () => {
                 </span>
                 <span
                   className={`font-mono font-bold text-sm ${
-                    inspectedSummary.creance > 0 ? 'text-[#E35E2D]' : 'text-[#1B1B1B]/60'
+                    inspectedSummary.creance > 0 ? 'text-[#7A5C00]' : 'text-[#1B1B1B]/60'
                   }`}
                 >
                   {formatFCFA(inspectedSummary.creance)}
@@ -1280,7 +1399,7 @@ export const CustomerListView: React.FC = () => {
                 onClick={() => setActiveHistoryTab('SALES')}
                 className={`py-2 px-3 border-b-2 transition-colors cursor-pointer ${
                   activeHistoryTab === 'SALES'
-                    ? 'border-[#E35E2D] text-[#E35E2D]'
+                    ? 'border-[#FFCD11] text-[#7A5C00]'
                     : 'border-transparent text-[#1B1B1B]/60 hover:text-[#1B1B1B]'
                 }`}
                 title="Uniquement les achats à crédit (les achats payés directement ne sont pas listés)"
@@ -1292,7 +1411,7 @@ export const CustomerListView: React.FC = () => {
                 onClick={() => setActiveHistoryTab('PAYMENTS')}
                 className={`py-2 px-3 border-b-2 transition-colors cursor-pointer ${
                   activeHistoryTab === 'PAYMENTS'
-                    ? 'border-[#E35E2D] text-[#E35E2D]'
+                    ? 'border-[#FFCD11] text-[#7A5C00]'
                     : 'border-transparent text-[#1B1B1B]/60 hover:text-[#1B1B1B]'
                 }`}
               >
@@ -1315,7 +1434,7 @@ export const CustomerListView: React.FC = () => {
                       return (
                         <div
                           key={adj.id}
-                          className="p-3 bg-[#FFF5F1] border border-[#F5B79D] rounded-lg text-xs space-y-1"
+                          className="p-3 bg-[#FFF9DF] border border-[#F5B79D] rounded-lg text-xs space-y-1"
                         >
                           <div className="flex items-center justify-between font-bold">
                             <span className="inline-flex items-center gap-1.5 text-[#9A3412]">
@@ -1324,7 +1443,7 @@ export const CustomerListView: React.FC = () => {
                             </span>
                             <span
                               className={`font-mono font-bold ${
-                                isPositive ? 'text-[#E35E2D]' : 'text-emerald-700'
+                                isPositive ? 'text-[#7A5C00]' : 'text-emerald-700'
                               }`}
                             >
                               {isPositive ? '+' : ''}
@@ -1333,7 +1452,7 @@ export const CustomerListView: React.FC = () => {
                           </div>
                           <div className="text-[11px] text-[#1B1B1B]/70 flex justify-between">
                             <span className="inline-flex items-center gap-1">
-                              <Calendar className="w-3 h-3 text-[#E35E2D]" />
+                              <Calendar className="w-3 h-3 text-[#7A5C00]" />
                               {formatDate(adj.date)}
                             </span>
                             {adj.userName && <span>Par : {adj.userName}</span>}
@@ -1367,7 +1486,7 @@ export const CustomerListView: React.FC = () => {
                         <div
                           key={s.id}
                           onClick={() => setViewingReceiptSale(s)}
-                          className="p-3 bg-[#F9FAFB] border border-[#E5E5E5] rounded-lg hover:border-[#E35E2D] cursor-pointer text-xs space-y-1 transition-colors"
+                          className="p-3 bg-[#F9FAFB] border border-[#E5E5E5] rounded-lg hover:border-[#FFCD11] cursor-pointer text-xs space-y-1 transition-colors"
                         >
                           <div className="flex justify-between font-bold">
                             <span className="font-mono text-[#1B1B1B]">{s.receiptNumber}</span>
@@ -1419,7 +1538,7 @@ export const CustomerListView: React.FC = () => {
                           {isInitialCheckoutAcompte ? 'Acompte initial sur achat' : 'Acompte / Versement'}
                         </span>
                         <span className="inline-flex items-center gap-1 font-mono font-semibold text-[#1B1B1B]/80">
-                          <Calendar className="w-3 h-3 text-[#E35E2D]" />
+                          <Calendar className="w-3 h-3 text-[#7A5C00]" />
                           {formatDate(p.date)}
                         </span>
                       </div>
@@ -1437,7 +1556,7 @@ export const CustomerListView: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleOpenEditPayment(p)}
-                            className="px-2 py-1 text-[11px] font-semibold text-[#1B1B1B]/70 hover:text-[#E35E2D] bg-white hover:bg-[#F8F7F4] border border-[#E5E5E5] rounded inline-flex items-center gap-1 cursor-pointer"
+                            className="px-2 py-1 text-[11px] font-semibold text-[#1B1B1B]/70 hover:text-[#7A5C00] bg-white hover:bg-[#F8F7F4] border border-[#E5E5E5] rounded inline-flex items-center gap-1 cursor-pointer"
                             title="Modifier la date, le montant ou le mode de cet acompte"
                           >
                             <Edit2 className="w-3 h-3" />
@@ -1463,7 +1582,7 @@ export const CustomerListView: React.FC = () => {
                           }}
                           className="px-2.5 py-1 text-[11px] font-semibold text-[#1B1B1B] bg-white hover:bg-[#F8F7F4] border border-[#E5E5E5] rounded inline-flex items-center gap-1 cursor-pointer"
                         >
-                          <Receipt className="w-3.5 h-3.5 text-[#E35E2D]" />
+                          <Receipt className="w-3.5 h-3.5 text-[#7A5C00]" />
                           Voir le reçu
                         </button>
                       </div>
@@ -1478,16 +1597,16 @@ export const CustomerListView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => handleOpenAdjustDebtModal(inspectingCustomer)}
-                className="px-3 py-2 text-xs font-semibold text-[#1B1B1B] bg-white hover:border-[#E35E2D] border border-[#E5E5E5] rounded inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="px-3 py-2 text-xs font-semibold text-[#1B1B1B] bg-white hover:border-[#FFCD11] border border-[#E5E5E5] rounded inline-flex items-center gap-1.5 transition-colors cursor-pointer"
               >
-                <SlidersHorizontal className="w-3.5 h-3.5 text-[#E35E2D]" />
+                <SlidersHorizontal className="w-3.5 h-3.5 text-[#7A5C00]" />
                 <span>Ajuster créance</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => handleOpenSettleModal(inspectingCustomer)}
-                className="px-4 py-2 text-xs font-bold text-white bg-[#E35E2D] hover:bg-[#1B1B1B] rounded inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="px-4 py-2 text-xs font-bold text-[#111111] bg-[#FFCD11] hover:bg-[#E5B700] rounded inline-flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <DollarSign className="w-3.5 h-3.5" />
                 <span>Enregistrer un acompte</span>
@@ -1535,7 +1654,7 @@ export const CustomerListView: React.FC = () => {
                     required
                     value={editPayDate}
                     onChange={(e) => setEditPayDate(e.target.value)}
-                    className="w-full px-3 py-2 font-mono bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#E35E2D]"
+                    className="w-full px-3 py-2 font-mono bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#FFCD11]"
                   />
                 </div>
 
@@ -1546,7 +1665,7 @@ export const CustomerListView: React.FC = () => {
                   <select
                     value={editPayMethod}
                     onChange={(e) => setEditPayMethod(e.target.value as PaymentMethod)}
-                    className="w-full px-2.5 py-2 bg-[#F9FAFB] border border-[#E5E5E5] rounded font-medium focus:outline-none focus:border-[#E35E2D]"
+                    className="w-full px-2.5 py-2 bg-[#F9FAFB] border border-[#E5E5E5] rounded font-medium focus:outline-none focus:border-[#FFCD11]"
                   >
                     <option value="WAVE">Wave</option>
                     <option value="ESPECES">Espèces</option>
@@ -1566,7 +1685,7 @@ export const CustomerListView: React.FC = () => {
                   step={100}
                   value={editPayAmount}
                   onChange={(val) => setEditPayAmount(val)}
-                  className="w-full px-3 py-2 text-sm font-mono font-bold bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#E35E2D]"
+                  className="w-full px-3 py-2 text-sm font-mono font-bold bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#FFCD11]"
                 />
               </div>
 
@@ -1578,7 +1697,7 @@ export const CustomerListView: React.FC = () => {
                   type="text"
                   value={editPayRef}
                   onChange={(e) => setEditPayRef(e.target.value)}
-                  className="w-full px-3 py-2 font-mono bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#E35E2D]"
+                  className="w-full px-3 py-2 font-mono bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#FFCD11]"
                 />
               </div>
 
@@ -1590,7 +1709,7 @@ export const CustomerListView: React.FC = () => {
                   type="text"
                   value={editPayNotes}
                   onChange={(e) => setEditPayNotes(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#E35E2D]"
+                  className="w-full px-3 py-2 bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#FFCD11]"
                 />
               </div>
 
@@ -1604,7 +1723,7 @@ export const CustomerListView: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-[#E35E2D] hover:bg-[#1B1B1B] text-white rounded font-bold transition-colors cursor-pointer"
+                  className="px-5 py-2 bg-[#FFCD11] hover:bg-[#E5B700] text-[#111111] rounded font-bold transition-colors cursor-pointer"
                 >
                   Enregistrer
                 </button>
@@ -1621,7 +1740,7 @@ export const CustomerListView: React.FC = () => {
             <div className="flex items-start justify-between">
               <div>
                 <h3 className="text-base font-bold text-[#1B1B1B] flex items-center gap-2">
-                  <SlidersHorizontal className="w-4 h-4 text-[#E35E2D]" />
+                  <SlidersHorizontal className="w-4 h-4 text-[#7A5C00]" />
                   <span>Ajustement de la créance client</span>
                 </h3>
                 <p className="text-xs text-[#1B1B1B]/60 mt-0.5">
@@ -1652,7 +1771,7 @@ export const CustomerListView: React.FC = () => {
               </div>
               <div>
                 <span className="text-[10px] text-[#1B1B1B]/60 block uppercase">Créance actuelle</span>
-                <span className="font-mono font-bold text-[#E35E2D]">
+                <span className="font-mono font-bold text-[#7A5C00]">
                   {formatFCFA(adjustingSummary.creance)}
                 </span>
               </div>
@@ -1679,7 +1798,7 @@ export const CustomerListView: React.FC = () => {
                     }}
                     className={`py-2 px-2 rounded border text-[11px] font-semibold transition-colors cursor-pointer ${
                       adjustMode === 'SET_TARGET'
-                        ? 'bg-[#E35E2D] text-white border-[#E35E2D]'
+                        ? 'bg-[#FFCD11] text-[#111111] border-[#E5B700]'
                         : 'bg-[#F9FAFB] text-[#1B1B1B] border-[#E5E5E5]'
                     }`}
                   >
@@ -1693,7 +1812,7 @@ export const CustomerListView: React.FC = () => {
                     }}
                     className={`py-2 px-2 rounded border text-[11px] font-semibold transition-colors cursor-pointer ${
                       adjustMode === 'DELTA_ADD'
-                        ? 'bg-[#E35E2D] text-white border-[#E35E2D]'
+                        ? 'bg-[#FFCD11] text-[#111111] border-[#E5B700]'
                         : 'bg-[#F9FAFB] text-[#1B1B1B] border-[#E5E5E5]'
                     }`}
                   >
@@ -1707,7 +1826,7 @@ export const CustomerListView: React.FC = () => {
                     }}
                     className={`py-2 px-2 rounded border text-[11px] font-semibold transition-colors cursor-pointer ${
                       adjustMode === 'DELTA_SUB'
-                        ? 'bg-[#E35E2D] text-white border-[#E35E2D]'
+                        ? 'bg-[#FFCD11] text-[#111111] border-[#E5B700]'
                         : 'bg-[#F9FAFB] text-[#1B1B1B] border-[#E5E5E5]'
                     }`}
                   >
@@ -1731,7 +1850,7 @@ export const CustomerListView: React.FC = () => {
                     value={adjustValue}
                     onChange={(val) => setAdjustValue(val)}
                     placeholder="0"
-                    className="w-full px-3 py-2 text-sm font-mono font-bold bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#E35E2D]"
+                    className="w-full px-3 py-2 text-sm font-mono font-bold bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#FFCD11]"
                   />
                 </div>
 
@@ -1744,17 +1863,17 @@ export const CustomerListView: React.FC = () => {
                     required
                     value={adjustDate}
                     onChange={(e) => setAdjustDate(e.target.value)}
-                    className="w-full px-3 py-2 font-mono bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#E35E2D]"
+                    className="w-full px-3 py-2 font-mono bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#FFCD11]"
                   />
                 </div>
               </div>
 
               {/* Preview of resulting créance */}
-              <div className="p-2.5 bg-[#FFF5F1] border border-[#F5B79D] rounded flex items-center justify-between">
+              <div className="p-2.5 bg-[#FFF9DF] border border-[#F5B79D] rounded flex items-center justify-between">
                 <span className="text-[11px] font-medium text-[#9A3412]">
                   Créance après ajustement :
                 </span>
-                <span className="font-mono font-bold text-sm text-[#E35E2D]">
+                <span className="font-mono font-bold text-sm text-[#7A5C00]">
                   {formatFCFA(
                     adjustMode === 'SET_TARGET'
                       ? Math.max(0, Number(adjustValue) || 0)
@@ -1774,7 +1893,7 @@ export const CustomerListView: React.FC = () => {
                   value={adjustReason}
                   onChange={(e) => setAdjustReason(e.target.value)}
                   placeholder="Ex: Solde antérieur, remise commerciale, régularisation..."
-                  className="w-full px-3 py-2 bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#E35E2D]"
+                  className="w-full px-3 py-2 bg-[#F9FAFB] border border-[#E5E5E5] rounded focus:outline-none focus:border-[#FFCD11]"
                 />
                 <div className="flex flex-wrap gap-1.5 mt-1.5">
                   {[
@@ -1804,7 +1923,7 @@ export const CustomerListView: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-[#E35E2D] hover:bg-[#1B1B1B] text-white rounded font-bold transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+                  className="px-5 py-2 bg-[#FFCD11] hover:bg-[#E5B700] text-[#111111] rounded font-bold transition-colors inline-flex items-center gap-1.5 cursor-pointer"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>Valider l’ajustement</span>

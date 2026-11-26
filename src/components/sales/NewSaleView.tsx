@@ -2369,21 +2369,21 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                                     onClick={() => handleAddToCart(art, opt)}
                                     className={`w-full text-left px-2.5 py-1.5 rounded border text-xs flex flex-wrap items-center justify-between gap-2 transition-colors ${
                                       canSellOption
-                                        ? 'bg-[#F9FAFB] hover:bg-[#FFF5F1] border-[#E5E5E5] hover:border-[#E35E2D] cursor-pointer'
+                                        ? 'bg-[#F9FAFB] hover:bg-[#FFF9DF] border-[#E5E5E5] hover:border-[#FFCD11] cursor-pointer'
                                         : 'bg-slate-50 border-slate-200 opacity-60 cursor-not-allowed'
                                     }`}
                                   >
                                     <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
                                       <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#1B1B1B] text-white font-semibold text-[11px]">
-                                        <Tag className="w-3 h-3 text-[#E35E2D]" />
+                                        <Tag className="w-3 h-3 text-[#7A5C00]" />
                                         {opt.brand}
                                       </span>
                                       <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white border border-[#E5E5E5] text-[#1B1B1B] font-semibold text-[11px]">
-                                        <Building2 className="w-3 h-3 text-[#E35E2D]" />
+                                        <Building2 className="w-3 h-3 text-[#7A5C00]" />
                                         {opt.warehouseName}
                                       </span>
                                       <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white border border-[#E5E5E5] text-[#1B1B1B]/75 font-mono text-[11px]">
-                                        <MapPin className="w-3 h-3 text-[#E35E2D]" />
+                                        <MapPin className="w-3 h-3 text-[#7A5C00]" />
                                         {opt.location}
                                       </span>
                                     </div>
@@ -2445,12 +2445,12 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                 title={`Configurer la remise globale (${
                   computedGlobalDiscount > 0 ? `-${formatFCFA(computedGlobalDiscount)}` : '0 FCFA'
                 }), la date de vente (${formatDate(saleDate)}) ou le N° de Bon de Commande`}
-                className="px-3 py-1.5 rounded bg-[#F9FAFB] hover:border-[#E35E2D] border border-[#E5E5E5] text-xs font-semibold text-[#1B1B1B] inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                className="px-3 py-1.5 rounded bg-[#F9FAFB] hover:border-[#FFCD11] border border-[#E5E5E5] text-xs font-semibold text-[#1B1B1B] inline-flex items-center gap-1.5 cursor-pointer transition-colors"
               >
-                <SlidersHorizontal className="w-3.5 h-3.5 text-[#E35E2D]" />
+                <SlidersHorizontal className="w-3.5 h-3.5 text-[#7A5C00]" />
                 <span>Options & Remise</span>
                 {(computedGlobalDiscount > 0 || isBackdated) && (
-                  <span className="font-mono text-[11px] text-[#E35E2D] font-bold">
+                  <span className="font-mono text-[11px] text-[#7A5C00] font-bold">
                     {computedGlobalDiscount > 0 ? `-${formatFCFA(computedGlobalDiscount)}` : formatDate(saleDate)}
                   </span>
                 )}
@@ -2469,7 +2469,7 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-[#1B1B1B] flex items-center gap-1">
-                      <Percent className="w-3.5 h-3.5 text-[#E35E2D]" />
+                      <Percent className="w-3.5 h-3.5 text-[#7A5C00]" />
                       Remise globale
                     </span>
                     <div className="inline-flex p-0.5 bg-white border border-[#E5E5E5] rounded text-[10px]">
@@ -2524,14 +2524,14 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-[#1B1B1B] flex items-center gap-1">
-                      <Calendar className="w-3.5 h-3.5 text-[#E35E2D]" />
+                      <Calendar className="w-3.5 h-3.5 text-[#7A5C00]" />
                       Date de vente
                     </span>
                     {isBackdated && (
                       <button
                         type="button"
                         onClick={() => setSaleDate(new Date().toISOString().slice(0, 10))}
-                        className="text-[10px] text-[#E35E2D] underline bg-transparent! border-0! cursor-pointer"
+                        className="text-[10px] text-[#7A5C00] underline bg-transparent! border-0! cursor-pointer"
                       >
                         Aujourd'hui
                       </button>
@@ -2556,7 +2556,7 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                           setIsAdminApprovalModalOpen(true);
                         }}
                         title="Autorisation PIN Administrateur pour antidater"
-                        className="px-2.5 py-1.5 bg-[#FFF5F1] text-[#E35E2D] border border-[#E35E2D]/30 font-semibold rounded inline-flex items-center gap-1 cursor-pointer"
+                        className="px-2.5 py-1.5 bg-[#FFF9DF] text-[#7A5C00] border border-[#E5C130] font-semibold rounded inline-flex items-center gap-1 cursor-pointer"
                       >
                         <LockIcon className="w-3.5 h-3.5" />
                         <span>PIN</span>
@@ -2592,8 +2592,125 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
               </div>
             )}
 
-            {/* Tableau Pleine Largeur */}
-            <div className="border border-[#E5E5E5] rounded-lg overflow-x-auto">
+            {/* Cartes Panier Mobile (tactile, sans scroll horizontal) */}
+            <div className="md:hidden border border-[#E0E0E0] divide-y divide-[#E0E0E0]">
+              {cart.map((item, idx) => {
+                const brandOffers = getAllBrandOffersForArticle(item.article);
+                const activeBrand = item.selectedBrandOffer?.brand || item.article.brand;
+                const activeWhId = item.sourceWarehouseId || warehouseId;
+                const activeWhName =
+                  item.sourceWarehouseName ||
+                  warehouses.find((w) => w.id === activeWhId)?.name ||
+                  defaultWarehouse?.name ||
+                  'Magasin Principal';
+                const netLine = item.quantity * item.unitPrice - item.discountAmount;
+
+                return (
+                  <div
+                    key={`m-cart-${item.article.id}-${activeWhId}-${idx}`}
+                    className="p-3 space-y-2.5 bg-white"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <button
+                          type="button"
+                          onClick={() => setDetailArticle(item.article)}
+                          className="font-mono text-sm font-bold text-[#7A5C00] bg-transparent! border-0! p-0! inline-flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>{item.article.mainReference}</span>
+                          <Info className="w-3 h-3 text-[#595959]" />
+                        </button>
+                        <div className="text-xs font-semibold text-[#111111] leading-snug mt-0.5">
+                          {item.article.designation}
+                        </div>
+                        <div className="text-[11px] text-[#595959] mt-0.5 flex flex-wrap items-center gap-2">
+                          <span>{cleanBrandName(activeBrand) || '—'}</span>
+                          <span>• {activeWhName}</span>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveItem(idx)}
+                        className="w-7 h-7 border border-rose-200 bg-rose-50! text-rose-600! inline-flex items-center justify-center shrink-0 p-0!"
+                        title="Retirer cette ligne"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {brandOffers.length > 1 && (
+                      <select
+                        value={item.selectedBrandOffer?.id || ''}
+                        onChange={(e) => handleSelectBrandOffer(idx, e.target.value)}
+                        className="w-full px-2 py-1.5 bg-[#FFF9DF] text-[#7A5C00] font-semibold text-xs border border-[#E5C130]"
+                      >
+                        {brandOffers.map((bo) => (
+                          <option key={bo.id} value={bo.id}>
+                            Marque : {cleanBrandName(bo.brand) || '—'}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-[#EFEFEF]">
+                      {/* Stepper Qté */}
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateQuantity(idx, item.quantity - 1)}
+                          className="w-8 h-8 border border-[#CCCCCC] bg-[#F4F4F4]! text-[#111111]! inline-flex items-center justify-center p-0!"
+                          aria-label="Diminuer la quantité"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <NumericInput
+                          min={1}
+                          max={getTotalStockForArticle(item.article.id)}
+                          value={item.quantity}
+                          onChange={(val) =>
+                            handleUpdateQuantity(idx, Math.max(1, Math.floor(val)))
+                          }
+                          placeholder="1"
+                          className="w-12 h-8 text-center font-mono font-bold text-sm border border-[#CCCCCC] bg-white text-[#111111]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateQuantity(idx, item.quantity + 1)}
+                          className="w-8 h-8 border border-[#CCCCCC] bg-[#F4F4F4]! text-[#111111]! inline-flex items-center justify-center p-0!"
+                          aria-label="Augmenter la quantité"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {/* P.U & Total */}
+                      <div className="text-right ml-auto">
+                        <div className="flex items-center justify-end gap-1 text-[11px] text-[#595959] font-mono">
+                          <span>P.U : {item.unitPrice.toLocaleString('fr-FR')}</span>
+                          {currentPermissions.canOverridePrice && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenPriceOverride(idx)}
+                              className="p-0.5 text-[#7A5C00] bg-transparent! border-0!"
+                              title="Modifier le prix unitaire"
+                            >
+                              <Edit2 className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                        <div className="font-mono text-sm font-bold text-[#111111]">
+                          {formatFCFA(netLine)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Tableau Pleine Largeur (Desktop) */}
+            <div className="hidden md:block border border-[#E0E0E0] overflow-x-auto">
               <table className="w-full min-w-[660px] table-fixed text-left border-collapse">
                 <thead>
                   <tr className="bg-[#F9FAFB] text-[#1B1B1B]/70 text-[11px] font-semibold border-b border-[#E5E5E5]">
@@ -2664,7 +2781,7 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                               value={item.selectedBrandOffer?.id || ''}
                               onChange={(e) => handleSelectBrandOffer(idx, e.target.value)}
                               title="Choisir la marque pour cette ligne"
-                              className="w-full px-1.5 py-1 rounded bg-[#FFF5F1] text-[#E35E2D] font-semibold text-[11px] border border-[#E35E2D]/30 cursor-pointer"
+                              className="w-full px-1.5 py-1 rounded bg-[#FFF9DF] text-[#7A5C00] font-semibold text-[11px] border border-[#E5C130] cursor-pointer"
                             >
                               {brandOffers.map((bo) => (
                                 <option key={bo.id} value={bo.id}>
@@ -2687,7 +2804,7 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                               value={activeWhId}
                               onChange={(e) => handleSelectWarehouse(idx, e.target.value)}
                               title="Choisir le magasin source pour cette ligne"
-                              className="w-full px-1.5 py-1 rounded bg-white text-[#1B1B1B] font-semibold text-[11px] border border-[#E5E5E5] hover:border-[#E35E2D] cursor-pointer"
+                              className="w-full px-1.5 py-1 rounded bg-white text-[#1B1B1B] font-semibold text-[11px] border border-[#E5E5E5] hover:border-[#FFCD11] cursor-pointer"
                             >
                               {warehouses.map((wh) => {
                                 const st = artStocks.find((s) => s.warehouseId === wh.id);
@@ -2708,7 +2825,7 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                             </select>
                           ) : (
                             <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#1B1B1B] truncate">
-                              <Building2 className="w-3 h-3 text-[#E35E2D] shrink-0" />
+                              <Building2 className="w-3 h-3 text-[#7A5C00] shrink-0" />
                               <span className="truncate">{activeWhName}</span>
                             </span>
                           )}
@@ -2717,7 +2834,7 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                         {/* Emplacement */}
                         <td className="py-2.5 px-2 font-mono text-[11px] text-[#1B1B1B]/75 hidden xl:table-cell truncate" title={activeLocation}>
                           <span className="inline-flex items-center gap-1 truncate max-w-full">
-                            <MapPin className="w-3 h-3 text-[#E35E2D] shrink-0" />
+                            <MapPin className="w-3 h-3 text-[#7A5C00] shrink-0" />
                             <span className="truncate">{activeLocation}</span>
                           </span>
                         </td>
@@ -2730,7 +2847,7 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                                 type="button"
                                 onClick={() => handleUpdateQuantity(idx, item.quantity - 1)}
                                 title="Diminuer la quantité"
-                                className="w-6 h-6 rounded border border-[#E5E5E5] bg-white! hover:border-[#E35E2D] text-[#1B1B1B]! flex items-center justify-center font-semibold cursor-pointer p-0! shrink-0"
+                                className="w-6 h-6 rounded border border-[#E5E5E5] bg-white! hover:border-[#FFCD11] text-[#1B1B1B]! flex items-center justify-center font-semibold cursor-pointer p-0! shrink-0"
                               >
                                 <Minus className="w-3 h-3" />
                               </button>
@@ -2742,13 +2859,13 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                                   handleUpdateQuantity(idx, Math.max(1, Math.floor(val)))
                                 }
                                 placeholder="1"
-                                className="w-12 text-center font-mono font-bold text-sm py-1 border border-[#E5E5E5] rounded bg-[#F9FAFB] text-[#1B1B1B] focus:bg-white focus:outline-none focus:border-[#E35E2D]"
+                                className="w-12 text-center font-mono font-bold text-sm py-1 border border-[#E5E5E5] rounded bg-[#F9FAFB] text-[#1B1B1B] focus:bg-white focus:outline-none focus:border-[#FFCD11]"
                               />
                               <button
                                 type="button"
                                 onClick={() => handleUpdateQuantity(idx, item.quantity + 1)}
                                 title="Augmenter la quantité"
-                                className="w-7 h-7 rounded border border-[#E5E5E5] bg-white! hover:border-[#E35E2D] text-[#1B1B1B]! flex items-center justify-center font-semibold cursor-pointer p-0!"
+                                className="w-7 h-7 rounded border border-[#E5E5E5] bg-white! hover:border-[#FFCD11] text-[#1B1B1B]! flex items-center justify-center font-semibold cursor-pointer p-0!"
                               >
                                 <Plus className="w-3.5 h-3.5" />
                               </button>
@@ -2772,7 +2889,7 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                               <button
                                 type="button"
                                 onClick={() => handleOpenPriceOverride(idx)}
-                                className="p-1 text-[#1B1B1B]/40 hover:text-[#E35E2D] bg-transparent! border-0! rounded cursor-pointer"
+                                className="p-1 text-[#1B1B1B]/40 hover:text-[#7A5C00] bg-transparent! border-0! rounded cursor-pointer"
                                 title="Modifier le prix unitaire"
                               >
                                 <Edit2 className="w-3.5 h-3.5" />
@@ -2951,7 +3068,7 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                             <button
                               type="button"
                               onClick={() => handleFillRemainingOnTender(idx)}
-                              className="text-[10px] font-semibold text-[#1B1B1B] underline hover:text-[#E35E2D] bg-transparent! border-0! p-0! cursor-pointer"
+                              className="text-[10px] font-semibold text-[#1B1B1B] underline hover:text-[#7A5C00] bg-transparent! border-0! p-0! cursor-pointer"
                               title="Compléter automatiquement avec le solde restant"
                             >
                               Mettre le solde
@@ -3050,7 +3167,7 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                       value={tenders[0]?.amount ?? 0}
                       onChange={(val) => handleUpdatePrimaryTenderAmount(val)}
                       placeholder="0"
-                      className="w-full px-3.5 py-2 rounded bg-[#F9FAFB] border border-[#E5E5E5] font-mono font-bold text-sm text-[#1B1B1B] text-right focus:bg-white focus:outline-none focus:border-[#E35E2D]"
+                      className="w-full px-3.5 py-2 rounded bg-[#F9FAFB] border border-[#E5E5E5] font-mono font-bold text-sm text-[#1B1B1B] text-right focus:bg-white focus:outline-none focus:border-[#FFCD11]"
                     />
                   )}
                 </div>
@@ -3090,7 +3207,7 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                 disabled={cart.length === 0 || isSubmitting}
                 onClick={handleValidateSale}
                 title="Valider la vente et afficher la facture pour impression"
-                className="px-5 py-2.5 rounded bg-[#E35E2D]! hover:bg-[#C94D1E]! disabled:opacity-50 text-white! font-semibold text-xs sm:text-sm border-0! transition-colors inline-flex items-center gap-2 cursor-pointer"
+                className="px-5 py-2.5 rounded bg-[#FFCD11]! hover:bg-[#E5B700]! disabled:opacity-50 text-[#111111]! font-semibold text-xs sm:text-sm border-0! transition-colors inline-flex items-center gap-2 cursor-pointer"
               >
                 <CheckCircle2 className="w-4 h-4 text-white" />
                 <span>

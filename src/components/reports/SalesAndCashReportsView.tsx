@@ -1080,7 +1080,7 @@ export const SalesAndCashReportsView: React.FC = () => {
                         <span>Sur ventes :</span>
                         <span className="font-bold font-mono">{formatFCFA(totalSalesCollected)}</span>
                       </div>
-                      <div className="flex justify-between text-indigo-800">
+                      <div className="flex justify-between text-[#111111]">
                         <span>Acomptes / Règl. ({standaloneCustomerPayments.length}) :</span>
                         <span className="font-bold font-mono">+{formatFCFA(totalCustomerPaymentsCollected)}</span>
                       </div>
@@ -1150,11 +1150,11 @@ export const SalesAndCashReportsView: React.FC = () => {
                 </div>
 
                 <div className="p-2.5 bg-white border border-slate-200 rounded-lg">
-                  <div className="flex items-center gap-1.5 font-bold text-sky-900">
-                    <QrCode className="w-3.5 h-3.5 text-sky-600" />
+                  <div className="flex items-center gap-1.5 font-bold text-[#111111]">
+                    <QrCode className="w-3.5 h-3.5 text-[#7A5C00]" />
                     <span>Wave</span>
                   </div>
-                  <div className="font-mono font-extrabold text-sm text-sky-950 mt-1 tabular-nums">
+                  <div className="font-mono font-extrabold text-sm text-[#111111] mt-1 tabular-nums">
                     {formatFCFA(paymentBreakdown.WAVE || 0)}
                   </div>
                 </div>
@@ -1356,7 +1356,7 @@ export const SalesAndCashReportsView: React.FC = () => {
               <div className="space-y-2.5 pt-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                    <Coins className="w-4 h-4 text-indigo-600" />
+                    <Coins className="w-4 h-4 text-[#7A5C00]" />
                     <span>
                       Acomptes & Règlements Clients encaissés ({standaloneCustomerPayments.length})
                     </span>
@@ -1366,9 +1366,9 @@ export const SalesAndCashReportsView: React.FC = () => {
                   </span>
                 </div>
 
-                <div className="border border-indigo-200/80 rounded-xl overflow-hidden">
+                <div className="border border-[#E5C130] rounded-xl overflow-hidden">
                   <table className="w-full table-fixed text-left text-xs">
-                    <thead className="bg-indigo-50/70 border-b border-indigo-200/80 text-indigo-950 uppercase text-[10px] font-bold">
+                    <thead className="bg-[#FFF9DF] border-b border-[#E5C130] text-[#111111] uppercase text-[10px] font-bold">
                       <tr>
                         <SortableTh label="Date" active={custPaySort.field === 'date'} direction={custPaySort.dir} onClick={() => toggleCustPaySort('date')} className="w-[12%]" />
                         <SortableTh label="Réf." active={custPaySort.field === 'reference'} direction={custPaySort.dir} onClick={() => toggleCustPaySort('reference')} className="hidden md:table-cell w-[14%]" />
@@ -1399,11 +1399,11 @@ export const SalesAndCashReportsView: React.FC = () => {
                         const whName = warehouses.find((w) => w.id === p.warehouseId)?.name;
 
                         return (
-                          <tr key={p.id} className="hover:bg-indigo-50/30 transition-colors">
+                          <tr key={p.id} className="hover:bg-[#FFF9DF]/60 transition-colors">
                             <td className="py-2.5 px-2.5 font-mono text-slate-900 whitespace-nowrap text-[11px]">
                               <div className="flex flex-col gap-0.5">
                                 <span className="flex items-center gap-1 font-bold text-slate-900">
-                                  <Calendar className="w-3 h-3 text-indigo-500 shrink-0" />
+                                  <Calendar className="w-3 h-3 text-[#7A5C00] shrink-0" />
                                   {dateStr}
                                 </span>
                                 <span className="flex items-center gap-1 text-[10px] text-slate-500 pl-4">
@@ -1428,8 +1428,8 @@ export const SalesAndCashReportsView: React.FC = () => {
                               <span
                                 className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${
                                   isAcompte
-                                    ? 'bg-sky-50 text-sky-800 border border-sky-200'
-                                    : 'bg-indigo-50 text-indigo-800 border border-indigo-200'
+                                    ? 'bg-[#FFF9DF] text-[#111111] border border-[#E5C130]'
+                                    : 'bg-[#FFF9DF] text-[#111111] border border-[#E5C130]'
                                 }`}
                               >
                                 {isAcompte ? 'Acompte' : 'Règlement'}
@@ -1478,7 +1478,7 @@ export const SalesAndCashReportsView: React.FC = () => {
                         );
                       })}
                     </tbody>
-                    <tfoot className="bg-emerald-50/60 border-t border-indigo-200/80 text-xs font-bold">
+                    <tfoot className="bg-emerald-50/60 border-t border-[#E5C130] text-xs font-bold">
                       <tr>
                         <td colSpan={5} className="py-2.5 px-3 text-right text-slate-700 uppercase text-[11px]">
                           Total Acomptes & Règlements :
@@ -1629,7 +1629,7 @@ export const SalesAndCashReportsView: React.FC = () => {
                         <td className="py-2.5 px-2 text-right font-mono text-emerald-700 font-bold">
                           <span className="block truncate">{formatFCFA(w.collected)}</span>
                           {w.customerPaymentsCollected > 0 && (
-                            <span className="block text-[10px] font-normal text-indigo-700 truncate">
+                            <span className="block text-[10px] font-normal text-[#7A5C00] truncate">
                               +{formatFCFA(w.customerPaymentsCollected)} règ.
                             </span>
                           )}
@@ -2029,9 +2029,9 @@ const SmartphoneReportModal: React.FC<SmartphoneReportModalProps> = ({
           {/* Standalone Customer Deposits & Debt Settlements in Smartphone PDF */}
           {standaloneCustomerPayments.length > 0 && (
             <div className="space-y-2">
-              <div className="flex items-center justify-between pb-1 border-b border-indigo-200 dark:border-indigo-900/60">
-                <span className="text-[11px] font-black uppercase tracking-wider text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
-                  <Coins className="w-3.5 h-3.5 text-indigo-600" />
+              <div className="flex items-center justify-between pb-1 border-b border-[#E5C130] dark:border-[#FFCD11]/30">
+                <span className="text-[11px] font-black uppercase tracking-wider text-[#111111] dark:text-[#FFCD11] flex items-center gap-1.5">
+                  <Coins className="w-3.5 h-3.5 text-[#7A5C00]" />
                   Acomptes & Règlements ({standaloneCustomerPayments.length})
                 </span>
                 <span className="text-[10px] font-mono font-extrabold text-emerald-700">
@@ -2060,11 +2060,11 @@ const SmartphoneReportModal: React.FC<SmartphoneReportModalProps> = ({
                   return (
                     <div
                       key={p.id}
-                      className="p-2.5 bg-indigo-50/50 border border-indigo-200/70 rounded-xl space-y-1 text-[10px]"
+                      className="p-2.5 bg-[#FFF9DF] border border-[#E5C130] rounded-xl space-y-1 text-[10px]"
                     >
                       <div className="flex items-center justify-between text-[11px]">
                         <div className="flex items-center gap-1.5 font-bold text-slate-900 flex-wrap">
-                          <span className="text-indigo-600 font-mono">#{idx + 1}</span>
+                          <span className="text-[#7A5C00] font-mono">#{idx + 1}</span>
                           <span>{p.reference || p.id}</span>
                           <span className="text-[10px] text-slate-500 font-mono">
                             ({dateFormatted} à {timeFormatted})
@@ -2078,7 +2078,7 @@ const SmartphoneReportModal: React.FC<SmartphoneReportModalProps> = ({
                         <span>
                           Client : <strong>{custName}</strong>
                         </span>
-                        <span className="px-1.5 py-0.5 rounded bg-white border border-indigo-200 text-indigo-900 font-bold text-[9px] uppercase">
+                        <span className="px-1.5 py-0.5 rounded bg-white border border-[#E5C130] text-[#111111] font-bold text-[9px] uppercase">
                           {isAcompte ? 'Acompte' : 'Règlement'} · {p.method}
                         </span>
                       </div>

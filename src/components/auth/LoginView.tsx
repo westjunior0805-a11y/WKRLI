@@ -91,7 +91,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
       case 'ADMIN':
         return 'bg-[#1B1B1B] text-white border-[#1B1B1B]';
       case 'RESPONSABLE':
-        return 'bg-[#E35E2D]/10 text-[#E35E2D] border-[#E35E2D]/30';
+        return 'bg-[#FFF9DF] text-[#7A5C00] border-[#E5C130]';
       case 'MAGASINIER':
         return 'bg-[#F8F7F4] text-[#1B1B1B]/70 border-[#E5E5E5]';
     }
@@ -113,7 +113,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
               />
             </div>
           ) : (
-            <div className="inline-flex items-center justify-center w-12 h-12 bg-[#E35E2D] text-white font-display font-extrabold text-xl rounded-lg mb-1">
+            <div className="inline-flex items-center justify-center w-12 h-12 bg-[#FFCD11] text-[#111111] font-display font-extrabold text-xl rounded-lg mb-1">
               {companyName.charAt(0).toUpperCase()}
             </div>
           )}
@@ -137,7 +137,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
               }}
               className={`py-2 px-3 rounded transition-all flex items-center justify-center gap-2 cursor-pointer ${
                 activeTab === 'operators'
-                  ? 'bg-[#E35E2D] text-white shadow-xs'
+                  ? 'bg-[#FFCD11] text-[#111111] shadow-xs'
                   : 'text-[#1B1B1B]/60 hover:text-[#1B1B1B]'
               }`}
             >
@@ -154,7 +154,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
               }}
               className={`py-2 px-3 rounded transition-all flex items-center justify-center gap-2 cursor-pointer ${
                 activeTab === 'email'
-                  ? 'bg-[#E35E2D] text-white shadow-xs'
+                  ? 'bg-[#FFCD11] text-[#111111] shadow-xs'
                   : 'text-[#1B1B1B]/60 hover:text-[#1B1B1B]'
               }`}
             >
@@ -185,14 +185,14 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                             setPinInput('');
                             setErrorMessage(null);
                           }}
-                          className="w-full p-3 bg-[#F9FAFB] hover:bg-[#E35E2D]/5 border border-[#E5E5E5] hover:border-[#E35E2D] rounded-md transition-all text-left flex items-center justify-between group cursor-pointer"
+                          className="w-full p-3 bg-[#F9FAFB] hover:bg-[#FFF9DF] border border-[#E5E5E5] hover:border-[#FFCD11] rounded-md transition-all text-left flex items-center justify-between group cursor-pointer"
                         >
                           <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-9 h-9 rounded bg-white text-[#E35E2D] font-bold flex items-center justify-center border border-[#E5E5E5] group-hover:border-[#E35E2D] shrink-0">
+                            <div className="w-9 h-9 rounded bg-white text-[#7A5C00] font-bold flex items-center justify-center border border-[#E5E5E5] group-hover:border-[#FFCD11] shrink-0">
                               {u.name.charAt(0).toUpperCase()}
                             </div>
                             <div className="min-w-0">
-                              <div className="text-xs sm:text-sm font-bold text-[#1B1B1B] group-hover:text-[#E35E2D] transition-colors truncate">
+                              <div className="text-xs sm:text-sm font-bold text-[#1B1B1B] group-hover:text-[#7A5C00] transition-colors truncate">
                                 {u.name}
                               </div>
                               <div className="text-[11px] text-[#1B1B1B]/60 truncate">
@@ -211,7 +211,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                             >
                               {u.role}
                             </span>
-                            <ArrowRight className="w-4 h-4 text-[#1B1B1B]/40 group-hover:text-[#E35E2D] transition-colors" />
+                            <ArrowRight className="w-4 h-4 text-[#1B1B1B]/40 group-hover:text-[#7A5C00] transition-colors" />
                           </div>
                         </button>
                       );
@@ -222,7 +222,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                 <form onSubmit={handleOperatorPinSubmit} className="space-y-4">
                   <div className="flex items-center justify-between p-3 bg-[#F8F7F4] border border-[#E5E5E5] rounded-md">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-9 h-9 rounded bg-[#E35E2D] text-white font-bold flex items-center justify-center shrink-0">
+                      <div className="w-9 h-9 rounded bg-[#FFCD11] text-[#111111] font-bold flex items-center justify-center shrink-0">
                         {selectedOperator.name.charAt(0).toUpperCase()}
                       </div>
                       <div className="min-w-0">
@@ -263,7 +263,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                         placeholder="••••"
                         value={pinInput}
                         onChange={(e) => setPinInput(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 text-center tracking-[0.5em] font-mono text-base bg-[#F9FAFB] border border-[#E5E5E5] text-[#1B1B1B] rounded focus:outline-none focus:border-[#E35E2D]"
+                        className="w-full pl-10 pr-4 py-2.5 text-center tracking-[0.5em] font-mono text-base bg-[#F9FAFB] border border-[#E5E5E5] text-[#1B1B1B] rounded focus:outline-none focus:border-[#FFCD11]"
                       />
                     </div>
                     {(!selectedOperator.pinCode || selectedOperator.pinCode === '0000') && (
@@ -275,7 +275,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
 
                   <button
                     type="submit"
-                    className="w-full py-2.5 px-4 bg-[#E35E2D] hover:bg-[#1B1B1B] text-white font-semibold text-xs sm:text-sm rounded transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full py-2.5 px-4 bg-[#FFCD11] hover:bg-[#E5B700] text-[#111111] font-semibold text-xs sm:text-sm rounded transition-all flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <LogIn className="w-4 h-4" />
                     <span>Ouvrir la session</span>
@@ -300,7 +300,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                       placeholder="Nom et prénom"
                       value={nameInput}
                       onChange={(e) => setNameInput(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 text-xs sm:text-sm bg-[#F9FAFB] border border-[#E5E5E5] text-[#1B1B1B] rounded focus:outline-none focus:border-[#E35E2D]"
+                      className="w-full pl-10 pr-4 py-2.5 text-xs sm:text-sm bg-[#F9FAFB] border border-[#E5E5E5] text-[#1B1B1B] rounded focus:outline-none focus:border-[#FFCD11]"
                     />
                   </div>
                 </div>
@@ -318,7 +318,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                     placeholder="westjunior0805@gmail.com"
                     value={emailInput}
                     onChange={(e) => setEmailInput(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 text-xs sm:text-sm bg-[#F9FAFB] border border-[#E5E5E5] text-[#1B1B1B] rounded focus:outline-none focus:border-[#E35E2D]"
+                    className="w-full pl-10 pr-4 py-2.5 text-xs sm:text-sm bg-[#F9FAFB] border border-[#E5E5E5] text-[#1B1B1B] rounded focus:outline-none focus:border-[#FFCD11]"
                   />
                 </div>
               </div>
@@ -335,7 +335,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                     placeholder="••••"
                     value={passwordInput}
                     onChange={(e) => setPasswordInput(e.target.value)}
-                    className="w-full pl-10 pr-10 py-2.5 text-xs sm:text-sm bg-[#F9FAFB] border border-[#E5E5E5] text-[#1B1B1B] rounded focus:outline-none focus:border-[#E35E2D]"
+                    className="w-full pl-10 pr-10 py-2.5 text-xs sm:text-sm bg-[#F9FAFB] border border-[#E5E5E5] text-[#1B1B1B] rounded focus:outline-none focus:border-[#FFCD11]"
                   />
                   <button
                     type="button"
@@ -350,7 +350,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-2.5 px-4 bg-[#E35E2D] hover:bg-[#1B1B1B] text-white font-semibold text-xs sm:text-sm rounded transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                className="w-full py-2.5 px-4 bg-[#FFCD11] hover:bg-[#E5B700] text-[#111111] font-semibold text-xs sm:text-sm rounded transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
               >
                 <LogIn className="w-4 h-4" />
                 <span>
@@ -369,7 +369,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                     setIsRegisterMode(!isRegisterMode);
                     setErrorMessage(null);
                   }}
-                  className="text-xs text-[#1B1B1B]/60 hover:text-[#E35E2D] transition-colors font-medium cursor-pointer"
+                  className="text-xs text-[#1B1B1B]/60 hover:text-[#7A5C00] transition-colors font-medium cursor-pointer"
                 >
                   {isRegisterMode
                     ? 'Vous avez déjà un profil ? Se connecter'
