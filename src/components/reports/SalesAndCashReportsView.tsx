@@ -976,55 +976,45 @@ export const SalesAndCashReportsView: React.FC = () => {
           {/* Main Printable & Visual Report Card */}
           <div
             id="printable-daily-report"
-            className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-5"
+            className="bg-white border border-[#E0E0E0] rounded-xl p-5 sm:p-7 shadow-xs space-y-6"
           >
-            {/* Header of the Balance Sheet */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
-              <div className="flex items-start gap-3">
-                {companyInfo.logoUrl && (
-                  <img
-                    src={companyInfo.logoUrl}
-                    alt={companyInfo.name}
-                    className="w-10 h-10 object-contain rounded border border-slate-200 p-1 bg-white shrink-0"
-                  />
-                )}
-                <div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-extrabold uppercase tracking-wider text-slate-900">
-                      {companyInfo.name || 'WKRLI'}
+            {/* Minimalist Header: Title + Date & Time only (clear for non-technical boss) */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-[#E0E0E0]">
+              <div>
+                <h3 className="text-2xl sm:text-3xl font-extrabold text-[#111111] tracking-tight">
+                  Bilan Journalier des Transactions
+                </h3>
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-base sm:text-lg font-bold text-[#111111]">
+                  <span className="inline-flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-[#7A5C00] shrink-0" />
+                    <span>{periodLabel}</span>
+                  </span>
+                  <span className="text-[#595959]" aria-hidden="true">·</span>
+                  <span className="inline-flex items-center gap-1.5 font-mono tabular-nums text-[#595959]">
+                    <Clock className="w-4 h-4 text-[#7A5C00] shrink-0" />
+                    <span>
+                      {new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                     </span>
-                    <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
-                      Bilan Certifié
-                    </span>
-                    <span className="text-xs text-slate-400 font-mono">
-                      {warehouseLabel}
-                    </span>
-                  </div>
-                  <h3 className="text-lg font-bold text-slate-950 tracking-tight mt-1">
-                    Bilan Journalier des Transactions
-                  </h3>
-                  <p className="text-xs text-slate-600 mt-0.5">
-                    Situation commerciale arrêtée pour : <strong>{periodLabel}</strong>
-                  </p>
+                  </span>
                 </div>
               </div>
 
               {/* Action Buttons: Smartphone PDF, Excel export, Print A4 */}
-              <div className="flex flex-wrap items-center gap-2 print:hidden">
+              <div className="flex flex-wrap items-center gap-2 print:hidden shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsSmartphoneModalOpen(true)}
-                  className="inline-flex items-center gap-2 px-3.5 py-2 bg-slate-900 text-amber-400 hover:bg-slate-800 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+                  className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#111111] text-[#FFCD11] hover:bg-[#2A2A2A] rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer whitespace-nowrap shrink-0"
                   title="Afficher et imprimer le rapport au format Smartphone lisible (PDF / Fiche Mobile)"
                 >
-                  <Smartphone className="w-4 h-4 text-amber-400" />
+                  <Smartphone className="w-4 h-4 text-[#FFCD11]" />
                   <span>Bilan Smartphone (PDF)</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={handleExportFullExcelReport}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer whitespace-nowrap shrink-0"
                   title="Exporter le fichier Excel (.csv) complet avec synthèse, flux de caisse ligne par ligne et détail des ventes"
                 >
                   <FileSpreadsheet className="w-4 h-4" />
@@ -1034,61 +1024,61 @@ export const SalesAndCashReportsView: React.FC = () => {
                 <button
                   type="button"
                   onClick={handlePrintDailyReport}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#F4F4F4] hover:bg-[#E0E0E0] text-[#111111] border border-[#E0E0E0] rounded-xl text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0"
                   title="Imprimer une fiche A4 épurée"
                 >
-                  <Printer className="w-4 h-4 text-slate-600" />
+                  <Printer className="w-4 h-4 text-[#595959]" />
                   <span>Imprimer A4</span>
                 </button>
               </div>
             </div>
 
-            {/* 4 Big Simple Numbers (Conçu pour une compréhension immédiate par le patron) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* 4 Large High-Readability Summary Cards (2x2 Grid) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {/* Box 1: Chiffre d'Affaires Total */}
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col justify-between">
+              <div className="p-6 sm:p-7 rounded-xl bg-[#F4F4F4] border border-[#E0E0E0] flex flex-col justify-between min-h-[168px]">
                 <div>
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                    1. Ventes Totales (Chiffre d'Affaires)
+                  <span className="text-sm sm:text-base font-bold text-[#595959] block">
+                    1. Ventes totales (Chiffre d&apos;affaires)
                   </span>
-                  <div className="text-2xl sm:text-3xl font-extrabold font-mono text-slate-950 mt-1.5 tabular-nums">
+                  <div className="text-3xl sm:text-4xl lg:text-[42px] font-black font-mono text-[#111111] mt-3 tabular-nums tracking-tight leading-none">
                     {formatFCFA(totalRevenue)}
                   </div>
                 </div>
-                <div className="mt-3 pt-2 border-t border-slate-200 text-[11px] text-slate-600 flex justify-between">
-                  <span>Volume d'activité :</span>
-                  <span className="font-bold text-slate-900 font-mono">
-                    {sortedSales.length} vente{sortedSales.length > 1 ? 's' : ''} ({totalItemsSold} pièces)
+                <div className="mt-5 pt-3.5 border-t border-[#E0E0E0] text-sm text-[#595959] flex items-center justify-between gap-3">
+                  <span>Volume d&apos;activité</span>
+                  <span className="font-bold text-[#111111] font-mono tabular-nums">
+                    {sortedSales.length} vente{sortedSales.length > 1 ? 's' : ''} · {totalItemsSold} pièce{totalItemsSold > 1 ? 's' : ''}
                   </span>
                 </div>
               </div>
 
               {/* Box 2: Total Encaissé Réel */}
-              <div className="p-4 rounded-xl bg-emerald-50/70 border border-emerald-200 flex flex-col justify-between">
+              <div className="p-6 sm:p-7 rounded-xl bg-emerald-50/80 border border-emerald-300 flex flex-col justify-between min-h-[168px]">
                 <div>
-                  <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider block">
-                    2. Total Encaissé en Réel
+                  <span className="text-sm sm:text-base font-bold text-emerald-900 block">
+                    2. Total encaissé en réel
                   </span>
-                  <div className="text-2xl sm:text-3xl font-extrabold font-mono text-emerald-700 mt-1.5 tabular-nums">
+                  <div className="text-3xl sm:text-4xl lg:text-[42px] font-black font-mono text-emerald-700 mt-3 tabular-nums tracking-tight leading-none">
                     {formatFCFA(totalCollected)}
                   </div>
                 </div>
-                <div className="mt-3 pt-2 border-t border-emerald-200/80 text-[11px] text-emerald-800 space-y-0.5">
+                <div className="mt-5 pt-3.5 border-t border-emerald-200 text-sm text-emerald-900 space-y-1">
                   {totalCustomerPaymentsCollected > 0 ? (
                     <>
-                      <div className="flex justify-between">
-                        <span>Sur ventes :</span>
-                        <span className="font-bold font-mono">{formatFCFA(totalSalesCollected)}</span>
+                      <div className="flex items-center justify-between gap-3">
+                        <span>Sur ventes</span>
+                        <span className="font-bold font-mono tabular-nums">{formatFCFA(totalSalesCollected)}</span>
                       </div>
-                      <div className="flex justify-between text-[#111111]">
-                        <span>Acomptes / Règl. ({standaloneCustomerPayments.length}) :</span>
-                        <span className="font-bold font-mono">+{formatFCFA(totalCustomerPaymentsCollected)}</span>
+                      <div className="flex items-center justify-between gap-3 text-[#111111]">
+                        <span>Acomptes / Règlements ({standaloneCustomerPayments.length})</span>
+                        <span className="font-bold font-mono tabular-nums">+{formatFCFA(totalCustomerPaymentsCollected)}</span>
                       </div>
                     </>
                   ) : (
-                    <div className="flex justify-between">
-                      <span>Argent effectivement reçu :</span>
-                      <span className="font-bold font-mono">
+                    <div className="flex items-center justify-between gap-3">
+                      <span>Argent effectivement reçu</span>
+                      <span className="font-bold font-mono tabular-nums">
                         {totalRevenue > 0 ? `${Math.round((totalSalesCollected / totalRevenue) * 100)}% encaissé` : '0%'}
                       </span>
                     </div>
@@ -1097,94 +1087,94 @@ export const SalesAndCashReportsView: React.FC = () => {
               </div>
 
               {/* Box 3: Crédit / Reste à Recouvrer */}
-              <div className="p-4 rounded-xl bg-amber-50/60 border border-amber-200 flex flex-col justify-between">
+              <div className="p-6 sm:p-7 rounded-xl bg-[#FFF9DF] border border-[#E5C130] flex flex-col justify-between min-h-[168px]">
                 <div>
-                  <span className="text-[11px] font-bold text-amber-900 uppercase tracking-wider block">
-                    3. Crédits Accordés (Reste Dû)
+                  <span className="text-sm sm:text-base font-bold text-[#7A5C00] block">
+                    3. Crédits accordés (Reste dû)
                   </span>
-                  <div className={`text-2xl sm:text-3xl font-extrabold font-mono mt-1.5 tabular-nums ${
-                    totalUnpaid > 0 ? 'text-rose-600' : 'text-slate-700'
+                  <div className={`text-3xl sm:text-4xl lg:text-[42px] font-black font-mono mt-3 tabular-nums tracking-tight leading-none ${
+                    totalUnpaid > 0 ? 'text-rose-700' : 'text-[#595959]'
                   }`}>
                     {formatFCFA(totalUnpaid)}
                   </div>
                 </div>
-                <div className="mt-3 pt-2 border-t border-amber-200/80 text-[11px] text-amber-900 flex justify-between">
-                  <span>Non soldé à recouvrer :</span>
-                  <span className="font-bold font-mono">
+                <div className="mt-5 pt-3.5 border-t border-[#E5C130]/70 text-sm text-[#7A5C00] flex items-center justify-between gap-3">
+                  <span>Non soldé à recouvrer</span>
+                  <span className="font-bold text-[#111111]">
                     {totalUnpaid > 0 ? 'À suivre' : 'Tout est payé'}
                   </span>
                 </div>
               </div>
 
               {/* Box 4: Espèces en Tiroir Net */}
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col justify-between">
+              <div className="p-6 sm:p-7 rounded-xl bg-[#F4F4F4] border border-[#E0E0E0] flex flex-col justify-between min-h-[168px]">
                 <div>
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                    4. Espèces Net en Tiroir
+                  <span className="text-sm sm:text-base font-bold text-[#595959] block">
+                    4. Espèces net en tiroir
                   </span>
-                  <div className="text-2xl sm:text-3xl font-extrabold font-mono text-slate-950 mt-1.5 tabular-nums">
+                  <div className="text-3xl sm:text-4xl lg:text-[42px] font-black font-mono text-[#111111] mt-3 tabular-nums tracking-tight leading-none">
                     {formatFCFA(netDrawerCash)}
                   </div>
                 </div>
-                <div className="mt-3 pt-2 border-t border-slate-200 text-[11px] text-slate-600 flex justify-between">
+                <div className="mt-5 pt-3.5 border-t border-[#E0E0E0] text-sm text-[#595959] flex items-center justify-between gap-3">
                   <span>Après dépenses espèces (-{formatFCFA(totalCashDrawerExpenses)})</span>
-                  <span className="font-bold text-emerald-700 font-mono">En caisse</span>
+                  <span className="font-bold text-emerald-700 shrink-0">En caisse</span>
                 </div>
               </div>
             </div>
 
-            {/* Clear Payment Method Breakdown Pills */}
-            <div className="p-4 bg-slate-50/70 border border-slate-200 rounded-xl space-y-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
-                Répartition des encaissements par mode de paiement (Où est allé l'argent ?) :
+            {/* Enlarged Payment Method Breakdown Cards */}
+            <div className="p-5 sm:p-6 bg-[#F4F4F4] border border-[#E0E0E0] rounded-xl space-y-4">
+              <span className="text-sm sm:text-base font-bold text-[#111111] block">
+                Répartition des encaissements par mode de paiement
               </span>
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
-                <div className="p-2.5 bg-white border border-slate-200 rounded-lg">
-                  <div className="flex items-center gap-1.5 font-bold text-slate-800">
-                    <Banknote className="w-3.5 h-3.5 text-emerald-600" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="p-4 sm:p-5 bg-white border border-[#E0E0E0] rounded-xl flex flex-col justify-between">
+                  <div className="flex items-center gap-2 text-sm sm:text-base font-bold text-[#595959]">
+                    <Banknote className="w-5 h-5 text-emerald-600 shrink-0" />
                     <span>Espèces</span>
                   </div>
-                  <div className="font-mono font-extrabold text-sm text-slate-950 mt-1 tabular-nums">
+                  <div className="font-mono font-black text-2xl sm:text-[26px] text-[#111111] mt-2.5 tabular-nums tracking-tight">
                     {formatFCFA(paymentBreakdown.ESPECES || 0)}
                   </div>
                 </div>
 
-                <div className="p-2.5 bg-white border border-slate-200 rounded-lg">
-                  <div className="flex items-center gap-1.5 font-bold text-[#111111]">
-                    <QrCode className="w-3.5 h-3.5 text-[#7A5C00]" />
+                <div className="p-4 sm:p-5 bg-white border border-[#E0E0E0] rounded-xl flex flex-col justify-between">
+                  <div className="flex items-center gap-2 text-sm sm:text-base font-bold text-[#595959]">
+                    <QrCode className="w-5 h-5 text-[#7A5C00] shrink-0" />
                     <span>Wave</span>
                   </div>
-                  <div className="font-mono font-extrabold text-sm text-[#111111] mt-1 tabular-nums">
+                  <div className="font-mono font-black text-2xl sm:text-[26px] text-[#111111] mt-2.5 tabular-nums tracking-tight">
                     {formatFCFA(paymentBreakdown.WAVE || 0)}
                   </div>
                 </div>
 
-                <div className="p-2.5 bg-white border border-slate-200 rounded-lg">
-                  <div className="flex items-center gap-1.5 font-bold text-orange-950">
-                    <Smartphone className="w-3.5 h-3.5 text-orange-600" />
+                <div className="p-4 sm:p-5 bg-white border border-[#E0E0E0] rounded-xl flex flex-col justify-between">
+                  <div className="flex items-center gap-2 text-sm sm:text-base font-bold text-[#595959]">
+                    <Smartphone className="w-5 h-5 text-[#7A5C00] shrink-0" />
                     <span>Orange Money</span>
                   </div>
-                  <div className="font-mono font-extrabold text-sm text-orange-950 mt-1 tabular-nums">
+                  <div className="font-mono font-black text-2xl sm:text-[26px] text-[#111111] mt-2.5 tabular-nums tracking-tight">
                     {formatFCFA(paymentBreakdown.ORANGE_MONEY || 0)}
                   </div>
                 </div>
 
-                <div className="p-2.5 bg-white border border-slate-200 rounded-lg">
-                  <div className="flex items-center gap-1.5 font-bold text-slate-800">
-                    <Building2 className="w-3.5 h-3.5 text-slate-600" />
+                <div className="p-4 sm:p-5 bg-white border border-[#E0E0E0] rounded-xl flex flex-col justify-between">
+                  <div className="flex items-center gap-2 text-sm sm:text-base font-bold text-[#595959]">
+                    <Building2 className="w-5 h-5 text-[#595959] shrink-0" />
                     <span>Virements</span>
                   </div>
-                  <div className="font-mono font-extrabold text-sm text-slate-950 mt-1 tabular-nums">
+                  <div className="font-mono font-black text-2xl sm:text-[26px] text-[#111111] mt-2.5 tabular-nums tracking-tight">
                     {formatFCFA(paymentBreakdown.VIREMENT || 0)}
                   </div>
                 </div>
 
-                <div className="p-2.5 bg-white border border-slate-200 rounded-lg">
-                  <div className="flex items-center gap-1.5 font-bold text-slate-800">
-                    <CreditCard className="w-3.5 h-3.5 text-slate-600" />
+                <div className="p-4 sm:p-5 bg-white border border-[#E0E0E0] rounded-xl flex flex-col justify-between">
+                  <div className="flex items-center gap-2 text-sm sm:text-base font-bold text-[#595959]">
+                    <CreditCard className="w-5 h-5 text-[#595959] shrink-0" />
                     <span>Cartes</span>
                   </div>
-                  <div className="font-mono font-extrabold text-sm text-slate-950 mt-1 tabular-nums">
+                  <div className="font-mono font-black text-2xl sm:text-[26px] text-[#111111] mt-2.5 tabular-nums tracking-tight">
                     {formatFCFA(paymentBreakdown.CARTE || 0)}
                   </div>
                 </div>
@@ -1504,11 +1494,10 @@ export const SalesAndCashReportsView: React.FC = () => {
               </div>
             )}
 
-            {/* Signature & Date Footer */}
-            <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-400">
-              <span>{companyInfo.name || 'WKRLI'} — {companyInfo.slogan || 'Système certifié de gestion pièces & filtration'}</span>
-              <span className="font-mono">
-                Édité le {new Date().toLocaleDateString('fr-FR')} à {new Date().toLocaleTimeString('fr-FR')}
+            {/* Simple Date & Time Footer */}
+            <div className="pt-4 border-t border-[#E0E0E0] flex items-center justify-end text-sm text-[#595959]">
+              <span className="font-mono tabular-nums">
+                {new Date().toLocaleDateString('fr-FR')} · {new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
               </span>
             </div>
           </div>
@@ -1776,12 +1765,7 @@ interface SmartphoneReportModalProps {
 
 const SmartphoneReportModal: React.FC<SmartphoneReportModalProps> = ({
   onClose,
-  companyName,
-  companyAddress,
-  companyPhone,
-  companyLogoUrl,
   periodLabel,
-  warehouseLabel,
   totalRevenue,
   totalSalesCollected,
   totalCustomerPaymentsCollected,
@@ -1811,20 +1795,25 @@ const SmartphoneReportModal: React.FC<SmartphoneReportModalProps> = ({
     }
   };
 
+  const nowTimeStr = new Date().toLocaleTimeString('fr-FR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-y-auto print:p-0 print:bg-white">
-      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 my-auto overflow-hidden print:border-none print:shadow-none print:max-w-none print:w-full">
+    <div className="fixed inset-0 z-50 bg-[#111111]/80 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-y-auto print:p-0 print:bg-white">
+      <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-[#E0E0E0] my-auto overflow-hidden print:border-none print:shadow-none print:max-w-none print:w-full">
         {/* Modal Top Bar */}
-        <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between print:hidden">
+        <div className="px-4 py-3 bg-[#111111] text-white flex items-center justify-between print:hidden">
           <div className="flex items-center gap-2">
-            <Smartphone className="w-4 h-4 text-amber-400" />
-            <span className="text-xs font-bold uppercase tracking-wider">Format Smartphone & PDF</span>
+            <Smartphone className="w-4 h-4 text-[#FFCD11]" />
+            <span className="text-xs font-bold">Format Smartphone & PDF</span>
           </div>
           <div className="flex items-center gap-1.5">
             <button
               type="button"
               onClick={handlePrint}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-[#FFCD11] hover:bg-[#E5B700] text-[#111111] font-bold rounded-lg text-xs transition-colors cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>Imprimer</span>
@@ -1833,7 +1822,7 @@ const SmartphoneReportModal: React.FC<SmartphoneReportModalProps> = ({
               type="button"
               onClick={handleDownloadPdf}
               disabled={isDownloadingPdf}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-bold rounded-lg text-xs transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-bold rounded-lg text-xs transition-colors cursor-pointer"
               title="Télécharger directement le fichier PDF"
             >
               <Download className="w-3.5 h-3.5" />
@@ -1842,7 +1831,7 @@ const SmartphoneReportModal: React.FC<SmartphoneReportModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-1 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer"
+              className="p-1 text-[#A0A0A0] hover:text-white rounded-lg transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -1854,95 +1843,84 @@ const SmartphoneReportModal: React.FC<SmartphoneReportModalProps> = ({
           {/* Smartphone-width Printable Ticket Container */}
           <div
             id="printable-smartphone-report"
-            className="p-4 sm:p-5 space-y-4 print:p-0 print:space-y-3 bg-white text-slate-900"
+            className="p-5 sm:p-6 space-y-5 print:p-0 print:space-y-4 bg-white text-[#111111]"
           >
-          {/* Header Slip */}
-          <div className="text-center pb-3 border-b border-dashed border-slate-300 dark:border-slate-700">
-            {companyLogoUrl && (
-              <img
-                src={companyLogoUrl}
-                alt={companyName}
-                className="w-8 h-8 object-contain mx-auto mb-1"
-              />
-            )}
-            <div className="inline-block px-2.5 py-0.5 bg-amber-500 text-slate-950 text-[10px] font-black tracking-widest uppercase rounded mb-1">
-              {companyName}
-            </div>
-            {(companyAddress || companyPhone) && (
-              <p className="text-[9px] text-slate-500 mb-0.5">
-                {companyAddress}
-                {companyAddress && companyPhone ? ' · ' : ''}
-                {companyPhone ? `Tél : ${companyPhone}` : ''}
-              </p>
-            )}
-            <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">
-              BILAN JOURNALIER SMARTPHONE
+          {/* Simple Header: Date & Time Only */}
+          <div className="text-center pb-4 border-b border-dashed border-[#E0E0E0]">
+            <h3 className="text-xl font-black text-[#111111] tracking-tight">
+              Bilan Journalier
             </h3>
-            <p className="text-[11px] font-bold text-amber-600 dark:text-amber-400 mt-0.5">
+            <p className="text-base font-bold text-[#111111] mt-1.5">
               {periodLabel}
             </p>
-            <p className="text-[10px] text-slate-500 mt-0.5">
-              Magasin : <strong className="text-slate-800 dark:text-slate-200">{warehouseLabel}</strong>
-            </p>
-            <p className="text-[9px] text-slate-400 font-mono mt-0.5">
-              Généré le {new Date().toLocaleDateString('fr-FR')} à {new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+            <p className="text-sm font-mono font-bold text-[#595959] tabular-nums mt-0.5">
+              Heure : {nowTimeStr}
             </p>
           </div>
 
-          {/* Flash Synthesis Card (Without Net Espèces Tiroir or Cash Expenses) */}
-          <div className="p-3 bg-slate-900 text-white rounded-xl space-y-2">
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-              Synthèse Financière Flash
+          {/* Enlarged Stacked Summary Cards for Effortless Phone Reading */}
+          <div className="space-y-3">
+            <div className="p-4 sm:p-5 bg-[#F4F4F4] border border-[#E0E0E0] rounded-xl">
+              <span className="text-sm font-bold text-[#595959] block">
+                1. Ventes totales
+              </span>
+              <span className="font-mono font-black text-3xl text-[#111111] tabular-nums block mt-1.5 leading-none">
+                {formatFCFA(totalRevenue)}
+              </span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-              <div className="p-2 bg-slate-800/80 rounded-lg">
-                <span className="text-[10px] text-slate-400 block">Ventes Totales (CA)</span>
-                <span className="font-mono font-black text-sm text-amber-400 tabular-nums">
-                  {formatFCFA(totalRevenue)}
-                </span>
-              </div>
-              <div className="p-2 bg-slate-800/80 rounded-lg">
-                <span className="text-[10px] text-slate-400 block">Encaissé Réel</span>
-                <span className="font-mono font-black text-sm text-emerald-400 tabular-nums">
-                  {formatFCFA(totalCollected)}
-                </span>
-              </div>
-              <div className="p-2 bg-slate-800/80 rounded-lg">
-                <span className="text-[10px] text-slate-400 block">Crédits Accordés</span>
-                <span className={`font-mono font-black text-sm tabular-nums ${totalUnpaid > 0 ? 'text-rose-400' : 'text-slate-300'}`}>
-                  {formatFCFA(totalUnpaid)}
-                </span>
-              </div>
+
+            <div className="p-4 sm:p-5 bg-emerald-50 border border-emerald-300 rounded-xl">
+              <span className="text-sm font-bold text-emerald-900 block">
+                2. Total encaissé
+              </span>
+              <span className="font-mono font-black text-3xl text-emerald-700 tabular-nums block mt-1.5 leading-none">
+                {formatFCFA(totalCollected)}
+              </span>
+              {totalCustomerPaymentsCollected > 0 && (
+                <div className="mt-3 pt-2.5 border-t border-emerald-200 flex flex-col gap-1 text-xs font-medium text-emerald-900">
+                  <div className="flex items-center justify-between">
+                    <span>Sur ventes</span>
+                    <strong className="font-mono tabular-nums">{formatFCFA(totalSalesCollected)}</strong>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Acomptes / Règlements</span>
+                    <strong className="font-mono tabular-nums">+{formatFCFA(totalCustomerPaymentsCollected)}</strong>
+                  </div>
+                </div>
+              )}
             </div>
-            {totalCustomerPaymentsCollected > 0 && (
-              <div className="pt-1.5 border-t border-slate-800 flex items-center justify-between text-[10px] text-slate-300">
-                <span>Dont ventes : <strong className="font-mono text-white">{formatFCFA(totalSalesCollected)}</strong></span>
-                <span>Acomptes / Règl. : <strong className="font-mono text-emerald-400">+{formatFCFA(totalCustomerPaymentsCollected)}</strong></span>
-              </div>
-            )}
+
+            <div className="p-4 sm:p-5 bg-[#FFF9DF] border border-[#E5C130] rounded-xl">
+              <span className="text-sm font-bold text-[#7A5C00] block">
+                3. Crédits accordés (Reste dû)
+              </span>
+              <span className={`font-mono font-black text-3xl tabular-nums block mt-1.5 leading-none ${totalUnpaid > 0 ? 'text-rose-700' : 'text-[#595959]'}`}>
+                {formatFCFA(totalUnpaid)}
+              </span>
+            </div>
           </div>
 
-          {/* Payment Methods Breakdown */}
-          <div className="p-2.5 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700/60 text-[11px] space-y-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
-              Modes d'Encaissement :
+          {/* Enlarged Payment Methods Breakdown */}
+          <div className="p-4 sm:p-5 bg-[#F4F4F4] rounded-xl border border-[#E0E0E0] space-y-2">
+            <span className="text-sm font-bold text-[#111111] block mb-2">
+              Modes d&apos;encaissement
             </span>
-            <div className="flex justify-between py-0.5">
-              <span className="text-slate-600 dark:text-slate-400">💵 Espèces :</span>
-              <strong className="font-mono text-slate-900 dark:text-slate-100">{formatFCFA(paymentBreakdown.ESPECES || 0)}</strong>
+            <div className="flex items-center justify-between py-1.5 border-b border-[#E0E0E0]/70 text-sm">
+              <span className="font-semibold text-[#595959]">Espèces</span>
+              <strong className="font-mono text-lg font-black text-[#111111] tabular-nums">{formatFCFA(paymentBreakdown.ESPECES || 0)}</strong>
             </div>
-            <div className="flex justify-between py-0.5">
-              <span className="text-slate-600 dark:text-slate-400">🌊 Wave :</span>
-              <strong className="font-mono text-slate-900 dark:text-slate-100">{formatFCFA(paymentBreakdown.WAVE || 0)}</strong>
+            <div className="flex items-center justify-between py-1.5 border-b border-[#E0E0E0]/70 text-sm">
+              <span className="font-semibold text-[#595959]">Wave</span>
+              <strong className="font-mono text-lg font-black text-[#111111] tabular-nums">{formatFCFA(paymentBreakdown.WAVE || 0)}</strong>
             </div>
-            <div className="flex justify-between py-0.5">
-              <span className="text-slate-600 dark:text-slate-400">🟠 Orange Money :</span>
-              <strong className="font-mono text-slate-900 dark:text-slate-100">{formatFCFA(paymentBreakdown.ORANGE_MONEY || 0)}</strong>
+            <div className="flex items-center justify-between py-1.5 border-b border-[#E0E0E0]/70 text-sm">
+              <span className="font-semibold text-[#595959]">Orange Money</span>
+              <strong className="font-mono text-lg font-black text-[#111111] tabular-nums">{formatFCFA(paymentBreakdown.ORANGE_MONEY || 0)}</strong>
             </div>
             {(paymentBreakdown.VIREMENT > 0 || paymentBreakdown.CARTE > 0) && (
-              <div className="flex justify-between py-0.5">
-                <span className="text-slate-600 dark:text-slate-400">💳 Cartes & Virements :</span>
-                <strong className="font-mono text-slate-900 dark:text-slate-100">
+              <div className="flex items-center justify-between py-1.5 text-sm">
+                <span className="font-semibold text-[#595959]">Cartes &amp; Virements</span>
+                <strong className="font-mono text-lg font-black text-[#111111] tabular-nums">
                   {formatFCFA((paymentBreakdown.VIREMENT || 0) + (paymentBreakdown.CARTE || 0))}
                 </strong>
               </div>
@@ -1950,21 +1928,20 @@ const SmartphoneReportModal: React.FC<SmartphoneReportModalProps> = ({
           </div>
 
           {/* Line-by-Line Sales Details (Untruncated for Full WhatsApp & PDF Text Search) */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between pb-1 border-b border-slate-200 dark:border-slate-800">
-              <span className="text-[11px] font-black uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-1.5">
-                <Receipt className="w-3.5 h-3.5 text-amber-500" />
-                Détail des Ventes ({sortedSales.length})
+          <div className="space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-[#E0E0E0]">
+              <span className="text-sm font-black text-[#111111] flex items-center gap-1.5">
+                <Receipt className="w-4 h-4 text-[#7A5C00]" />
+                Détail des ventes ({sortedSales.length})
               </span>
-              <span className="text-[9px] text-slate-400 font-mono">Indexé Réf. & Date</span>
             </div>
 
             {sortedSales.length === 0 ? (
-              <p className="text-[11px] text-slate-400 italic text-center py-2">
+              <p className="text-sm text-[#595959] italic text-center py-3">
                 Aucune vente enregistrée sur cette période.
               </p>
             ) : (
-              <div className="space-y-2.5">
+              <div className="space-y-3">
                 {sortedSales.map((s, idx) => {
                   const saleDateFormatted = new Date(s.date).toLocaleDateString('fr-FR', {
                     day: '2-digit',
@@ -1980,40 +1957,38 @@ const SmartphoneReportModal: React.FC<SmartphoneReportModalProps> = ({
                   return (
                     <div
                       key={s.id}
-                      className="p-2.5 bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/50 rounded-xl space-y-1.5"
+                      className="p-3.5 bg-[#F4F4F4] border border-[#E0E0E0] rounded-xl space-y-2"
                     >
-                      <div className="flex items-center justify-between text-[11px]">
-                        <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white flex-wrap">
-                          <span className="text-amber-600 dark:text-amber-400 font-mono">#{idx + 1}</span>
+                      <div className="flex items-center justify-between gap-2 text-sm">
+                        <div className="flex items-center gap-1.5 font-bold text-[#111111] flex-wrap">
+                          <span className="text-[#7A5C00] font-mono">#{idx + 1}</span>
                           <span>{s.receiptNumber}</span>
-                          <span className="text-[10px] text-slate-500 font-mono">
-                            ({saleDateFormatted} à {saleTimeFormatted})
+                          <span className="text-xs text-[#595959] font-mono">
+                            · {saleDateFormatted} {saleTimeFormatted}
                           </span>
                         </div>
-                        <span className="font-mono font-black text-slate-900 dark:text-white tabular-nums shrink-0">
+                        <span className="font-mono text-base font-black text-[#111111] tabular-nums shrink-0">
                           {formatFCFA(netSaleTotal)}
                         </span>
                       </div>
 
-                      <div className="text-[10px] text-slate-600 dark:text-slate-300 flex items-center justify-between">
-                        <span>Client : <strong>{s.customerName || 'Client Comptoir'}</strong> {s.customerPhone ? `(${s.customerPhone})` : ''}</span>
-                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
-                          s.remainingDue > 0
-                            ? 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300'
-                            : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
+                      <div className="text-xs text-[#595959] flex items-center justify-between gap-2">
+                        <span>Client : <strong className="text-[#111111]">{s.customerName || 'Client Comptoir'}</strong> {s.customerPhone ? `(${s.customerPhone})` : ''}</span>
+                        <span className={`font-bold shrink-0 ${
+                          s.remainingDue > 0 ? 'text-rose-700' : 'text-emerald-700'
                         }`}>
                           {s.remainingDue > 0 ? `Reste ${formatFCFA(s.remainingDue)}` : 'Payé'}
                         </span>
                       </div>
 
                       {/* Items inside sale - full reference & date visible for PDF/WhatsApp search */}
-                      <div className="pt-1 border-t border-slate-200/60 dark:border-slate-700/40 space-y-1 text-[10px]">
+                      <div className="pt-2 border-t border-[#E0E0E0] space-y-1.5 text-xs">
                         {s.items.map((it, itemIdx) => (
-                          <div key={itemIdx} className="flex items-start justify-between gap-2 text-slate-700 dark:text-slate-300">
+                          <div key={itemIdx} className="flex items-start justify-between gap-2 text-[#111111]">
                             <span className="break-words pr-1 leading-snug">
-                              <strong className="font-mono text-slate-950 dark:text-slate-100">{it.quantity}x {it.mainReference}</strong> — {it.designation} ({it.brand}) <span className="text-[9px] text-slate-400 font-mono">[{saleDateFormatted}]</span>
+                              <strong className="font-mono text-[#111111]">{it.quantity}x {it.mainReference}</strong> — {it.designation} ({it.brand})
                             </span>
-                            <span className="font-mono font-semibold shrink-0 text-slate-800 dark:text-slate-200 tabular-nums">
+                            <span className="font-mono font-bold shrink-0 text-[#111111] tabular-nums">
                               {formatFCFA(it.totalLine)}
                             </span>
                           </div>
@@ -2028,18 +2003,18 @@ const SmartphoneReportModal: React.FC<SmartphoneReportModalProps> = ({
 
           {/* Standalone Customer Deposits & Debt Settlements in Smartphone PDF */}
           {standaloneCustomerPayments.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between pb-1 border-b border-[#E5C130] dark:border-[#FFCD11]/30">
-                <span className="text-[11px] font-black uppercase tracking-wider text-[#111111] dark:text-[#FFCD11] flex items-center gap-1.5">
-                  <Coins className="w-3.5 h-3.5 text-[#7A5C00]" />
-                  Acomptes & Règlements ({standaloneCustomerPayments.length})
+            <div className="space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-[#E5C130]">
+                <span className="text-sm font-black text-[#111111] flex items-center gap-1.5">
+                  <Coins className="w-4 h-4 text-[#7A5C00]" />
+                  Acomptes &amp; Règlements ({standaloneCustomerPayments.length})
                 </span>
-                <span className="text-[10px] font-mono font-extrabold text-emerald-700">
+                <span className="text-sm font-mono font-black text-emerald-700 tabular-nums">
                   +{formatFCFA(totalCustomerPaymentsCollected)}
                 </span>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 {standaloneCustomerPayments.map((p, idx) => {
                   const pDate = new Date(p.date);
                   const dateFormatted = pDate.toLocaleDateString('fr-FR', {
@@ -2060,30 +2035,30 @@ const SmartphoneReportModal: React.FC<SmartphoneReportModalProps> = ({
                   return (
                     <div
                       key={p.id}
-                      className="p-2.5 bg-[#FFF9DF] border border-[#E5C130] rounded-xl space-y-1 text-[10px]"
+                      className="p-3.5 bg-[#FFF9DF] border border-[#E5C130] rounded-xl space-y-1.5 text-xs"
                     >
-                      <div className="flex items-center justify-between text-[11px]">
-                        <div className="flex items-center gap-1.5 font-bold text-slate-900 flex-wrap">
+                      <div className="flex items-center justify-between gap-2 text-sm">
+                        <div className="flex items-center gap-1.5 font-bold text-[#111111] flex-wrap">
                           <span className="text-[#7A5C00] font-mono">#{idx + 1}</span>
                           <span>{p.reference || p.id}</span>
-                          <span className="text-[10px] text-slate-500 font-mono">
-                            ({dateFormatted} à {timeFormatted})
+                          <span className="text-xs text-[#595959] font-mono">
+                            · {dateFormatted} {timeFormatted}
                           </span>
                         </div>
-                        <span className="font-mono font-black text-emerald-700 tabular-nums shrink-0">
+                        <span className="font-mono text-base font-black text-emerald-700 tabular-nums shrink-0">
                           +{formatFCFA(p.amount)}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between text-slate-700">
+                      <div className="flex items-center justify-between text-[#595959]">
                         <span>
-                          Client : <strong>{custName}</strong>
+                          Client : <strong className="text-[#111111]">{custName}</strong>
                         </span>
-                        <span className="px-1.5 py-0.5 rounded bg-white border border-[#E5C130] text-[#111111] font-bold text-[9px] uppercase">
+                        <span className="font-bold text-[#111111]">
                           {isAcompte ? 'Acompte' : 'Règlement'} · {p.method}
                         </span>
                       </div>
                       {p.notes && (
-                        <div className="text-slate-500 italic">{p.notes}</div>
+                        <div className="text-[#595959] italic">{p.notes}</div>
                       )}
                     </div>
                   );
@@ -2092,18 +2067,14 @@ const SmartphoneReportModal: React.FC<SmartphoneReportModalProps> = ({
             </div>
           )}
 
-          {/* Footer Signature */}
-          <div className="pt-3 border-t border-dashed border-slate-300 dark:border-slate-700 text-center text-[9px] text-slate-400 space-y-1">
-            <p className="font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest">
-              CERTIFICATION & CLÔTURE DE CAISSE
-            </p>
-            <p>Rapport smartphone lisible — {companyName}</p>
-            <div className="grid grid-cols-2 gap-4 pt-3 text-[10px] text-slate-500">
-              <div className="border-t border-slate-300 dark:border-slate-700 pt-1 text-center">
+          {/* Simple Signature Footer */}
+          <div className="pt-4 border-t border-dashed border-[#E0E0E0] text-center">
+            <div className="grid grid-cols-2 gap-4 pt-3 text-xs font-semibold text-[#595959]">
+              <div className="border-t border-[#E0E0E0] pt-1.5 text-center">
                 Visa Caissier
               </div>
-              <div className="border-t border-slate-300 dark:border-slate-700 pt-1 text-center">
-                Visa Gérant / Direction
+              <div className="border-t border-[#E0E0E0] pt-1.5 text-center">
+                Visa Direction
               </div>
             </div>
           </div>
