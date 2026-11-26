@@ -40,6 +40,7 @@ import { ArticleDetailModal } from './ArticleDetailModal';
 import { ArticleFormModal } from './ArticleFormModal';
 import { ImportCatalogModal } from './ImportCatalogModal';
 import { QuickStockEditModal } from './QuickStockEditModal';
+import { QuickPricingModal } from './QuickPricingModal';
 import { MachineWhereUsedModal } from './MachineWhereUsedModal';
 import { SortableTh } from '../common/TablePagination';
 import { RowActionsMenu } from '../common/RowActionsMenu';
@@ -57,6 +58,7 @@ import {
   getBrandLocation,
   getBrandInvoiceNumber,
 } from '../../utils/articleHelpers';
+import { extractMissingPriceRows, hasMissingSalePrice } from '../../utils/pricingHelpers';
 
 interface ArticleCatalogViewProps {
   onOpenStockIn: (articleId?: string) => void;
@@ -97,7 +99,13 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [selectedBrand, setSelectedBrand] = useState<string>('ALL');
-  const [stockStatusFilter, setStockStatusFilter] = useState<'ALL' | 'IN_STOCK' | 'LOW' | 'OUT'>('ALL');
+  const [stockStatusFilter, setStockStatusFilter] = useState<'ALL' | 'IN_STOCK' | 'LOW' | 'OUT' | 'NO_PRICE'>('ALL');
+  const [isQuickPricingOpen, setIsQuickPricingOpen] = useState(false);
+
+  const missingPriceCount = useMemo(
+    () => extractMissingPriceRows(articles, stocks, selectedWarehouseId).filter((r) => r.missingSale).length,
+    [articles, stocks, selectedWarehouseId]
+  );
   const [sortBy, setSortBy] = useState<
     | 'ref'
     | 'designation'
@@ -258,6 +266,7 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
       if (stockStatusFilter === 'OUT' && stock > 0) continue;
       if (stockStatusFilter === 'LOW' && (stock === 0 || stock > art.minStockThreshold)) continue;
       if (stockStatusFilter === 'IN_STOCK' && stock === 0) continue;
+      if (stockStatusFilter === 'NO_PRICE' && !hasMissingSalePrice(art)) continue;
 
       // Strict Technical Search + Target Scope (Option 1 + Option 2)
       if (deferredSearchQuery.trim()) {
@@ -677,6 +686,35 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
             <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-50 text-amber-900 border border-amber-200/80 rounded-lg font-mono text-[11px]">
               <span className="font-bold">{articles.length}</span> réf. catalogue
             </span>
+
+            {missingPriceCount > 0 && currentUser.role !== 'MAGASINIER' && (
+              <button
+                type="button"
+                onClick={() => setIsQuickPricingOpen(true)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-[#FFCD11] hover:bg-[#E5B700] text-[#111111] border border-[#111111] font-bold text-[11px] transition-colors cursor-pointer"
+                title="Ouvrir la grille de tarification rapide pour définir les prix manquants"
+              >
+                <AlertTriangle className="w-3.5 h-3.5" />
+                <span>Sans prix ({missingPriceCount})</span>
+              </button>
+            )}
+
+            {missingPriceCount > 0 && (
+              <button
+                type="button"
+                onClick={() =>
+                  setStockStatusFilter((prev) => (prev === 'NO_PRICE' ? 'ALL' : 'NO_PRICE'))
+                }
+                className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-bold border transition-colors cursor-pointer ${
+                  stockStatusFilter === 'NO_PRICE'
+                    ? 'bg-[#111111] text-white border-[#111111]'
+                    : 'bg-[#FFF9DF] text-[#7A5C00] border-[#E5C130] hover:border-[#111111]'
+                }`}
+                title="Filtrer uniquement les pièces sans prix de vente dans le tableau"
+              >
+                <span>{stockStatusFilter === 'NO_PRICE' ? 'Filtre : Sans prix ✕' : 'Filtrer sans prix'}</span>
+              </button>
+            )}
           </div>
 
           {/* Right: Layout Mode, Page Size & Sort Controls */}
@@ -1819,6 +1857,13 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
           </div>
         </div>
       )}
+
+      <QuickPricingModal
+        isOpen={isQuickPricingOpen}
+        onClose={() => setIsQuickPricingOpen(false)}
+        warehouseId={selectedWarehouseId}
+        onSuccess={(message) => setActionFeedback({ type: 'success', message })}
+      />
     </div>
   );
 };

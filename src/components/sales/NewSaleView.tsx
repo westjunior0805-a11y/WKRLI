@@ -9,6 +9,7 @@ import {
   stripWarehousePrefix,
   cleanBrandName,
 } from '../../utils/articleHelpers';
+import { buildArticlePriceUpdate } from '../../utils/pricingHelpers';
 import {
   fuzzyFilter,
   scoreArticleByScope,
@@ -170,6 +171,22 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
     brand?: string;
     warehouseId?: string | null;
   } | null>(null);
+
+  // Saisie rapide de prix à la volée pour les pièces à 0 FCFA
+  const [pendingZeroPriceItem, setPendingZeroPriceItem] = useState<{
+    article: Article;
+    chosenOffer?: ArticleBrandOffer;
+    chosenBrand: string;
+    chosenWhId: string;
+    chosenWhName: string;
+    chosenLoc: string;
+    stockQty: number;
+    currentPurchasePrice: number;
+  } | null>(null);
+  const [quickSalePriceInput, setQuickSalePriceInput] = useState<number>(0);
+  const [quickPurchasePriceInput, setQuickPurchasePriceInput] = useState<number>(0);
+  const [saveQuickPriceToCatalog, setSaveQuickPriceToCatalog] = useState<boolean>(true);
+  const [quickPriceError, setQuickPriceError] = useState<string>('');
 
   // Date selection & Admin backdating approval
   const [saleDate, setSaleDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
@@ -722,6 +739,67 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
   const remainingBalanceDue = Math.max(0, netTotal - totalTendered);
   const changeToReturn = totalTendered > netTotal ? totalTendered - netTotal : 0;
 
+  const commitCartLine = (params: {
+    article: Article;
+    unitPrice: number;
+    catalogPrice: number;
+    isPriceOverridden: boolean;
+    chosenOffer?: ArticleBrandOffer;
+    chosenBrand: string;
+    chosenWhId: string;
+    chosenWhName: string;
+    chosenLoc: string;
+  }) => {
+    const existingIndex = cart.findIndex(
+      (i) =>
+        i.article.id === params.article.id &&
+        (i.selectedBrandOffer?.brand || i.article.brand).toLowerCase().trim() ===
+          params.chosenBrand.toLowerCase().trim() &&
+        (i.sourceWarehouseId || warehouseId) === params.chosenWhId
+    );
+
+    if (existingIndex >= 0) {
+      const existing = cart[existingIndex];
+      const updated = [...cart];
+      const newQty = existing.quantity + 1;
+      const effectivePrice = existing.unitPrice > 0 ? existing.unitPrice : params.unitPrice;
+      const rawLine = newQty * effectivePrice;
+      const discAmt =
+        existing.discountPercent > 0
+          ? Math.round((rawLine * existing.discountPercent) / 100)
+          : existing.discountAmount;
+
+      updated[existingIndex] = {
+        ...existing,
+        quantity: newQty,
+        unitPrice: effectivePrice,
+        catalogPrice: existing.catalogPrice > 0 ? existing.catalogPrice : params.catalogPrice,
+        discountAmount: discAmt,
+      };
+      setCart(updated);
+    } else {
+      setCart([
+        ...cart,
+        {
+          article: params.article,
+          quantity: 1,
+          unitPrice: params.unitPrice,
+          catalogPrice: params.catalogPrice,
+          discountPercent: 0,
+          discountAmount: 0,
+          isPriceOverridden: params.isPriceOverridden,
+          selectedBrandOffer: params.chosenOffer,
+          sourceWarehouseId: params.chosenWhId,
+          sourceWarehouseName: params.chosenWhName,
+          sourceLocation: params.chosenLoc,
+        },
+      ]);
+    }
+
+    setSearchQuery('');
+    setIsStep2SearchOpen(false);
+  };
+
   const handleAddToCart = (article: Article, preferredOption?: SaleProductOption) => {
     setErrorMessage('');
     setSuccessBanner(null);
@@ -772,44 +850,104 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
       return;
     }
 
-    if (existingIndex >= 0) {
-      const existing = cart[existingIndex];
-      const updated = [...cart];
-      const newQty = existing.quantity + 1;
-      const rawLine = newQty * existing.unitPrice;
-      const discAmt =
-        existing.discountPercent > 0
-          ? Math.round((rawLine * existing.discountPercent) / 100)
-          : existing.discountAmount;
-
-      updated[existingIndex] = {
-        ...existing,
-        quantity: newQty,
-        discountAmount: discAmt,
-      };
-      setCart(updated);
-    } else {
-      setCart([
-        ...cart,
-        {
-          article,
-          quantity: 1,
-          unitPrice: initialPrice,
-          catalogPrice: initialPrice,
-          discountPercent: 0,
-          discountAmount: 0,
-          isPriceOverridden: false,
-          selectedBrandOffer: chosenOffer,
-          sourceWarehouseId: chosenWhId,
-          sourceWarehouseName: chosenWhName,
-          sourceLocation: chosenLoc,
-        },
-      ]);
+    // Si le prix de vente n'est pas encore défini (0 FCFA) et que la ligne n'a pas déjà un prix saisi au panier
+    const existingLineHasPrice = existingIndex >= 0 && cart[existingIndex].unitPrice > 0;
+    if ((!initialPrice || initialPrice <= 0) && !existingLineHasPrice) {
+      const currentPurchase =
+        Number(chosenOffer?.purchasePrice) || Number(article.purchasePrice) || 0;
+      setPendingZeroPriceItem({
+        article,
+        chosenOffer,
+        chosenBrand,
+        chosenWhId,
+        chosenWhName,
+        chosenLoc,
+        stockQty: chosenOption?.stockQty ?? availableStock,
+        currentPurchasePrice: currentPurchase,
+      });
+      setQuickSalePriceInput(0);
+      setQuickPurchasePriceInput(currentPurchase);
+      setSaveQuickPriceToCatalog(
+        currentPermissions.canManageCatalog || currentPermissions.canOverridePrice
+      );
+      setQuickPriceError('');
+      return;
     }
 
-    // Clear search query and close dropdown after selecting an item so Model 2 table is clean and visible
-    setSearchQuery('');
-    setIsStep2SearchOpen(false);
+    commitCartLine({
+      article,
+      unitPrice: initialPrice,
+      catalogPrice: initialPrice,
+      isPriceOverridden: false,
+      chosenOffer,
+      chosenBrand,
+      chosenWhId,
+      chosenWhName,
+      chosenLoc,
+    });
+  };
+
+  const handleConfirmZeroPriceModal = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pendingZeroPriceItem) return;
+
+    const cleanSale = Math.round(Number(quickSalePriceInput) || 0);
+    if (cleanSale <= 0) {
+      setQuickPriceError('Veuillez saisir un prix de vente supérieur à 0 FCFA.');
+      return;
+    }
+
+    const canPersistToCatalog =
+      saveQuickPriceToCatalog &&
+      (currentPermissions.canManageCatalog || currentPermissions.canOverridePrice);
+
+    let updatedArticleRef = pendingZeroPriceItem.article;
+    let updatedOfferRef = pendingZeroPriceItem.chosenOffer;
+
+    if (canPersistToCatalog) {
+      const cleanPurchase = currentPermissions.canViewPurchasePrices
+        ? Math.max(0, Math.round(Number(quickPurchasePriceInput) || 0))
+        : undefined;
+      const updates = buildArticlePriceUpdate(
+        pendingZeroPriceItem.article,
+        pendingZeroPriceItem.chosenBrand,
+        cleanSale,
+        cleanPurchase
+      );
+      const res = updateArticle(pendingZeroPriceItem.article.id, updates);
+      if (res.success) {
+        updatedArticleRef = {
+          ...pendingZeroPriceItem.article,
+          ...updates,
+        };
+        if (updatedOfferRef) {
+          updatedOfferRef = {
+            ...updatedOfferRef,
+            salePrice: cleanSale,
+            purchasePrice:
+              cleanPurchase !== undefined ? cleanPurchase : updatedOfferRef.purchasePrice,
+          };
+        }
+        setSuccessBanner(
+          `Prix de ${pendingZeroPriceItem.article.mainReference} enregistré au catalogue (${formatFCFA(cleanSale)}).`
+        );
+      }
+    }
+
+    commitCartLine({
+      article: updatedArticleRef,
+      unitPrice: cleanSale,
+      catalogPrice: canPersistToCatalog ? cleanSale : 0,
+      isPriceOverridden: !canPersistToCatalog,
+      chosenOffer: updatedOfferRef,
+      chosenBrand: pendingZeroPriceItem.chosenBrand,
+      chosenWhId: pendingZeroPriceItem.chosenWhId,
+      chosenWhName: pendingZeroPriceItem.chosenWhName,
+      chosenLoc: pendingZeroPriceItem.chosenLoc,
+    });
+
+    setPendingZeroPriceItem(null);
+    setQuickPriceError('');
   };
 
   // Enter key in search input adds best match immediately
@@ -1315,6 +1453,15 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
       return;
     }
 
+    const zeroPriceLines = cart.filter((c) => !c.unitPrice || c.unitPrice <= 0);
+    if (zeroPriceLines.length > 0) {
+      const refs = zeroPriceLines.map((c) => c.article.mainReference).join(', ');
+      setErrorMessage(
+        `Impossible de valider la vente : prix de vente à 0 FCFA pour ${refs}. Veuillez renseigner le prix avant d’encaisser.`
+      );
+      return;
+    }
+
     if (remainingBalanceDue > 0 && (customerType !== 'REGISTERED' || !selectedCustomerId)) {
       setCustomerType('REGISTERED');
       setErrorMessage(
@@ -1769,9 +1916,15 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
 
                               <div className="flex items-center gap-2.5 sm:contents">
                                 {/* 4. Prix de vente */}
-                                <span className="font-mono font-bold text-xs sm:text-sm text-[#111111] tabular-nums sm:min-w-[96px] sm:text-right whitespace-nowrap">
-                                  {formatFCFA(opt.salePrice)}
-                                </span>
+                                {opt.salePrice > 0 ? (
+                                  <span className="font-mono font-bold text-xs sm:text-sm text-[#111111] tabular-nums sm:min-w-[96px] sm:text-right whitespace-nowrap">
+                                    {formatFCFA(opt.salePrice)}
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-[#FFF9DF] text-[#7A5C00] border border-[#FFCD11] sm:min-w-[96px] justify-center whitespace-nowrap">
+                                    Prix à définir
+                                  </span>
+                                )}
 
                                 {/* 5. Bouton + Cat Yellow (.add-btn) */}
                                 <span
@@ -2243,9 +2396,15 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                                       >
                                         {opt.stockQty} {art.unit}
                                       </span>
-                                      <strong className="font-mono text-[#1B1B1B] tabular-nums">
-                                        {formatFCFA(opt.salePrice)}
-                                      </strong>
+                                      {opt.salePrice > 0 ? (
+                                        <strong className="font-mono text-[#1B1B1B] tabular-nums">
+                                          {formatFCFA(opt.salePrice)}
+                                        </strong>
+                                      ) : (
+                                        <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase bg-[#FFF9DF] text-[#7A5C00] border border-[#FFCD11]">
+                                          Prix à définir
+                                        </span>
+                                      )}
                                       <span
                                         className={`px-2 py-0.5 rounded font-semibold text-[11px] ${
                                           canSellOption
@@ -3470,6 +3629,121 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
             setSuccessBanner(msg);
           }}
         />
+      )}
+
+      {/* Modal saisie rapide du prix à la volée (pièce à 0 FCFA) */}
+      {pendingZeroPriceItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white dark:bg-[#1E1E1E] border border-[#111111] dark:border-[#444444] shadow-2xl max-w-md w-full overflow-hidden">
+            <div className="px-5 py-3.5 bg-[#111111] text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-2 h-5 bg-[#FFCD11]" />
+                <h3 className="text-sm font-bold">Définir le prix de la pièce</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPendingZeroPriceItem(null)}
+                className="p-1 text-slate-300 hover:text-white cursor-pointer"
+                aria-label="Fermer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmZeroPriceModal} className="p-5 space-y-4">
+              <div className="p-3 bg-[#FFF9DF] dark:bg-[#FFCD11]/10 border border-[#FFCD11] space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-sm font-bold text-[#111111] dark:text-white">
+                    {pendingZeroPriceItem.article.mainReference}
+                  </span>
+                  {pendingZeroPriceItem.chosenBrand && (
+                    <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase bg-white dark:bg-[#262626] text-[#111111] dark:text-slate-200 border border-[#CCCCCC] dark:border-[#444444]">
+                      {pendingZeroPriceItem.chosenBrand}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs font-medium text-[#333333] dark:text-slate-200">
+                  {pendingZeroPriceItem.article.designation}
+                </p>
+                <p className="text-[11px] text-[#7A5C00] dark:text-[#FFCD11]">
+                  Cette pièce n’a pas encore de prix de vente enregistré.
+                </p>
+              </div>
+
+              {quickPriceError && (
+                <div className="p-2.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-300 text-rose-800 dark:text-rose-200 text-xs font-medium flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>{quickPriceError}</span>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#595959] dark:text-slate-300 mb-1.5">
+                  Prix de vente unitaire (FCFA) *
+                </label>
+                <NumericInput
+                  autoFocus
+                  value={quickSalePriceInput}
+                  onChange={(val) => {
+                    setQuickSalePriceInput(val);
+                    if (quickPriceError) setQuickPriceError('');
+                  }}
+                  min={0}
+                  placeholder="Ex: 15000"
+                  className="w-full px-3 py-2.5 font-mono text-base font-bold bg-white dark:bg-[#262626] text-[#111111] dark:text-white border-2 border-[#111111] dark:border-[#FFCD11] focus:outline-none"
+                />
+              </div>
+
+              {currentPermissions.canViewPurchasePrices && (
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[#595959] dark:text-slate-300 mb-1.5">
+                    Prix d’achat unitaire (FCFA) — optionnel
+                  </label>
+                  <NumericInput
+                    value={quickPurchasePriceInput}
+                    onChange={setQuickPurchasePriceInput}
+                    min={0}
+                    placeholder="Si connu..."
+                    className="w-full px-3 py-2 font-mono text-sm font-semibold bg-white dark:bg-[#262626] text-[#111111] dark:text-white border border-[#CCCCCC] dark:border-[#444444] focus:outline-none focus:border-[#111111]"
+                  />
+                </div>
+              )}
+
+              {(currentPermissions.canManageCatalog || currentPermissions.canOverridePrice) && (
+                <label className="flex items-start gap-2.5 p-3 bg-[#F8F8F8] dark:bg-[#262626] border border-[#E0E0E0] dark:border-[#333333] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={saveQuickPriceToCatalog}
+                    onChange={(e) => setSaveQuickPriceToCatalog(e.target.checked)}
+                    className="mt-0.5 accent-[#111111]"
+                  />
+                  <span className="text-xs text-[#111111] dark:text-slate-200 leading-snug">
+                    <strong>Enregistrer ce prix dans le catalogue</strong>
+                    <span className="block text-[11px] text-[#595959] dark:text-slate-400">
+                      Il sera mémorisé automatiquement pour toutes les prochaines ventes.
+                    </span>
+                  </span>
+                </label>
+              )}
+
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-[#E0E0E0] dark:border-[#333333]">
+                <button
+                  type="button"
+                  onClick={() => setPendingZeroPriceItem(null)}
+                  className="px-4 py-2 text-xs font-bold text-[#595959] dark:text-slate-300 bg-white dark:bg-[#262626] border border-[#CCCCCC] dark:border-[#444444] cursor-pointer"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-xs font-bold bg-[#FFCD11] hover:bg-[#E5B700] text-[#111111] border border-[#111111] cursor-pointer"
+                >
+                  Valider et ajouter au panier
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

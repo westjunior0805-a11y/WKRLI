@@ -41,6 +41,7 @@ import { WarehouseFormModal } from './WarehouseFormModal';
 import { ArticleDetailModal } from '../catalog/ArticleDetailModal';
 import { ArticleFormModal } from '../catalog/ArticleFormModal';
 import { QuickStockEditModal } from '../catalog/QuickStockEditModal';
+import { QuickPricingModal } from '../catalog/QuickPricingModal';
 import { ImportCatalogModal } from '../catalog/ImportCatalogModal';
 import { RowActionsMenu } from '../common/RowActionsMenu';
 import { SearchField } from '../common/SearchField';
@@ -52,6 +53,7 @@ import {
   getBrandLocation,
   getBrandInvoiceNumber,
 } from '../../utils/articleHelpers';
+import { extractMissingPriceRows, hasMissingSalePrice } from '../../utils/pricingHelpers';
 
 interface WarehouseListViewProps {
   viewMode?: 'stock' | 'warehouses';
@@ -108,7 +110,8 @@ export const WarehouseListView: React.FC<WarehouseListViewProps> = ({
   const [stockSearchQuery, setStockSearchQuery] = useState('');
   const deferredStockSearchQuery = useDeferredValue(stockSearchQuery);
   const [selectedBrand, setSelectedBrand] = useState<string>('ALL');
-  const [stockStatusFilter, setStockStatusFilter] = useState<'ALL' | 'IN_STOCK' | 'LOW' | 'OUT'>('ALL');
+  const [stockStatusFilter, setStockStatusFilter] = useState<'ALL' | 'IN_STOCK' | 'LOW' | 'OUT' | 'NO_PRICE'>('ALL');
+  const [isQuickPricingOpen, setIsQuickPricingOpen] = useState(false);
   const [sortField, setSortField] = useState<
     | 'reference'
     | 'designation'
@@ -282,6 +285,7 @@ export const WarehouseListView: React.FC<WarehouseListViewProps> = ({
       if (stockStatusFilter === 'IN_STOCK' && qty <= 0) return false;
       if (stockStatusFilter === 'OUT' && qty > 0) return false;
       if (stockStatusFilter === 'LOW' && (qty === 0 || qty > art.minStockThreshold)) return false;
+      if (stockStatusFilter === 'NO_PRICE' && !hasMissingSalePrice(art)) return false;
 
       return true;
     });
@@ -746,7 +750,9 @@ export const WarehouseListView: React.FC<WarehouseListViewProps> = ({
               <select
                 value={stockStatusFilter}
                 onChange={(e) =>
-                  setStockStatusFilter(e.target.value as 'ALL' | 'IN_STOCK' | 'LOW' | 'OUT')
+                  setStockStatusFilter(
+                    e.target.value as 'ALL' | 'IN_STOCK' | 'LOW' | 'OUT' | 'NO_PRICE'
+                  )
                 }
                 className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-700 focus:outline-none"
               >
@@ -754,7 +760,27 @@ export const WarehouseListView: React.FC<WarehouseListViewProps> = ({
                 <option value="IN_STOCK">En stock (&gt; 0)</option>
                 <option value="LOW">Sous seuil minimum</option>
                 <option value="OUT">En rupture (0)</option>
+                <option value="NO_PRICE">Prix de vente manquant (0 FCFA)</option>
               </select>
+
+              {(() => {
+                const whId = inspectedWarehouseId === 'ALL' ? undefined : inspectedWarehouseId;
+                const missingCount = extractMissingPriceRows(articles, stocks, whId).filter(
+                  (r) => r.missingSale
+                ).length;
+                if (missingCount === 0 || currentUser.role === 'MAGASINIER') return null;
+                return (
+                  <button
+                    type="button"
+                    onClick={() => setIsQuickPricingOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-[#FFCD11] hover:bg-[#E5B700] text-[#111111] border border-[#111111] font-bold text-xs transition-colors cursor-pointer"
+                    title="Définir rapidement les prix de vente manquants"
+                  >
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    <span>Sans prix ({missingCount})</span>
+                  </button>
+                );
+              })()}
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -1810,6 +1836,13 @@ export const WarehouseListView: React.FC<WarehouseListViewProps> = ({
           </div>
         );
       })()}
+
+      <QuickPricingModal
+        isOpen={isQuickPricingOpen}
+        onClose={() => setIsQuickPricingOpen(false)}
+        warehouseId={inspectedWarehouseId === 'ALL' ? undefined : inspectedWarehouseId}
+        onSuccess={(message) => setDeleteFeedback({ type: 'success', message })}
+      />
     </div>
   );
 };
