@@ -437,17 +437,31 @@ export interface ProcessSaleReturnParams {
 export interface UpdateSaleParams {
   saleId: string;
   date?: string;
+  warehouseId?: string;
   customerId?: string;
   customerName?: string;
   customerPhone?: string;
   notes?: string;
   totalPaid?: number;
   paymentMethod?: PaymentMethod;
+  extraDiscount?: number;
   updatedItems?: {
     articleId: string;
+    mainReference?: string;
+    designation?: string;
+    unit?: string;
     brand: string;
     quantity: number;
     unitPrice: number;
+    unitCost?: number;
+    catalogUnitPrice?: number;
+    discountPercent?: number;
+    discountAmount?: number;
+    sourceWarehouseId?: string;
+    sourceWarehouseName?: string;
+    sourceLocation?: string;
+    brandReference?: string;
+    selectedBrandOfferId?: string;
   }[];
 }
 

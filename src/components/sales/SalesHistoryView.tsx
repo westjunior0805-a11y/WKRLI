@@ -26,6 +26,9 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Plus,
+  Minus,
+  Package,
 } from 'lucide-react';
 import { NumericInput } from '../common/NumericInput';
 import { SaleReturn } from '../../types';
@@ -34,6 +37,10 @@ import {
   getNetSaleAmount,
   getSaleItemReturnRefund,
 } from '../../utils/customerAccount';
+import {
+  getArticleBrandOffers,
+  cleanBrandName,
+} from '../../utils/articleHelpers';
 import { ReceiptModal } from './ReceiptModal';
 import { DeliveryNotePrintModal } from './DeliveryNotePrintModal';
 import { TablePagination, usePagination } from '../common/TablePagination';
@@ -55,6 +62,7 @@ export const SalesHistoryView: React.FC = () => {
   const {
     sales,
     payments,
+    articles,
     warehouses,
     customers,
     companyInfo,
@@ -62,6 +70,8 @@ export const SalesHistoryView: React.FC = () => {
     deleteSale,
     updateSale,
     processSaleReturn,
+    getStockForArticleAndWarehouse,
+    getTotalStockForArticle,
     currentUser,
   } = useStock();
   const [saleToDelete, setSaleToDelete] = useState<Sale | null>(null);
@@ -76,15 +86,33 @@ export const SalesHistoryView: React.FC = () => {
   const [activeReceiptSale, setActiveReceiptSale] = useState<Sale | null>(null);
   const [activeDeliveryNoteSale, setActiveDeliveryNoteSale] = useState<Sale | null>(null);
 
-  // Edit Sale modal state (Admin)
+  // Edit Sale modal state (Admin — full edition of all entries)
+  interface EditableSaleLine {
+    rowKey: string;
+    articleId: string;
+    mainReference: string;
+    designation: string;
+    unit: string;
+    brand: string;
+    quantity: number;
+    unitPrice: number;
+    unitCost: number;
+    catalogUnitPrice: number;
+    discountAmount: number;
+    sourceWarehouseId: string;
+  }
   const [saleToEdit, setSaleToEdit] = useState<Sale | null>(null);
   const [editDate, setEditDate] = useState('');
+  const [editWarehouseId, setEditWarehouseId] = useState('');
   const [editCustomerId, setEditCustomerId] = useState('');
   const [editCustomerName, setEditCustomerName] = useState('');
   const [editCustomerPhone, setEditCustomerPhone] = useState('');
+  const [editItems, setEditItems] = useState<EditableSaleLine[]>([]);
+  const [editExtraDiscount, setEditExtraDiscount] = useState<number>(0);
   const [editTotalPaid, setEditTotalPaid] = useState<number>(0);
   const [editPaymentMethod, setEditPaymentMethod] = useState<PaymentMethod>('ESPECES');
   const [editNotes, setEditNotes] = useState('');
+  const [editArticleSearch, setEditArticleSearch] = useState('');
   const [editError, setEditError] = useState('');
 
   // Sale Return modal state
@@ -270,14 +298,121 @@ export const SalesHistoryView: React.FC = () => {
   const handleOpenEditModal = (sale: Sale) => {
     setSaleToEdit(sale);
     setEditDate(sale.date ? sale.date.slice(0, 10) : new Date().toISOString().slice(0, 10));
+    setEditWarehouseId(sale.warehouseId || warehouses[0]?.id || '');
     setEditCustomerId(sale.customerId || '');
     setEditCustomerName(sale.customerName || '');
     setEditCustomerPhone(sale.customerPhone || '');
+    const mappedLines: EditableSaleLine[] = sale.items.map((it, idx) => ({
+      rowKey: `line_${idx}_${it.articleId}_${Date.now()}`,
+      articleId: it.articleId,
+      mainReference: it.mainReference,
+      designation: it.designation,
+      unit: it.unit || 'Unité',
+      brand: cleanBrandName(it.brand),
+      quantity: Math.max(1, Number(it.quantity) || 1),
+      unitPrice: Math.max(0, Number(it.unitPrice) || 0),
+      unitCost: Math.max(0, Number(it.unitCost) || 0),
+      catalogUnitPrice: Math.max(0, Number(it.catalogUnitPrice) || Number(it.unitPrice) || 0),
+      discountAmount: Math.max(0, Number(it.discountAmount) || 0),
+      sourceWarehouseId: it.sourceWarehouseId || sale.warehouseId || warehouses[0]?.id || '',
+    }));
+    setEditItems(mappedLines);
+    const itemsDiscSum = mappedLines.reduce((s, l) => s + l.discountAmount, 0);
+    setEditExtraDiscount(Math.max(0, (sale.totalDiscount || 0) - itemsDiscSum));
     setEditTotalPaid(sale.totalPaid);
     const existingPayment = payments.find((p) => p.saleId === sale.id);
     setEditPaymentMethod(existingPayment?.method || 'ESPECES');
     setEditNotes(sale.notes || '');
+    setEditArticleSearch('');
     setEditError('');
+  };
+
+  const editFinancialSummary = useMemo(() => {
+    const subtotal = editItems.reduce((sum, it) => sum + it.quantity * it.unitPrice, 0);
+    const itemsDiscount = editItems.reduce(
+      (sum, it) => sum + Math.min(it.quantity * it.unitPrice, Math.max(0, it.discountAmount)),
+      0
+    );
+    const extraDiscount = Math.max(0, Math.round(editExtraDiscount || 0));
+    const totalDiscount = Math.min(subtotal, itemsDiscount + extraDiscount);
+    const totalAmount = Math.max(0, Math.round(subtotal - totalDiscount));
+    const refunded = saleToEdit?.refundedAmount || 0;
+    const netAfterRefund = Math.max(0, totalAmount - refunded);
+    const clampedPaid = Math.max(0, Math.min(totalAmount, Math.round(editTotalPaid || 0)));
+    const remainingDue = Math.max(0, netAfterRefund - clampedPaid);
+    return {
+      subtotal,
+      itemsDiscount,
+      extraDiscount,
+      totalDiscount,
+      totalAmount,
+      netAfterRefund,
+      clampedPaid,
+      remainingDue,
+    };
+  }, [editItems, editExtraDiscount, editTotalPaid, saleToEdit]);
+
+  const editSearchResults = useMemo(() => {
+    const q = editArticleSearch.trim();
+    if (!q) return [];
+    return articles
+      .filter((a) =>
+        fuzzyMatch(q, [
+          a.mainReference,
+          a.designation,
+          a.brand,
+          ...(a.equivalentReferences || []),
+          ...(a.brandOffers?.map((bo) => bo.brand) || []),
+        ])
+      )
+      .slice(0, 8);
+  }, [articles, editArticleSearch]);
+
+  const handleAddArticleToEditSale = (artId: string) => {
+    const art = articles.find((a) => a.id === artId);
+    if (!art) return;
+    const offers = getArticleBrandOffers(art);
+    const defOffer = offers.find((o) => o.isDefault) || offers[0];
+    const defaultBrand = cleanBrandName(defOffer?.brand || art.brand);
+    const defaultPrice = defOffer?.salePrice || art.salePrice || 0;
+    const defaultCost = defOffer?.purchasePrice || art.purchasePrice || 0;
+
+    setEditItems((prev) => [
+      ...prev,
+      {
+        rowKey: `new_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        articleId: art.id,
+        mainReference: art.mainReference,
+        designation: art.designation,
+        unit: art.unit || 'Unité',
+        brand: defaultBrand,
+        quantity: 1,
+        unitPrice: defaultPrice,
+        unitCost: defaultCost,
+        catalogUnitPrice: defaultPrice,
+        discountAmount: 0,
+        sourceWarehouseId: editWarehouseId || warehouses[0]?.id || '',
+      },
+    ]);
+    setEditArticleSearch('');
+    setEditError('');
+  };
+
+  const handleUpdateEditLine = (
+    rowKey: string,
+    updates: Partial<EditableSaleLine>
+  ) => {
+    setEditItems((prev) =>
+      prev.map((line) => (line.rowKey === rowKey ? { ...line, ...updates } : line))
+    );
+  };
+
+  const handleRemoveEditLine = (rowKey: string) => {
+    if (editItems.length <= 1) {
+      setEditError('Une vente doit comporter au moins une pièce.');
+      return;
+    }
+    setEditItems((prev) => prev.filter((line) => line.rowKey !== rowKey));
   };
 
   const handleSaveEditSale = (e: React.FormEvent) => {
@@ -285,15 +420,35 @@ export const SalesHistoryView: React.FC = () => {
     if (!saleToEdit) return;
     setEditError('');
 
+    if (editItems.length === 0) {
+      setEditError('Veuillez conserver au moins une pièce dans la vente.');
+      return;
+    }
+
     const res = updateSale({
       saleId: saleToEdit.id,
       date: editDate,
+      warehouseId: editWarehouseId || saleToEdit.warehouseId,
       customerId: editCustomerId || undefined,
       customerName: editCustomerName.trim() || undefined,
       customerPhone: editCustomerPhone.trim() || undefined,
       notes: editNotes.trim(),
-      totalPaid: editTotalPaid,
-      paymentMethod: editTotalPaid > 0 ? editPaymentMethod : undefined,
+      extraDiscount: editExtraDiscount,
+      totalPaid: editFinancialSummary.clampedPaid,
+      paymentMethod: editFinancialSummary.clampedPaid > 0 ? editPaymentMethod : undefined,
+      updatedItems: editItems.map((it) => ({
+        articleId: it.articleId,
+        mainReference: it.mainReference,
+        designation: it.designation,
+        unit: it.unit,
+        brand: it.brand,
+        quantity: it.quantity,
+        unitPrice: it.unitPrice,
+        unitCost: it.unitCost,
+        catalogUnitPrice: it.catalogUnitPrice,
+        discountAmount: it.discountAmount,
+        sourceWarehouseId: it.sourceWarehouseId || editWarehouseId || saleToEdit.warehouseId,
+      })),
     });
 
     if (!res.success) {
@@ -1037,143 +1192,515 @@ export const SalesHistoryView: React.FC = () => {
         onClose={() => setActiveDeliveryNoteSale(null)}
       />
 
-      {/* MODAL MODIFICATION DE VENTE (RÉSERVÉ ADMINISTRATEUR) */}
+      {/* MODAL MODIFICATION COMPLÈTE DE VENTE (RÉSERVÉ ADMINISTRATEUR) */}
       {saleToEdit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-amber-500 text-slate-950 flex items-center justify-center font-bold">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in overflow-y-auto"
+          onClick={() => setSaleToEdit(null)}
+        >
+          <div
+            className="bg-white dark:bg-slate-900 max-w-4xl w-full shadow-2xl border border-[#E0E0E0] dark:border-slate-800 overflow-hidden my-4 flex flex-col max-h-[92vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="px-5 py-4 bg-[#111111] text-white flex items-center justify-between gap-3 border-b-2 border-[#FFCD11] shrink-0">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 bg-[#FFCD11] text-[#111111] flex items-center justify-center font-bold shrink-0">
                   <Edit2 className="w-4 h-4" />
                 </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                <div className="min-w-0">
+                  <h3 className="text-sm sm:text-base font-bold text-white truncate">
                     Modifier la vente {saleToEdit.receiptNumber}
                   </h3>
-                  <p className="text-xs text-slate-500">
-                    Action réservée à l'Administrateur ({currentUser.name})
+                  <p className="text-[11px] text-white/70 truncate">
+                    Édition intégrale Administrateur ({currentUser.name}) — Pièces, prix, quantités, client, dépôt & paiement
                   </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setSaleToEdit(null)}
-                className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-lg"
+                className="p-1.5 text-white/70 hover:text-white cursor-pointer shrink-0"
+                aria-label="Fermer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {editError && (
-              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg text-xs font-medium">
-                {editError}
-              </div>
-            )}
+            <form
+              onSubmit={handleSaveEditSale}
+              className="flex flex-col flex-1 overflow-hidden"
+            >
+              <div className="p-5 space-y-5 text-xs overflow-y-auto flex-1">
+                {editError && (
+                  <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{editError}</span>
+                  </div>
+                )}
 
-            <form onSubmit={handleSaveEditSale} className="space-y-3.5 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                    Date de la vente *
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={editDate}
-                    onChange={(e) => setEditDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 font-medium"
-                  />
-                </div>
+                {/* Section 1 : Informations générales (Date, Magasin, Client) */}
+                <div className="p-4 bg-[#F4F4F4] dark:bg-slate-800/40 border border-[#E0E0E0] dark:border-slate-700 space-y-3">
+                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-[#111111] dark:text-white flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-[#7A5C00]" />
+                    <span>Informations générales & Client</span>
+                  </h4>
 
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                    Client rattaché
-                  </label>
-                  <select
-                    value={editCustomerId}
-                    onChange={(e) => {
-                      const cid = e.target.value;
-                      setEditCustomerId(cid);
-                      const c = customers.find((cust) => cust.id === cid);
-                      if (c) {
-                        setEditCustomerName(c.name);
-                        setEditCustomerPhone(c.phone || '');
-                      }
-                    }}
-                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 font-medium"
-                  >
-                    <option value="">Client Comptoir Occasionnel</option>
-                    {customers.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} {c.phone ? `(${c.phone})` : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-[#595959] dark:text-slate-300 uppercase mb-1">
+                        Date de la vente *
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={editDate}
+                        onChange={(e) => setEditDate(e.target.value)}
+                        className="w-full px-3 py-2 border border-[#E0E0E0] dark:border-slate-700 bg-white dark:bg-slate-800 font-medium focus:outline-none focus:border-[#FFCD11]"
+                      />
+                    </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                    Nom du client
-                  </label>
-                  <input
-                    type="text"
-                    value={editCustomerName}
-                    onChange={(e) => setEditCustomerName(e.target.value)}
-                    placeholder="Nom du client"
-                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 font-medium"
-                  />
-                </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-[#595959] dark:text-slate-300 uppercase mb-1">
+                        Magasin / Dépôt principal
+                      </label>
+                      <select
+                        value={editWarehouseId}
+                        onChange={(e) => {
+                          const nextWh = e.target.value;
+                          const prevWh = editWarehouseId;
+                          setEditWarehouseId(nextWh);
+                          setEditItems((prev) =>
+                            prev.map((line) =>
+                              line.sourceWarehouseId === prevWh
+                                ? { ...line, sourceWarehouseId: nextWh }
+                                : line
+                            )
+                          );
+                        }}
+                        className="w-full px-3 py-2 border border-[#E0E0E0] dark:border-slate-700 bg-white dark:bg-slate-800 font-semibold focus:outline-none focus:border-[#FFCD11]"
+                      >
+                        {warehouses.map((w) => (
+                          <option key={w.id} value={w.id}>
+                            {w.name} ({w.code})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                    Téléphone client
-                  </label>
-                  <input
-                    type="tel"
-                    value={editCustomerPhone}
-                    onChange={(e) => setEditCustomerPhone(e.target.value)}
-                    placeholder="77 000 00 00"
-                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 font-medium font-mono"
-                  />
-                </div>
-              </div>
-
-              {/* Règlement financier */}
-              <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
-                <div className="flex justify-between items-center text-xs font-semibold">
-                  <span className="text-slate-500">Montant Net Total :</span>
-                  <span className="font-mono font-bold text-slate-900 dark:text-white">
-                    {formatFCFA(saleToEdit.totalAmount)}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                      Montant Encaissé (FCFA)
-                    </label>
-                    <NumericInput
-                      min={0}
-                      max={saleToEdit.totalAmount}
-                      step={500}
-                      value={editTotalPaid}
-                      onChange={(val) => setEditTotalPaid(val)}
-                      placeholder="0"
-                      className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 font-mono font-bold text-emerald-700 dark:text-emerald-400"
-                    />
+                    <div>
+                      <label className="block text-[11px] font-bold text-[#595959] dark:text-slate-300 uppercase mb-1">
+                        Client rattaché
+                      </label>
+                      <select
+                        value={editCustomerId}
+                        onChange={(e) => {
+                          const cid = e.target.value;
+                          setEditCustomerId(cid);
+                          const c = customers.find((cust) => cust.id === cid);
+                          if (c) {
+                            setEditCustomerName(c.name);
+                            setEditCustomerPhone(c.phone || '');
+                          } else if (!cid) {
+                            setEditCustomerName('Client Comptoir');
+                            setEditCustomerPhone('');
+                          }
+                        }}
+                        className="w-full px-3 py-2 border border-[#E0E0E0] dark:border-slate-700 bg-white dark:bg-slate-800 font-medium focus:outline-none focus:border-[#FFCD11]"
+                      >
+                        <option value="">Client Comptoir Occasionnel</option>
+                        {customers.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name} {c.phone ? `(${c.phone})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
 
-                  {editTotalPaid > 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                      <label className="block text-[11px] font-bold text-[#595959] dark:text-slate-300 uppercase mb-1">
+                        Nom du client
+                      </label>
+                      <input
+                        type="text"
+                        value={editCustomerName}
+                        onChange={(e) => setEditCustomerName(e.target.value)}
+                        placeholder="Nom du client"
+                        className="w-full px-3 py-2 border border-[#E0E0E0] dark:border-slate-700 bg-white dark:bg-slate-800 font-medium focus:outline-none focus:border-[#FFCD11]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-[#595959] dark:text-slate-300 uppercase mb-1">
+                        Téléphone client
+                      </label>
+                      <input
+                        type="tel"
+                        value={editCustomerPhone}
+                        onChange={(e) => setEditCustomerPhone(e.target.value)}
+                        placeholder="77 000 00 00"
+                        className="w-full px-3 py-2 border border-[#E0E0E0] dark:border-slate-700 bg-white dark:bg-slate-800 font-medium font-mono focus:outline-none focus:border-[#FFCD11]"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 2 : Pièces vendues (Prix, Quantité, Marque, Remise, Ajout/Suppression) */}
+                <div className="border border-[#E0E0E0] dark:border-slate-700 bg-white dark:bg-slate-900">
+                  <div className="px-4 py-3 bg-[#FFF9DF] dark:bg-slate-800/80 border-b border-[#E5C130] dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Package className="w-4 h-4 text-[#7A5C00]" />
+                      <h4 className="text-[11px] font-bold uppercase tracking-wider text-[#111111] dark:text-white">
+                        Pièces vendues ({editItems.length} {editItems.length > 1 ? 'lignes' : 'ligne'})
+                      </h4>
+                    </div>
+
+                    {/* Quick catalog search to add a piece */}
+                    <div className="relative w-full sm:w-72">
+                      <Search className="w-3.5 h-3.5 text-[#595959] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type="text"
+                        value={editArticleSearch}
+                        onChange={(e) => setEditArticleSearch(e.target.value)}
+                        placeholder="+ Ajouter une pièce (réf, nom...)"
+                        className="w-full pl-8 pr-3 py-1.5 text-xs bg-white dark:bg-slate-900 border border-[#E5C130] focus:outline-none focus:border-[#111111]"
+                      />
+                      {editSearchResults.length > 0 && (
+                        <div className="absolute right-0 left-0 top-full mt-1 z-30 bg-white dark:bg-slate-900 border border-[#111111] shadow-xl max-h-56 overflow-y-auto divide-y divide-[#E0E0E0]">
+                          {editSearchResults.map((art) => {
+                            const stockDispo = editWarehouseId
+                              ? getStockForArticleAndWarehouse(art.id, editWarehouseId)
+                              : getTotalStockForArticle(art.id);
+                            return (
+                              <button
+                                key={art.id}
+                                type="button"
+                                onClick={() => handleAddArticleToEditSale(art.id)}
+                                className="w-full px-3 py-2 text-left hover:bg-[#FFF9DF] flex items-center justify-between gap-2 cursor-pointer"
+                              >
+                                <div className="min-w-0">
+                                  <div className="font-mono font-bold text-[#111111] text-xs truncate">
+                                    {art.mainReference}
+                                  </div>
+                                  <div className="text-[11px] text-[#595959] truncate">
+                                    {art.designation}
+                                  </div>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <div className="font-mono font-bold text-emerald-700 text-[11px]">
+                                    {formatFCFA(art.salePrice)}
+                                  </div>
+                                  <div className="text-[10px] font-mono text-[#595959]">
+                                    Stock: {stockDispo}
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Editable items list */}
+                  <div className="divide-y divide-[#E0E0E0] dark:divide-slate-800">
+                    {editItems.map((line) => {
+                      const catalogArt = articles.find((a) => a.id === line.articleId);
+                      const brandOffers = catalogArt ? getArticleBrandOffers(catalogArt) : [];
+                      const grossLine = line.quantity * line.unitPrice;
+                      const netLine = Math.max(0, grossLine - Math.min(grossLine, line.discountAmount));
+
+                      return (
+                        <div
+                          key={line.rowKey}
+                          className="p-3.5 space-y-2.5 hover:bg-[#F4F4F4]/40 dark:hover:bg-slate-800/30"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-mono font-bold text-xs px-1.5 py-0.5 bg-[#FFF9DF] border border-[#E5C130] text-[#111111]">
+                                  {line.mainReference}
+                                </span>
+                                <span className="font-bold text-[#111111] dark:text-white text-xs truncate">
+                                  {line.designation}
+                                </span>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveEditLine(line.rowKey)}
+                              disabled={editItems.length <= 1}
+                              title={
+                                editItems.length <= 1
+                                  ? 'Au moins une pièce est requise'
+                                  : 'Retirer cette pièce de la vente'
+                              }
+                              className="p-1.5 text-slate-400 hover:text-rose-600 disabled:opacity-30 cursor-pointer shrink-0"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-12 gap-2.5 items-end">
+                            {/* Marque */}
+                            <div className="col-span-2 sm:col-span-3">
+                              <label className="block text-[10px] font-bold uppercase text-[#595959] mb-1">
+                                Marque
+                              </label>
+                              {brandOffers.length > 1 ? (
+                                <select
+                                  value={line.brand}
+                                  onChange={(e) => {
+                                    const chosenBrand = e.target.value;
+                                    const offer = brandOffers.find(
+                                      (o) =>
+                                        cleanBrandName(o.brand).toLowerCase() ===
+                                        chosenBrand.toLowerCase()
+                                    );
+                                    handleUpdateEditLine(line.rowKey, {
+                                      brand: chosenBrand,
+                                      ...(offer && offer.salePrice > 0
+                                        ? {
+                                            unitPrice: offer.salePrice,
+                                            catalogUnitPrice: offer.salePrice,
+                                            unitCost: offer.purchasePrice ?? line.unitCost,
+                                          }
+                                        : {}),
+                                    });
+                                  }}
+                                  className="w-full px-2 py-1.5 text-xs font-semibold border border-[#E0E0E0] bg-white dark:bg-slate-800 focus:outline-none focus:border-[#FFCD11]"
+                                >
+                                  {brandOffers.map((o) => {
+                                    const cb = cleanBrandName(o.brand);
+                                    return (
+                                      <option key={o.id} value={cb}>
+                                        {cb || 'Standard'}
+                                      </option>
+                                    );
+                                  })}
+                                  {line.brand &&
+                                    !brandOffers.some(
+                                      (o) =>
+                                        cleanBrandName(o.brand).toLowerCase() ===
+                                        line.brand.toLowerCase()
+                                    ) && <option value={line.brand}>{line.brand}</option>}
+                                </select>
+                              ) : (
+                                <input
+                                  type="text"
+                                  value={line.brand}
+                                  onChange={(e) =>
+                                    handleUpdateEditLine(line.rowKey, { brand: e.target.value })
+                                  }
+                                  placeholder="Marque"
+                                  className="w-full px-2 py-1.5 text-xs font-semibold border border-[#E0E0E0] bg-white dark:bg-slate-800 focus:outline-none focus:border-[#FFCD11]"
+                                />
+                              )}
+                            </div>
+
+                            {/* Quantité */}
+                            <div className="col-span-1 sm:col-span-2">
+                              <label className="block text-[10px] font-bold uppercase text-[#595959] mb-1">
+                                Qté ({line.unit})
+                              </label>
+                              <div className="flex items-center">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleUpdateEditLine(line.rowKey, {
+                                      quantity: Math.max(1, line.quantity - 1),
+                                    })
+                                  }
+                                  className="px-1.5 py-1.5 border border-[#E0E0E0] bg-[#F4F4F4] hover:bg-[#E0E0E0] text-[#111111] cursor-pointer"
+                                >
+                                  <Minus className="w-3 h-3" />
+                                </button>
+                                <NumericInput
+                                  min={1}
+                                  value={line.quantity}
+                                  onChange={(val) =>
+                                    handleUpdateEditLine(line.rowKey, {
+                                      quantity: Math.max(1, Math.floor(val || 1)),
+                                    })
+                                  }
+                                  className="w-full min-w-0 px-1.5 py-1.5 text-center font-mono font-bold text-xs border-y border-[#E0E0E0] bg-white dark:bg-slate-800 tabular-nums focus:outline-none"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleUpdateEditLine(line.rowKey, {
+                                      quantity: line.quantity + 1,
+                                    })
+                                  }
+                                  className="px-1.5 py-1.5 border border-[#E0E0E0] bg-[#F4F4F4] hover:bg-[#E0E0E0] text-[#111111] cursor-pointer"
+                                >
+                                  <Plus className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Prix Unitaire */}
+                            <div className="col-span-1 sm:col-span-3">
+                              <label className="block text-[10px] font-bold uppercase text-[#595959] mb-1">
+                                Prix Unit. (FCFA)
+                              </label>
+                              <NumericInput
+                                min={0}
+                                step={100}
+                                value={line.unitPrice}
+                                onChange={(val) =>
+                                  handleUpdateEditLine(line.rowKey, {
+                                    unitPrice: Math.max(0, Math.round(val)),
+                                  })
+                                }
+                                className="w-full px-2 py-1.5 font-mono font-bold text-xs border border-[#E0E0E0] bg-white dark:bg-slate-800 text-[#111111] dark:text-white focus:outline-none focus:border-[#FFCD11] tabular-nums"
+                              />
+                            </div>
+
+                            {/* Remise Ligne */}
+                            <div className="col-span-1 sm:col-span-2">
+                              <label className="block text-[10px] font-bold uppercase text-[#595959] mb-1">
+                                Remise (F)
+                              </label>
+                              <NumericInput
+                                min={0}
+                                max={grossLine}
+                                step={100}
+                                value={line.discountAmount}
+                                onChange={(val) =>
+                                  handleUpdateEditLine(line.rowKey, {
+                                    discountAmount: Math.max(0, Math.min(grossLine, Math.round(val))),
+                                  })
+                                }
+                                className="w-full px-2 py-1.5 font-mono text-xs border border-[#E0E0E0] bg-white dark:bg-slate-800 text-rose-700 focus:outline-none focus:border-[#FFCD11] tabular-nums"
+                              />
+                            </div>
+
+                            {/* Total Ligne */}
+                            <div className="col-span-1 sm:col-span-2 text-right">
+                              <label className="block text-[10px] font-bold uppercase text-[#595959] mb-1">
+                                Total ligne
+                              </label>
+                              <div className="py-1.5 font-mono font-extrabold text-xs text-[#111111] dark:text-white tabular-nums">
+                                {formatFCFA(netLine)}
+                              </div>
+                            </div>
+                          </div>
+
+                          {warehouses.length > 1 && (
+                            <div className="flex items-center gap-2 pt-1 text-[11px] text-[#595959]">
+                              <Building2 className="w-3 h-3 text-[#7A5C00] shrink-0" />
+                              <span>Dépôt de sortie :</span>
+                              <select
+                                value={line.sourceWarehouseId}
+                                onChange={(e) =>
+                                  handleUpdateEditLine(line.rowKey, {
+                                    sourceWarehouseId: e.target.value,
+                                  })
+                                }
+                                className="px-2 py-0.5 text-[11px] font-semibold border border-[#E0E0E0] bg-[#F4F4F4] text-[#111111] focus:outline-none focus:border-[#FFCD11]"
+                              >
+                                {warehouses.map((w) => (
+                                  <option key={w.id} value={w.id}>
+                                    {w.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Section 3 : Remise globale & Règlement financier */}
+                <div className="p-4 bg-[#F4F4F4] dark:bg-slate-800/50 border border-[#E0E0E0] dark:border-slate-700 space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pb-3 border-b border-[#E0E0E0] dark:border-slate-700">
+                    <div>
+                      <span className="block text-[10px] font-bold uppercase text-[#595959]">
+                        Sous-total brut
+                      </span>
+                      <span className="font-mono font-bold text-sm text-[#111111] dark:text-white">
+                        {formatFCFA(editFinancialSummary.subtotal)}
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase text-[#595959] mb-1">
+                        Remise globale suppl. (FCFA)
+                      </label>
+                      <NumericInput
+                        min={0}
+                        max={Math.max(0, editFinancialSummary.subtotal - editFinancialSummary.itemsDiscount)}
+                        step={500}
+                        value={editExtraDiscount}
+                        onChange={(val) => setEditExtraDiscount(Math.max(0, Math.round(val)))}
+                        placeholder="0"
+                        className="w-full px-2.5 py-1.5 border border-[#E0E0E0] bg-white dark:bg-slate-800 font-mono font-bold text-xs text-rose-700 focus:outline-none focus:border-[#FFCD11]"
+                      />
+                    </div>
+
+                    <div className="sm:text-right">
+                      <span className="block text-[10px] font-bold uppercase text-[#7A5C00]">
+                        Nouveau Montant Net Total
+                      </span>
+                      <span className="font-mono font-extrabold text-base text-[#111111] dark:text-white">
+                        {formatFCFA(editFinancialSummary.totalAmount)}
+                      </span>
+                      {editFinancialSummary.totalAmount !== saleToEdit.totalAmount && (
+                        <span className="block text-[10px] font-mono text-[#7A5C00]">
+                          Ancien : {formatFCFA(saleToEdit.totalAmount)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[11px] font-bold text-[#595959] dark:text-slate-300 uppercase">
+                          Montant Encaissé (FCFA)
+                        </label>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setEditTotalPaid(0)}
+                            className="px-1.5 py-0.5 text-[10px] font-bold bg-white border border-[#E0E0E0] hover:bg-[#FFF9DF] text-[#595959] cursor-pointer"
+                          >
+                            0 F (Crédit)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditTotalPaid(editFinancialSummary.totalAmount)}
+                            className="px-1.5 py-0.5 text-[10px] font-bold bg-[#FFCD11] hover:bg-[#E5B700] text-[#111111] cursor-pointer"
+                          >
+                            100% Soldé
+                          </button>
+                        </div>
+                      </div>
+                      <NumericInput
+                        min={0}
+                        max={editFinancialSummary.totalAmount}
+                        step={500}
+                        value={editTotalPaid}
+                        onChange={(val) => setEditTotalPaid(val)}
+                        placeholder="0"
+                        className="w-full px-3 py-2 border border-[#E0E0E0] dark:border-slate-700 bg-white dark:bg-slate-800 font-mono font-bold text-emerald-700 dark:text-emerald-400 focus:outline-none focus:border-[#FFCD11]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-[#595959] dark:text-slate-300 uppercase mb-1">
                         Mode d&apos;encaissement (Caisse)
                       </label>
                       <select
                         value={editPaymentMethod}
                         onChange={(e) => setEditPaymentMethod(e.target.value as PaymentMethod)}
-                        className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 font-semibold"
+                        disabled={editFinancialSummary.clampedPaid <= 0}
+                        className="w-full px-3 py-2 border border-[#E0E0E0] dark:border-slate-700 bg-white dark:bg-slate-800 font-semibold disabled:opacity-50 focus:outline-none focus:border-[#FFCD11]"
                       >
                         <option value="ESPECES">Espèces (Tiroir)</option>
                         <option value="WAVE">Wave</option>
@@ -1182,48 +1709,75 @@ export const SalesHistoryView: React.FC = () => {
                         <option value="CARTE">Carte bancaire (TPE)</option>
                       </select>
                     </div>
-                  )}
+                  </div>
+
+                  <div className="flex flex-wrap justify-between items-center gap-2 text-xs pt-2 border-t border-[#E0E0E0] dark:border-slate-700">
+                    <span className="text-[#595959] font-medium">
+                      Reste dû (Créance client) :
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`font-mono font-extrabold text-sm ${
+                          editFinancialSummary.remainingDue > 0
+                            ? 'text-rose-600'
+                            : 'text-emerald-700'
+                        }`}
+                      >
+                        {formatFCFA(editFinancialSummary.remainingDue)}
+                      </span>
+                      <span
+                        className={`px-2 py-0.5 text-[10px] font-bold uppercase ${
+                          editFinancialSummary.remainingDue <= 0
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : editFinancialSummary.clampedPaid > 0
+                            ? 'bg-[#FFF9DF] text-[#7A5C00] border border-[#E5C130]'
+                            : 'bg-rose-100 text-rose-700'
+                        }`}
+                      >
+                        {editFinancialSummary.remainingDue <= 0
+                          ? 'Soldée'
+                          : editFinancialSummary.clampedPaid > 0
+                          ? 'Partielle'
+                          : 'À crédit'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <p className="text-[10px] text-[#595959]">
+                    Les stocks des magasins concernés, les mouvements d&apos;ajustement, le journal de caisse et la créance client seront automatiquement synchronisés.
+                  </p>
                 </div>
 
-                <p className="text-[10px] text-slate-500">
-                  Le journal des flux de caisse, le solde de la session correspondante et le bilan journalier seront automatiquement synchronisés.
-                </p>
-
-                <div className="flex justify-between items-center text-xs pt-1 border-t border-slate-200 dark:border-slate-700">
-                  <span className="text-slate-500 font-medium">Reste dû (Créance) :</span>
-                  <span className={`font-mono font-bold ${saleToEdit.totalAmount - editTotalPaid > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
-                    {formatFCFA(Math.max(0, saleToEdit.totalAmount - editTotalPaid))}
-                  </span>
+                {/* Section 4 : Observations */}
+                <div>
+                  <label className="block text-[11px] font-bold text-[#595959] dark:text-slate-300 uppercase mb-1">
+                    Motif de la modification / Observations
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={editNotes}
+                    onChange={(e) => setEditNotes(e.target.value)}
+                    placeholder="Ex: Rectification du prix unitaire, correction de la quantité ou du mode de paiement..."
+                    className="w-full px-3 py-2 border border-[#E0E0E0] dark:border-slate-700 bg-white dark:bg-slate-800 focus:outline-none focus:border-[#FFCD11]"
+                  />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                  Motif de la modification / Observations
-                </label>
-                <textarea
-                  rows={2}
-                  value={editNotes}
-                  onChange={(e) => setEditNotes(e.target.value)}
-                  placeholder="Ex: Rectification de la date de vente d'origine, mise à jour du client..."
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800"
-                />
-              </div>
-
-              <div className="pt-2 flex justify-end gap-2 border-t border-slate-100 dark:border-slate-800">
+              {/* Footer */}
+              <div className="px-5 py-3.5 bg-[#F4F4F4] dark:bg-slate-800/80 border-t border-[#E0E0E0] dark:border-slate-700 flex items-center justify-end gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setSaleToEdit(null)}
-                  className="px-4 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg font-semibold cursor-pointer"
+                  className="px-4 py-2 text-[#111111] dark:text-slate-300 bg-white dark:bg-slate-900 border border-[#E0E0E0] hover:bg-[#E0E0E0]/50 font-semibold cursor-pointer"
                 >
                   Annuler
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg shadow-xs cursor-pointer inline-flex items-center gap-1.5"
+                  className="px-5 py-2 bg-[#FFCD11] hover:bg-[#E5B700] text-[#111111] font-bold cursor-pointer inline-flex items-center gap-1.5"
                 >
                   <Check className="w-4 h-4" />
-                  <span>Enregistrer les modifications</span>
+                  <span>Enregistrer toutes les modifications</span>
                 </button>
               </div>
             </form>

@@ -4484,6 +4484,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const saleIndex = sales.findIndex((s) => s.id === params.saleId);
     if (saleIndex === -1) return { success: false, error: 'Vente introuvable.' };
     const existingSale = sales[saleIndex];
+    const nowIso = new Date().toISOString();
 
     let newDate = existingSale.date;
     if (params.date) {
@@ -4497,29 +4498,134 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     }
 
+    const newWarehouseId = params.warehouseId || existingSale.warehouseId;
+    const newWarehouseObj = warehouses.find((w) => w.id === newWarehouseId);
+    const newWarehouseName = newWarehouseObj?.name || existingSale.warehouseName;
+
     const newCustomerId = params.customerId !== undefined ? params.customerId : existingSale.customerId;
     const newCustomerName = params.customerName !== undefined ? params.customerName.trim() : existingSale.customerName;
     const newCustomerPhone = params.customerPhone !== undefined ? params.customerPhone?.trim() : existingSale.customerPhone;
     const newNotes = params.notes !== undefined ? params.notes.trim() : existingSale.notes;
 
-    const netSaleAmount = Math.max(0, existingSale.totalAmount - (existingSale.refundedAmount || 0));
-    let newTotalPaid = existingSale.totalPaid;
-    let newRemainingDue = existingSale.remainingDue;
-    let newPaymentStatus = existingSale.paymentStatus;
+    // 0. Recalcul complet des lignes de vente (articles, prix, quantités, remises, marques, dépôts)
+    let finalItems: SaleItem[] = existingSale.items;
+    let newSubtotal = existingSale.subtotal;
+    let newTotalDiscount = existingSale.totalDiscount;
+    let newTotalAmount = existingSale.totalAmount;
+    let newTotalCost = existingSale.totalCost;
 
-    if (params.totalPaid !== undefined) {
-      newTotalPaid = Math.max(0, Math.min(existingSale.totalAmount, Number(params.totalPaid) || 0));
-      newRemainingDue = Math.max(0, netSaleAmount - newTotalPaid);
-      newPaymentStatus =
-        newRemainingDue <= 0 ? 'PAID' : newTotalPaid > 0 ? 'PARTIALLY_PAID' : 'UNPAID';
+    if (params.updatedItems !== undefined) {
+      if (params.updatedItems.length === 0) {
+        return { success: false, error: 'Une vente doit comporter au moins une pièce.' };
+      }
+
+      finalItems = params.updatedItems.map((it) => {
+        const art = articleByIdMap.get(it.articleId);
+        const prevMatch =
+          existingSale.items.find(
+            (old) =>
+              old.articleId === it.articleId &&
+              cleanBrandName(old.brand).toLowerCase() === cleanBrandName(it.brand).toLowerCase()
+          ) || existingSale.items.find((old) => old.articleId === it.articleId);
+
+        const cleanB = cleanBrandName(it.brand || prevMatch?.brand || art?.brand || '');
+        const matchingOffer = art
+          ? getArticleBrandOffers(art).find(
+              (o) => cleanBrandName(o.brand).toLowerCase() === cleanB.toLowerCase()
+            )
+          : undefined;
+
+        const qty = Math.max(1, Math.round(Number(it.quantity) || 1));
+        const unitPrice = Math.max(0, Math.round(Number(it.unitPrice) || 0));
+        const gross = qty * unitPrice;
+
+        let discountPercent = 0;
+        let discountAmount = 0;
+        if (it.discountAmount !== undefined) {
+          discountAmount = Math.max(0, Math.min(gross, Math.round(Number(it.discountAmount) || 0)));
+          discountPercent = gross > 0 ? Math.round((discountAmount / gross) * 1000) / 10 : 0;
+        } else if (it.discountPercent !== undefined) {
+          discountPercent = Math.max(0, Math.min(100, Number(it.discountPercent) || 0));
+          discountAmount = Math.round((gross * discountPercent) / 100);
+        }
+
+        const totalLine = Math.max(0, gross - discountAmount);
+        const unitCost =
+          it.unitCost !== undefined
+            ? Math.max(0, Math.round(Number(it.unitCost) || 0))
+            : prevMatch?.unitCost ?? matchingOffer?.purchasePrice ?? art?.purchasePrice ?? 0;
+        const catalogUnitPrice =
+          it.catalogUnitPrice !== undefined
+            ? Math.max(0, Math.round(Number(it.catalogUnitPrice) || 0))
+            : prevMatch?.catalogUnitPrice ?? matchingOffer?.salePrice ?? art?.salePrice ?? unitPrice;
+
+        const srcWhId = it.sourceWarehouseId || prevMatch?.sourceWarehouseId || newWarehouseId;
+        const srcWhName =
+          warehouses.find((w) => w.id === srcWhId)?.name ||
+          it.sourceWarehouseName ||
+          prevMatch?.sourceWarehouseName ||
+          newWarehouseName;
+
+        return {
+          articleId: it.articleId,
+          mainReference: it.mainReference || prevMatch?.mainReference || art?.mainReference || '',
+          designation: it.designation || prevMatch?.designation || art?.designation || 'Pièce',
+          brand: cleanB || prevMatch?.brand || art?.brand || '',
+          unit: it.unit || prevMatch?.unit || art?.unit || 'Unité',
+          quantity: qty,
+          unitCost,
+          catalogUnitPrice,
+          unitPrice,
+          discountPercent,
+          discountAmount,
+          totalLine,
+          isPriceOverridden: unitPrice !== catalogUnitPrice,
+          overriddenReason:
+            unitPrice !== catalogUnitPrice ? 'Modification Admin de la vente' : undefined,
+          selectedBrandOfferId:
+            it.selectedBrandOfferId || prevMatch?.selectedBrandOfferId || matchingOffer?.id,
+          brandReference:
+            it.brandReference || prevMatch?.brandReference || matchingOffer?.brandReference,
+          sourceWarehouseId: srcWhId,
+          sourceWarehouseName: srcWhName,
+          sourceLocation: it.sourceLocation || prevMatch?.sourceLocation,
+        };
+      });
+
+      const itemsDiscountSum = finalItems.reduce((sum, i) => sum + i.discountAmount, 0);
+      const extraDiscount = Math.max(0, Math.round(Number(params.extraDiscount) || 0));
+      newSubtotal = finalItems.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0);
+      newTotalDiscount = Math.min(newSubtotal, itemsDiscountSum + extraDiscount);
+      newTotalAmount = Math.max(0, Math.round(newSubtotal - newTotalDiscount));
+      newTotalCost = finalItems.reduce((sum, i) => sum + i.quantity * i.unitCost, 0);
+    } else if (params.extraDiscount !== undefined) {
+      const itemsDiscountSum = finalItems.reduce((sum, i) => sum + (i.discountAmount || 0), 0);
+      const extraDiscount = Math.max(0, Math.round(Number(params.extraDiscount) || 0));
+      newTotalDiscount = Math.min(newSubtotal, itemsDiscountSum + extraDiscount);
+      newTotalAmount = Math.max(0, Math.round(newSubtotal - newTotalDiscount));
     }
+
+    const netSaleAmount = Math.max(0, newTotalAmount - (existingSale.refundedAmount || 0));
+    const requestedPaid =
+      params.totalPaid !== undefined ? Number(params.totalPaid) || 0 : existingSale.totalPaid;
+    const newTotalPaid = Math.max(0, Math.min(newTotalAmount, Math.round(requestedPaid)));
+    const newRemainingDue = Math.max(0, netSaleAmount - newTotalPaid);
+    const newPaymentStatus: Sale['paymentStatus'] =
+      newRemainingDue <= 0 ? 'PAID' : newTotalPaid > 0 ? 'PARTIALLY_PAID' : 'UNPAID';
 
     const updatedSale: Sale = {
       ...existingSale,
       date: newDate,
+      warehouseId: newWarehouseId,
+      warehouseName: newWarehouseName,
       customerId: newCustomerId,
       customerName: newCustomerName || 'Client Comptoir',
       customerPhone: newCustomerPhone,
+      items: finalItems,
+      subtotal: newSubtotal,
+      totalDiscount: newTotalDiscount,
+      totalAmount: newTotalAmount,
+      totalCost: newTotalCost,
       notes: newNotes,
       totalPaid: newTotalPaid,
       remainingDue: newRemainingDue,
@@ -4530,6 +4636,128 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setSales(nextSales);
     safeSetLocalStorage('sales', nextSales);
     saveSaleToFirebase(updatedSale).catch(console.warn);
+
+    // -----------------------------------------------------------------------
+    // 0b. Réconciliation automatique des stocks & mouvements si lignes ou dépôt modifiés
+    // -----------------------------------------------------------------------
+    const itemsOrWarehouseChanged =
+      params.updatedItems !== undefined || newWarehouseId !== existingSale.warehouseId;
+    const stockAdjMovements: StockMovement[] = [];
+
+    if (
+      itemsOrWarehouseChanged &&
+      !existingSale.isHistoricalFrozen &&
+      existingSale.status !== 'CANCELLED' &&
+      existingSale.status !== 'REFUNDED'
+    ) {
+      const deltaMap = new Map<
+        string,
+        { articleId: string; warehouseId: string; brand: string; delta: number; unitCost: number }
+      >();
+
+      const addDelta = (
+        articleId: string,
+        whId: string,
+        brand: string,
+        delta: number,
+        unitCost: number
+      ) => {
+        const cleanB = cleanBrandName(brand);
+        const key = `${articleId}__${whId}__${cleanB.toLowerCase()}`;
+        const prev = deltaMap.get(key);
+        if (prev) {
+          prev.delta += delta;
+        } else {
+          deltaMap.set(key, {
+            articleId,
+            warehouseId: whId,
+            brand: cleanB,
+            delta,
+            unitCost,
+          });
+        }
+      };
+
+      // Restituer les anciennes quantités vendues
+      for (const oldItem of existingSale.items) {
+        addDelta(
+          oldItem.articleId,
+          oldItem.sourceWarehouseId || existingSale.warehouseId,
+          oldItem.brand,
+          oldItem.quantity,
+          oldItem.unitCost
+        );
+      }
+      // Déduire les nouvelles quantités vendues
+      for (const newItem of finalItems) {
+        addDelta(
+          newItem.articleId,
+          newItem.sourceWarehouseId || newWarehouseId,
+          newItem.brand,
+          -newItem.quantity,
+          newItem.unitCost
+        );
+      }
+
+      const nonZeroDeltas = Array.from(deltaMap.values()).filter((d) => d.delta !== 0);
+      if (nonZeroDeltas.length > 0) {
+        let nextStocks = deduplicateStocksList(stocks);
+        const touchedPairs = new Set<string>();
+
+        for (const entry of nonZeroDeltas) {
+          const beforeRec = nextStocks.find(
+            (s) => s.articleId === entry.articleId && s.warehouseId === entry.warehouseId
+          );
+          const beforeQty = beforeRec ? Math.max(0, Number(beforeRec.quantity) || 0) : 0;
+
+          nextStocks = applyStockDelta(
+            nextStocks,
+            entry.articleId,
+            entry.warehouseId,
+            entry.delta,
+            entry.brand
+          );
+          touchedPairs.add(`${entry.articleId}__${entry.warehouseId}`);
+
+          const afterRec = nextStocks.find(
+            (s) => s.articleId === entry.articleId && s.warehouseId === entry.warehouseId
+          );
+          const afterQty = afterRec ? Math.max(0, Number(afterRec.quantity) || 0) : 0;
+
+          stockAdjMovements.push({
+            id: generateMovementId(),
+            date: nowIso,
+            type: 'AJUSTEMENT',
+            articleId: entry.articleId,
+            quantity: Math.abs(entry.delta),
+            ...(entry.delta > 0
+              ? { targetWarehouseId: entry.warehouseId }
+              : { sourceWarehouseId: entry.warehouseId }),
+            userId: currentUser.id,
+            userName: currentUser.name,
+            documentRef: existingSale.receiptNumber,
+            reason: `Modification vente ${existingSale.receiptNumber} (${
+              entry.delta > 0 ? 'restitution' : 'sortie compl.'
+            } ${entry.brand || 'standard'} — Admin)`,
+            thirdParty: updatedSale.customerName,
+            unitPrice: entry.unitCost,
+            totalPrice: Math.abs(entry.delta) * entry.unitCost,
+            stockBefore: beforeQty,
+            stockAfter: afterQty,
+          });
+        }
+
+        nextStocks = deduplicateStocksList(nextStocks);
+        setStocks(nextStocks);
+        safeSetLocalStorage('stocks', nextStocks);
+        const modifiedStocks = nextStocks.filter((s) =>
+          touchedPairs.has(`${s.articleId}__${s.warehouseId}`)
+        );
+        if (modifiedStocks.length > 0) {
+          saveMultipleStocksToFirebase(modifiedStocks).catch(console.warn);
+        }
+      }
+    }
 
     // -----------------------------------------------------------------------
     // 1. Synchronisation des paiements (PaymentRecord) & Journal de Caisse (CashMovement)
@@ -4573,6 +4801,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       existingPaymentsTotal !== newTotalPaid ||
       params.paymentMethod !== undefined ||
       newDate !== existingSale.date ||
+      newWarehouseId !== existingSale.warehouseId ||
       newCustomerId !== existingSale.customerId ||
       newCustomerName !== existingSale.customerName;
 
@@ -4592,7 +4821,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           customerId: newCustomerId,
           customerName: updatedSale.customerName,
           cashSessionId: targetSession?.id,
-          warehouseId: existingSale.warehouseId,
+          warehouseId: newWarehouseId,
           method: effectiveMethod,
           amount: newTotalPaid,
           userId: currentUser.id,
@@ -4611,6 +4840,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             date: newDate,
             amount: newTotalPaid,
             method: params.paymentMethod || p.method,
+            warehouseId: newWarehouseId,
             customerId: newCustomerId,
             customerName: updatedSale.customerName,
             cashSessionId: p.cashSessionId || targetSession?.id,
@@ -4643,6 +4873,8 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             ...p,
             date: newDate,
             amount: amt,
+            method: params.paymentMethod || p.method,
+            warehouseId: newWarehouseId,
             customerId: newCustomerId,
             customerName: updatedSale.customerName,
           };
@@ -4658,7 +4890,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             customerId: newCustomerId,
             customerName: updatedSale.customerName,
             cashSessionId: targetSession?.id,
-            warehouseId: existingSale.warehouseId,
+            warehouseId: newWarehouseId,
             method: effectiveMethod,
             amount: deltaToAdd,
             userId: currentUser.id,
@@ -4687,6 +4919,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       existingSaleCashInTotal !== targetGrossCashIn ||
       params.paymentMethod !== undefined ||
       newDate !== existingSale.date ||
+      newWarehouseId !== existingSale.warehouseId ||
       newCustomerId !== existingSale.customerId;
 
     if (needsCashSync && existingSale.status !== 'CANCELLED' && existingSale.status !== 'REFUNDED') {
@@ -4707,7 +4940,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           const createdCashMvt: CashMovement = {
             id: generateCashMovementId('CSM-SALE'),
             cashSessionId: targetSession.id,
-            warehouseId: existingSale.warehouseId,
+            warehouseId: newWarehouseId,
             date: newDate,
             type: isCash ? 'VENTE_ESPECES' : 'VENTE_DIGITAL',
             method: effectiveMethod,
@@ -4746,6 +4979,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           const updatedM: CashMovement = {
             ...m,
             date: newDate,
+            warehouseId: newWarehouseId,
             amount: targetGrossCashIn,
             method: nextMethod,
             type: isCash ? 'VENTE_ESPECES' : 'VENTE_DIGITAL',
@@ -4787,10 +5021,16 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             cashMvtIdsToDelete.push(m.id);
             continue;
           }
+          const nextMethod = params.paymentMethod || m.method;
+          const isCash = nextMethod === 'ESPECES';
           const updatedM: CashMovement = {
             ...m,
             date: newDate,
             amount: amt,
+            method: nextMethod,
+            type: isCash ? 'VENTE_ESPECES' : 'VENTE_DIGITAL',
+            isCashInDrawer: isCash,
+            warehouseId: newWarehouseId,
             customerId: newCustomerId,
           };
           cashMvtsToSave.push(updatedM);
@@ -4865,18 +5105,25 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     // -----------------------------------------------------------------------
-    // 3. Synchronisation de la date sur les mouvements de stock liés
+    // 3. Synchronisation des mouvements de stock liés (date + ajustements quantités)
     // -----------------------------------------------------------------------
-    if (newDate !== existingSale.date) {
+    if (newDate !== existingSale.date || stockAdjMovements.length > 0) {
       setMovements((prev) => {
-        const next = prev.map((m) => {
-          if (m.documentRef === existingSale.id) {
-            const updatedMvt = { ...m, date: newDate };
-            saveMovementToFirebase(updatedMvt).catch(console.warn);
-            return updatedMvt;
-          }
-          return m;
-        });
+        const dateSynced =
+          newDate !== existingSale.date
+            ? prev.map((m) => {
+                if (m.documentRef === existingSale.id) {
+                  const updatedMvt = { ...m, date: newDate };
+                  saveMovementToFirebase(updatedMvt).catch(console.warn);
+                  return updatedMvt;
+                }
+                return m;
+              })
+            : prev;
+        const next = stockAdjMovements.length > 0 ? [...stockAdjMovements, ...dateSynced] : dateSynced;
+        if (stockAdjMovements.length > 0) {
+          stockAdjMovements.forEach((m) => saveMovementToFirebase(m).catch(console.warn));
+        }
         safeSetLocalStorage('movements', next);
         return next;
       });
