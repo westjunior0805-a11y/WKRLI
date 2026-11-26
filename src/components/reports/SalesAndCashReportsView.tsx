@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useStock } from '../../context/StockContext';
 import { Sale, CashMovement, PaymentRecord, Customer } from '../../types';
 import { formatFCFA, formatDate, formatDateTime } from '../../utils/formatters';
@@ -7,6 +7,7 @@ import { downloadElementAsPdf, printElementById } from '../../utils/pdfExporter'
 import { ReceiptModal } from '../sales/ReceiptModal';
 import { PaymentReceiptModal } from '../customers/PaymentReceiptModal';
 import { TablePagination, SortableTh, usePagination } from '../common/TablePagination';
+import { SummaryDetailModal, SummaryDetailType } from './SummaryDetailModal';
 import {
   TrendingUp,
   Calendar,
@@ -74,15 +75,33 @@ export const SalesAndCashReportsView: React.FC = () => {
   // Active top-level subtab
   const [activeTab, setActiveTab] = useState<ActiveTab>('DAILY_BOSS_REPORT');
 
-  // Filter mode for transactions & boss report
-  const [periodMode, setPeriodMode] = useState<PeriodMode>('YESTERDAY');
-  const [selectedSingleDate, setSelectedSingleDate] = useState<string>(getYesterdayDateString());
-  const [startDate, setStartDate] = useState<string>(getYesterdayDateString());
-  const [endDate, setEndDate] = useState<string>(getYesterdayDateString());
+  // Filter mode for transactions & boss report — par défaut "Aujourd'hui" pour un suivi des ventes en temps réel
+  const [periodMode, setPeriodMode] = useState<PeriodMode>('TODAY');
+  const [selectedSingleDate, setSelectedSingleDate] = useState<string>(getLocalDateString());
+  const [startDate, setStartDate] = useState<string>(getLocalDateString());
+  const [endDate, setEndDate] = useState<string>(getLocalDateString());
   const [selectedWarehouseFilter, setSelectedWarehouseFilter] = useState<string>('ALL');
+  const [showMobileFilters, setShowMobileFilters] = useState<boolean>(false);
+
+  // Horloge temps réel pour l'en-tête du bilan
+  const [liveTimeStr, setLiveTimeStr] = useState<string>(() =>
+    new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  );
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setLiveTimeStr(
+        new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+      );
+    }, 30000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   // Smartphone Modal & Export state
   const [isSmartphoneModalOpen, setIsSmartphoneModalOpen] = useState<boolean>(false);
+
+  // Interactive Summary Card Detail Modal
+  const [activeSummaryDetail, setActiveSummaryDetail] = useState<SummaryDetailType | null>(null);
 
   // Receipt Modal preview
   const [activeReceiptSale, setActiveReceiptSale] = useState<Sale | null>(null);
@@ -744,61 +763,109 @@ export const SalesAndCashReportsView: React.FC = () => {
   } = usePagination(displaySortedTopParts, 10);
 
   return (
-    <div className="space-y-5">
-      {/* Top Header & Tab Navigation */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-4 sm:space-y-5">
+      {/* Mobile Quick Period Strip — keeps Bilan Journalier immediately visible at top of mobile screen */}
+      <div className="sm:hidden flex items-center justify-between gap-2 bg-white border border-[#E0E0E0] rounded-xl p-2 shadow-xs">
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('DAILY_BOSS_REPORT');
+              setPeriodMode('TODAY');
+              setSelectedSingleDate(getLocalDateString());
+            }}
+            className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer whitespace-nowrap ${
+              activeTab === 'DAILY_BOSS_REPORT' && periodMode === 'TODAY'
+                ? 'bg-[#111111] text-[#FFCD11]'
+                : 'bg-[#F4F4F4] text-[#111111]'
+            }`}
+          >
+            Aujourd&apos;hui
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('DAILY_BOSS_REPORT');
+              setPeriodMode('YESTERDAY');
+              setSelectedSingleDate(getYesterdayDateString());
+            }}
+            className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer whitespace-nowrap ${
+              activeTab === 'DAILY_BOSS_REPORT' && periodMode === 'YESTERDAY'
+                ? 'bg-[#111111] text-[#FFCD11]'
+                : 'bg-[#F4F4F4] text-[#111111]'
+            }`}
+          >
+            Hier
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowMobileFilters((v) => !v)}
+          className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold border transition-colors cursor-pointer whitespace-nowrap ${
+            showMobileFilters
+              ? 'bg-[#FFF9DF] border-[#E5C130] text-[#111111]'
+              : 'bg-white border-[#E0E0E0] text-[#595959]'
+          }`}
+        >
+          <Calendar className="w-3.5 h-3.5 text-[#7A5C00]" />
+          <span>{showMobileFilters ? 'Masquer filtres' : 'Autres dates'}</span>
+        </button>
+      </div>
+
+      {/* Top Header & Tab Navigation (desktop/tablet, or toggled on mobile) */}
+      <div className={`${showMobileFilters ? 'flex' : 'hidden sm:flex'} bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex-col md:flex-row md:items-center justify-between gap-4`}>
         <div>
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold">
-              <TrendingUp className="w-4 h-4 text-amber-600" />
+            <div className="w-8 h-8 rounded-lg bg-[#FFF9DF] text-[#7A5C00] flex items-center justify-center font-bold">
+              <TrendingUp className="w-4 h-4 text-[#7A5C00]" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-900 tracking-tight">
-                Rapports de Vente & Bilan Journalier
+              <h2 className="text-base font-bold text-[#111111] tracking-tight">
+                Rapports de Vente &amp; Bilan Journalier
               </h2>
-              <p className="text-xs text-slate-500">
-                Génération instantanée de bilans clairs par date ou intervalle : Format Smartphone (PDF), Export Excel (.csv) et fiches A4
+              <p className="text-xs text-[#595959]">
+                Suivi temps réel par date ou intervalle : Format Smartphone (PDF), Export Excel (.csv) et fiches A4
               </p>
             </div>
           </div>
         </div>
 
         {/* Tab Switcher */}
-        <div className="inline-flex p-1 bg-slate-100 rounded-xl text-xs font-semibold self-start md:self-auto">
+        <div className="inline-flex p-1 bg-[#F4F4F4] rounded-xl text-xs font-semibold self-start md:self-auto">
           <button
             type="button"
             onClick={() => setActiveTab('DAILY_BOSS_REPORT')}
             className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg transition-all cursor-pointer ${
               activeTab === 'DAILY_BOSS_REPORT'
-                ? 'bg-amber-500 text-slate-950 font-bold shadow-2xs'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-[#FFCD11] text-[#111111] font-bold shadow-2xs'
+                : 'text-[#595959] hover:text-[#111111]'
             }`}
           >
             <FileSpreadsheet className="w-3.5 h-3.5" />
-            <span>Bilan & Transactions</span>
+            <span>Bilan &amp; Transactions</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('FINANCIAL_ANALYTICS')}
             className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg transition-all cursor-pointer ${
               activeTab === 'FINANCIAL_ANALYTICS'
-                ? 'bg-amber-500 text-slate-950 font-bold shadow-2xs'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-[#FFCD11] text-[#111111] font-bold shadow-2xs'
+                : 'text-[#595959] hover:text-[#111111]'
             }`}
           >
             <Coins className="w-3.5 h-3.5" />
-            <span>Analyse Globale & Rentabilité</span>
+            <span>Analyse Globale &amp; Rentabilité</span>
           </button>
         </div>
       </div>
 
-      {/* Date & Filter Controls Card */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3.5">
+      {/* Date & Filter Controls Card (desktop/tablet, or toggled on mobile) */}
+      <div className={`${showMobileFilters ? 'block' : 'hidden sm:block'} bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3.5`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-amber-600 shrink-0" />
-            <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-              Date & Période du Bilan :
+            <Calendar className="w-4 h-4 text-[#7A5C00] shrink-0" />
+            <span className="text-xs font-bold text-[#111111] uppercase tracking-wider">
+              Date &amp; Période du Bilan :
             </span>
           </div>
 
@@ -807,32 +874,33 @@ export const SalesAndCashReportsView: React.FC = () => {
             <button
               type="button"
               onClick={() => {
-                setPeriodMode('YESTERDAY');
-                setSelectedSingleDate(getYesterdayDateString());
+                setPeriodMode('TODAY');
+                setSelectedSingleDate(getLocalDateString());
               }}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                periodMode === 'YESTERDAY'
-                  ? 'bg-slate-900 text-amber-400 shadow-2xs ring-2 ring-amber-400/20'
-                  : 'bg-amber-50 text-amber-900 hover:bg-amber-100 border border-amber-200'
+                periodMode === 'TODAY'
+                  ? 'bg-[#111111] text-[#FFCD11] shadow-2xs'
+                  : 'bg-[#FFF9DF] text-[#111111] hover:bg-[#FFCD11]/30 border border-[#E5C130]'
               }`}
-              title="Le choix quotidien recommandé pour le bilan du matin du patron"
+              title="Ventes en temps réel d'aujourd'hui"
             >
-              <span>⭐ Hier</span>
+              <span>Aujourd&apos;hui (Temps réel)</span>
             </button>
 
             <button
               type="button"
               onClick={() => {
-                setPeriodMode('TODAY');
-                setSelectedSingleDate(getLocalDateString());
+                setPeriodMode('YESTERDAY');
+                setSelectedSingleDate(getYesterdayDateString());
               }}
               className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                periodMode === 'TODAY'
-                  ? 'bg-slate-900 text-white font-bold'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                periodMode === 'YESTERDAY'
+                  ? 'bg-[#111111] text-white font-bold'
+                  : 'bg-[#F4F4F4] text-[#111111] hover:bg-[#E0E0E0]'
               }`}
+              title="Bilan complet de la journée d'hier"
             >
-              Aujourd'hui
+              <span>Hier</span>
             </button>
 
             <button
@@ -992,9 +1060,7 @@ export const SalesAndCashReportsView: React.FC = () => {
                   <span className="text-[#595959]" aria-hidden="true">·</span>
                   <span className="inline-flex items-center gap-1.5 font-mono tabular-nums text-[#595959]">
                     <Clock className="w-4 h-4 text-[#7A5C00] shrink-0" />
-                    <span>
-                      {new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
+                    <span>{liveTimeStr}</span>
                   </span>
                 </div>
               </div>
@@ -1033,37 +1099,57 @@ export const SalesAndCashReportsView: React.FC = () => {
               </div>
             </div>
 
-            {/* 4 Large High-Readability Summary Cards (2x2 Grid) */}
+            {/* 4 Large High-Readability Clickable Summary Cards (2x2 Grid) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {/* Box 1: Chiffre d'Affaires Total */}
-              <div className="p-6 sm:p-7 rounded-xl bg-[#F4F4F4] border border-[#E0E0E0] flex flex-col justify-between min-h-[168px]">
-                <div>
-                  <span className="text-sm sm:text-base font-bold text-[#595959] block">
-                    1. Ventes totales (Chiffre d&apos;affaires)
-                  </span>
+              <button
+                type="button"
+                onClick={() => setActiveSummaryDetail('REVENUE')}
+                className="group text-left w-full p-6 sm:p-7 rounded-xl bg-[#F4F4F4] hover:bg-[#EBEBEB] border border-[#E0E0E0] hover:border-[#111111] flex flex-col justify-between min-h-[168px] transition-all cursor-pointer active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-[#111111]"
+              >
+                <div className="w-full">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-sm sm:text-base font-bold text-[#595959] block">
+                      1. Ventes totales (Chiffre d&apos;affaires)
+                    </span>
+                    <span className="inline-flex items-center gap-0.5 text-xs font-bold text-[#595959] group-hover:text-[#111111] shrink-0 print:hidden">
+                      <span>Détails</span>
+                      <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+                    </span>
+                  </div>
                   <div className="text-3xl sm:text-4xl lg:text-[42px] font-black font-mono text-[#111111] mt-3 tabular-nums tracking-tight leading-none">
                     {formatFCFA(totalRevenue)}
                   </div>
                 </div>
-                <div className="mt-5 pt-3.5 border-t border-[#E0E0E0] text-sm text-[#595959] flex items-center justify-between gap-3">
+                <div className="w-full mt-5 pt-3.5 border-t border-[#E0E0E0] text-sm text-[#595959] flex items-center justify-between gap-3">
                   <span>Volume d&apos;activité</span>
                   <span className="font-bold text-[#111111] font-mono tabular-nums">
                     {sortedSales.length} vente{sortedSales.length > 1 ? 's' : ''} · {totalItemsSold} pièce{totalItemsSold > 1 ? 's' : ''}
                   </span>
                 </div>
-              </div>
+              </button>
 
               {/* Box 2: Total Encaissé Réel */}
-              <div className="p-6 sm:p-7 rounded-xl bg-emerald-50/80 border border-emerald-300 flex flex-col justify-between min-h-[168px]">
-                <div>
-                  <span className="text-sm sm:text-base font-bold text-emerald-900 block">
-                    2. Total encaissé en réel
-                  </span>
+              <button
+                type="button"
+                onClick={() => setActiveSummaryDetail('COLLECTED')}
+                className="group text-left w-full p-6 sm:p-7 rounded-xl bg-emerald-50/80 hover:bg-emerald-50 border border-emerald-300 hover:border-emerald-600 flex flex-col justify-between min-h-[168px] transition-all cursor-pointer active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-emerald-700"
+              >
+                <div className="w-full">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-sm sm:text-base font-bold text-emerald-900 block">
+                      2. Total encaissé en réel
+                    </span>
+                    <span className="inline-flex items-center gap-0.5 text-xs font-bold text-emerald-800 group-hover:text-emerald-950 shrink-0 print:hidden">
+                      <span>Détails</span>
+                      <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+                    </span>
+                  </div>
                   <div className="text-3xl sm:text-4xl lg:text-[42px] font-black font-mono text-emerald-700 mt-3 tabular-nums tracking-tight leading-none">
                     {formatFCFA(totalCollected)}
                   </div>
                 </div>
-                <div className="mt-5 pt-3.5 border-t border-emerald-200 text-sm text-emerald-900 space-y-1">
+                <div className="w-full mt-5 pt-3.5 border-t border-emerald-200 text-sm text-emerald-900 space-y-1">
                   {totalCustomerPaymentsCollected > 0 ? (
                     <>
                       <div className="flex items-center justify-between gap-3">
@@ -1084,100 +1170,160 @@ export const SalesAndCashReportsView: React.FC = () => {
                     </div>
                   )}
                 </div>
-              </div>
+              </button>
 
               {/* Box 3: Crédit / Reste à Recouvrer */}
-              <div className="p-6 sm:p-7 rounded-xl bg-[#FFF9DF] border border-[#E5C130] flex flex-col justify-between min-h-[168px]">
-                <div>
-                  <span className="text-sm sm:text-base font-bold text-[#7A5C00] block">
-                    3. Crédits accordés (Reste dû)
-                  </span>
+              <button
+                type="button"
+                onClick={() => setActiveSummaryDetail('CREDITS')}
+                className="group text-left w-full p-6 sm:p-7 rounded-xl bg-[#FFF9DF] hover:bg-[#FFF3BF] border border-[#E5C130] hover:border-[#7A5C00] flex flex-col justify-between min-h-[168px] transition-all cursor-pointer active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-[#7A5C00]"
+              >
+                <div className="w-full">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-sm sm:text-base font-bold text-[#7A5C00] block">
+                      3. Crédits accordés (Reste dû)
+                    </span>
+                    <span className="inline-flex items-center gap-0.5 text-xs font-bold text-[#7A5C00] group-hover:text-[#111111] shrink-0 print:hidden">
+                      <span>Détails</span>
+                      <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+                    </span>
+                  </div>
                   <div className={`text-3xl sm:text-4xl lg:text-[42px] font-black font-mono mt-3 tabular-nums tracking-tight leading-none ${
                     totalUnpaid > 0 ? 'text-rose-700' : 'text-[#595959]'
                   }`}>
                     {formatFCFA(totalUnpaid)}
                   </div>
                 </div>
-                <div className="mt-5 pt-3.5 border-t border-[#E5C130]/70 text-sm text-[#7A5C00] flex items-center justify-between gap-3">
+                <div className="w-full mt-5 pt-3.5 border-t border-[#E5C130]/70 text-sm text-[#7A5C00] flex items-center justify-between gap-3">
                   <span>Non soldé à recouvrer</span>
                   <span className="font-bold text-[#111111]">
                     {totalUnpaid > 0 ? 'À suivre' : 'Tout est payé'}
                   </span>
                 </div>
-              </div>
+              </button>
 
               {/* Box 4: Espèces en Tiroir Net */}
-              <div className="p-6 sm:p-7 rounded-xl bg-[#F4F4F4] border border-[#E0E0E0] flex flex-col justify-between min-h-[168px]">
-                <div>
-                  <span className="text-sm sm:text-base font-bold text-[#595959] block">
-                    4. Espèces net en tiroir
-                  </span>
+              <button
+                type="button"
+                onClick={() => setActiveSummaryDetail('DRAWER_CASH')}
+                className="group text-left w-full p-6 sm:p-7 rounded-xl bg-[#F4F4F4] hover:bg-[#EBEBEB] border border-[#E0E0E0] hover:border-[#111111] flex flex-col justify-between min-h-[168px] transition-all cursor-pointer active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-[#111111]"
+              >
+                <div className="w-full">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-sm sm:text-base font-bold text-[#595959] block">
+                      4. Espèces net en tiroir
+                    </span>
+                    <span className="inline-flex items-center gap-0.5 text-xs font-bold text-[#595959] group-hover:text-[#111111] shrink-0 print:hidden">
+                      <span>Détails</span>
+                      <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+                    </span>
+                  </div>
                   <div className="text-3xl sm:text-4xl lg:text-[42px] font-black font-mono text-[#111111] mt-3 tabular-nums tracking-tight leading-none">
                     {formatFCFA(netDrawerCash)}
                   </div>
                 </div>
-                <div className="mt-5 pt-3.5 border-t border-[#E0E0E0] text-sm text-[#595959] flex items-center justify-between gap-3">
+                <div className="w-full mt-5 pt-3.5 border-t border-[#E0E0E0] text-sm text-[#595959] flex items-center justify-between gap-3">
                   <span>Après dépenses espèces (-{formatFCFA(totalCashDrawerExpenses)})</span>
                   <span className="font-bold text-emerald-700 shrink-0">En caisse</span>
                 </div>
-              </div>
+              </button>
             </div>
 
-            {/* Enlarged Payment Method Breakdown Cards */}
+            {/* Enlarged Clickable Payment Method Breakdown Cards */}
             <div className="p-5 sm:p-6 bg-[#F4F4F4] border border-[#E0E0E0] rounded-xl space-y-4">
-              <span className="text-sm sm:text-base font-bold text-[#111111] block">
-                Répartition des encaissements par mode de paiement
-              </span>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm sm:text-base font-bold text-[#111111] block">
+                  Répartition des encaissements par mode de paiement
+                </span>
+                <span className="text-xs text-[#595959] hidden sm:inline print:hidden">
+                  Cliquer sur un mode pour voir le détail
+                </span>
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div className="p-4 sm:p-5 bg-white border border-[#E0E0E0] rounded-xl flex flex-col justify-between">
-                  <div className="flex items-center gap-2 text-sm sm:text-base font-bold text-[#595959]">
-                    <Banknote className="w-5 h-5 text-emerald-600 shrink-0" />
-                    <span>Espèces</span>
+                <button
+                  type="button"
+                  onClick={() => setActiveSummaryDetail('PAYMENT_ESPECES')}
+                  className="group text-left p-4 sm:p-5 bg-white hover:bg-[#FFF9DF] border border-[#E0E0E0] hover:border-[#111111] rounded-xl flex flex-col justify-between transition-all cursor-pointer active:scale-[0.99]"
+                >
+                  <div className="w-full flex items-center justify-between gap-2 text-sm sm:text-base font-bold text-[#595959]">
+                    <span className="flex items-center gap-2">
+                      <Banknote className="w-5 h-5 text-emerald-600 shrink-0" />
+                      <span>Espèces</span>
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-[#595959] group-hover:text-[#111111] group-hover:translate-x-0.5 transition-transform print:hidden" />
                   </div>
                   <div className="font-mono font-black text-2xl sm:text-[26px] text-[#111111] mt-2.5 tabular-nums tracking-tight">
                     {formatFCFA(paymentBreakdown.ESPECES || 0)}
                   </div>
-                </div>
+                </button>
 
-                <div className="p-4 sm:p-5 bg-white border border-[#E0E0E0] rounded-xl flex flex-col justify-between">
-                  <div className="flex items-center gap-2 text-sm sm:text-base font-bold text-[#595959]">
-                    <QrCode className="w-5 h-5 text-[#7A5C00] shrink-0" />
-                    <span>Wave</span>
+                <button
+                  type="button"
+                  onClick={() => setActiveSummaryDetail('PAYMENT_WAVE')}
+                  className="group text-left p-4 sm:p-5 bg-white hover:bg-[#FFF9DF] border border-[#E0E0E0] hover:border-[#111111] rounded-xl flex flex-col justify-between transition-all cursor-pointer active:scale-[0.99]"
+                >
+                  <div className="w-full flex items-center justify-between gap-2 text-sm sm:text-base font-bold text-[#595959]">
+                    <span className="flex items-center gap-2">
+                      <QrCode className="w-5 h-5 text-[#7A5C00] shrink-0" />
+                      <span>Wave</span>
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-[#595959] group-hover:text-[#111111] group-hover:translate-x-0.5 transition-transform print:hidden" />
                   </div>
                   <div className="font-mono font-black text-2xl sm:text-[26px] text-[#111111] mt-2.5 tabular-nums tracking-tight">
                     {formatFCFA(paymentBreakdown.WAVE || 0)}
                   </div>
-                </div>
+                </button>
 
-                <div className="p-4 sm:p-5 bg-white border border-[#E0E0E0] rounded-xl flex flex-col justify-between">
-                  <div className="flex items-center gap-2 text-sm sm:text-base font-bold text-[#595959]">
-                    <Smartphone className="w-5 h-5 text-[#7A5C00] shrink-0" />
-                    <span>Orange Money</span>
+                <button
+                  type="button"
+                  onClick={() => setActiveSummaryDetail('PAYMENT_ORANGE_MONEY')}
+                  className="group text-left p-4 sm:p-5 bg-white hover:bg-[#FFF9DF] border border-[#E0E0E0] hover:border-[#111111] rounded-xl flex flex-col justify-between transition-all cursor-pointer active:scale-[0.99]"
+                >
+                  <div className="w-full flex items-center justify-between gap-2 text-sm sm:text-base font-bold text-[#595959]">
+                    <span className="flex items-center gap-2">
+                      <Smartphone className="w-5 h-5 text-[#7A5C00] shrink-0" />
+                      <span>Orange Money</span>
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-[#595959] group-hover:text-[#111111] group-hover:translate-x-0.5 transition-transform print:hidden" />
                   </div>
                   <div className="font-mono font-black text-2xl sm:text-[26px] text-[#111111] mt-2.5 tabular-nums tracking-tight">
                     {formatFCFA(paymentBreakdown.ORANGE_MONEY || 0)}
                   </div>
-                </div>
+                </button>
 
-                <div className="p-4 sm:p-5 bg-white border border-[#E0E0E0] rounded-xl flex flex-col justify-between">
-                  <div className="flex items-center gap-2 text-sm sm:text-base font-bold text-[#595959]">
-                    <Building2 className="w-5 h-5 text-[#595959] shrink-0" />
-                    <span>Virements</span>
+                <button
+                  type="button"
+                  onClick={() => setActiveSummaryDetail('PAYMENT_VIREMENT')}
+                  className="group text-left p-4 sm:p-5 bg-white hover:bg-[#FFF9DF] border border-[#E0E0E0] hover:border-[#111111] rounded-xl flex flex-col justify-between transition-all cursor-pointer active:scale-[0.99]"
+                >
+                  <div className="w-full flex items-center justify-between gap-2 text-sm sm:text-base font-bold text-[#595959]">
+                    <span className="flex items-center gap-2">
+                      <Building2 className="w-5 h-5 text-[#595959] shrink-0" />
+                      <span>Virements</span>
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-[#595959] group-hover:text-[#111111] group-hover:translate-x-0.5 transition-transform print:hidden" />
                   </div>
                   <div className="font-mono font-black text-2xl sm:text-[26px] text-[#111111] mt-2.5 tabular-nums tracking-tight">
                     {formatFCFA(paymentBreakdown.VIREMENT || 0)}
                   </div>
-                </div>
+                </button>
 
-                <div className="p-4 sm:p-5 bg-white border border-[#E0E0E0] rounded-xl flex flex-col justify-between">
-                  <div className="flex items-center gap-2 text-sm sm:text-base font-bold text-[#595959]">
-                    <CreditCard className="w-5 h-5 text-[#595959] shrink-0" />
-                    <span>Cartes</span>
+                <button
+                  type="button"
+                  onClick={() => setActiveSummaryDetail('PAYMENT_CARTE')}
+                  className="group text-left p-4 sm:p-5 bg-white hover:bg-[#FFF9DF] border border-[#E0E0E0] hover:border-[#111111] rounded-xl flex flex-col justify-between transition-all cursor-pointer active:scale-[0.99]"
+                >
+                  <div className="w-full flex items-center justify-between gap-2 text-sm sm:text-base font-bold text-[#595959]">
+                    <span className="flex items-center gap-2">
+                      <CreditCard className="w-5 h-5 text-[#595959] shrink-0" />
+                      <span>Cartes</span>
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-[#595959] group-hover:text-[#111111] group-hover:translate-x-0.5 transition-transform print:hidden" />
                   </div>
                   <div className="font-mono font-black text-2xl sm:text-[26px] text-[#111111] mt-2.5 tabular-nums tracking-tight">
                     {formatFCFA(paymentBreakdown.CARTE || 0)}
                   </div>
-                </div>
+                </button>
               </div>
             </div>
 
@@ -1212,7 +1358,63 @@ export const SalesAndCashReportsView: React.FC = () => {
                   </span>
                 </div>
               ) : (
-                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                <div className="space-y-3">
+                  {/* Mobile Readable Sales Cards (< sm) */}
+                  <div className="sm:hidden space-y-3">
+                    {paginatedDailySales.map((s) => {
+                      const saleDate = new Date(s.date);
+                      const timeStr = saleDate.toLocaleTimeString('fr-FR', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      });
+                      const dateStr = saleDate.toLocaleDateString('fr-FR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                      });
+                      const isFullyPaid = s.remainingDue <= 0;
+
+                      return (
+                        <div
+                          key={s.id}
+                          onClick={() => setActiveReceiptSale(s)}
+                          className="p-4 bg-[#F4F4F4] border border-[#E0E0E0] rounded-xl space-y-2.5 active:bg-[#FFF9DF] transition-colors cursor-pointer"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="text-base font-extrabold text-[#111111] truncate">
+                                {s.customerName || 'Client Comptoir'}
+                              </div>
+                              <div className="text-xs font-mono text-[#595959] mt-0.5">
+                                {dateStr} à {timeStr} · {s.receiptNumber}
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <div className="text-lg font-black font-mono text-[#111111] tabular-nums">
+                                {formatFCFA(s.totalAmount)}
+                              </div>
+                              <div className={`text-xs font-bold mt-0.5 ${
+                                isFullyPaid ? 'text-emerald-700' : 'text-rose-700'
+                              }`}>
+                                {isFullyPaid ? 'Payé' : `Reste ${formatFCFA(s.remainingDue)}`}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="pt-2 border-t border-[#E0E0E0] text-xs text-[#595959] leading-relaxed">
+                            {s.items.map((i, idx) => (
+                              <span key={idx} className="mr-2 inline-block">
+                                <strong className="font-mono text-[#111111]">{i.quantity}x</strong>{' '}
+                                <span className="font-mono font-semibold text-[#7A5C00]">{i.mainReference}</span>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Desktop / Tablet Sales Table (sm+) */}
+                  <div className="hidden sm:block border border-[#E0E0E0] rounded-xl overflow-hidden">
                   <table className="w-full table-fixed text-left text-xs">
                     <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase text-[10px] font-bold">
                       <tr>
@@ -1327,6 +1529,7 @@ export const SalesAndCashReportsView: React.FC = () => {
                       })}
                     </tbody>
                   </table>
+                  </div>
                   <div className="print:hidden">
                     <TablePagination
                       currentPage={salesPage}
@@ -1697,6 +1900,37 @@ export const SalesAndCashReportsView: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Interactive Summary Card Drill-Down Modal */}
+      {activeSummaryDetail && (
+        <SummaryDetailModal
+          activeType={activeSummaryDetail}
+          onClose={() => setActiveSummaryDetail(null)}
+          periodLabel={periodLabel}
+          sales={sortedSales}
+          allPeriodPayments={[...filteredPayments, ...orphanCashCustomerPayments]}
+          standaloneCustomerPayments={standaloneCustomerPayments}
+          cashDrawerExpenses={filteredCashExpenses.filter((m) => m.isCashInDrawer !== false)}
+          customers={customers}
+          totalRevenue={totalRevenue}
+          totalSalesCollected={totalSalesCollected}
+          totalCustomerPaymentsCollected={totalCustomerPaymentsCollected}
+          totalCollected={totalCollected}
+          totalUnpaid={totalUnpaid}
+          totalItemsSold={totalItemsSold}
+          netDrawerCash={netDrawerCash}
+          totalCashDrawerExpenses={totalCashDrawerExpenses}
+          paymentBreakdown={paymentBreakdown}
+          onOpenSaleReceipt={(sale) => {
+            setActiveSummaryDetail(null);
+            setActiveReceiptSale(sale);
+          }}
+          onOpenCustomerPaymentReceipt={(payment, customer) => {
+            setActiveSummaryDetail(null);
+            setActiveCustomerPaymentReceipt({ payment, customer });
+          }}
+        />
       )}
 
       {/* Reusable Receipt Modal */}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, ShoppingCart, Layers, Users, Menu } from 'lucide-react';
+import { LayoutDashboard, TrendingUp, ShoppingCart, Layers, Users, Menu } from 'lucide-react';
 import { useStock } from '../../context/StockContext';
 
 interface MobileBottomNavProps {
@@ -15,13 +15,17 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 }) => {
   const { currentPermissions } = useStock();
 
+  const homeView = currentPermissions.canViewReports ? 'sales_reports' : 'dashboard';
+
   const items = [
     {
-      id: 'dashboard',
+      id: homeView,
       label: 'Accueil',
-      icon: LayoutDashboard,
-      isActive: activeView === 'dashboard',
-      onClick: () => onSelectView('dashboard'),
+      icon: currentPermissions.canViewReports ? TrendingUp : LayoutDashboard,
+      isActive: currentPermissions.canViewReports
+        ? ['sales_reports', 'reports'].includes(activeView)
+        : activeView === 'dashboard',
+      onClick: () => onSelectView(homeView),
       accent: false,
     },
     ...(currentPermissions.canSell

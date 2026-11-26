@@ -66,13 +66,27 @@ function AppContent() {
     getAlerts,
     getTotalStockForArticle,
     companyInfo,
+    currentPermissions,
   } = useStock();
 
   // Control whether the login gate is explicitly opened for operator switching
   const [showAuthGate, setShowAuthGate] = useState<boolean>(false);
 
-  const [activeView, setActiveView] = useState<string>('dashboard');
+  // Sur mobile (< 1024px), l'accueil ouvre directement le Bilan Journalier des Transactions en temps réel
+  const isMobileViewport = () =>
+    typeof window !== 'undefined' && window.innerWidth < 1024;
+
+  const [activeView, setActiveView] = useState<string>(() =>
+    isMobileViewport() ? 'sales_reports' : 'dashboard'
+  );
   const [isSidebarMobileOpen, setIsSidebarMobileOpen] = useState(false);
+
+  // Si un utilisateur sans accès aux rapports arrive sur sales_reports, basculer sur le tableau de bord
+  useEffect(() => {
+    if (isAuthenticated && activeView === 'sales_reports' && !currentPermissions.canViewReports) {
+      setActiveView('dashboard');
+    }
+  }, [isAuthenticated, activeView, currentPermissions.canViewReports]);
 
   // Quick modals state
   const [isStockInOpen, setIsStockInOpen] = useState(false);
@@ -293,6 +307,9 @@ function AppContent() {
       <LoginView
         onSuccess={() => {
           setShowAuthGate(false);
+          if (isMobileViewport()) {
+            setActiveView('sales_reports');
+          }
           addToast('success', 'Session ouverte', `Bienvenue dans votre espace ${companyInfo?.name || 'WKRLI'}.`);
         }}
       />
