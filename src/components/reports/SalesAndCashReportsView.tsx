@@ -884,7 +884,7 @@ export const SalesAndCashReportsView: React.FC = () => {
               }`}
               title="Ventes en temps réel d'aujourd'hui"
             >
-              <span>Aujourd&apos;hui (Temps réel)</span>
+              <span className="text-[#ffffff]">Aujourd&apos;hui (Temps réel)</span>
             </button>
 
             <button
@@ -1074,7 +1074,7 @@ export const SalesAndCashReportsView: React.FC = () => {
                   title="Afficher et imprimer le rapport au format Smartphone lisible (PDF / Fiche Mobile)"
                 >
                   <Smartphone className="w-4 h-4 text-[#FFCD11]" />
-                  <span>Bilan Smartphone (PDF)</span>
+                  <span className="text-[#ffffff]">Bilan Smartphone (PDF)</span>
                 </button>
 
                 <button
