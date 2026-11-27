@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useStock } from '../../context/StockContext';
-import { formatFCFA } from '../../utils/formatters';
+import { formatAED } from '../../utils/formatters';
 import {
   getBrandLocation,
   stripWarehousePrefix,
@@ -355,11 +355,11 @@ export const StockInModal: React.FC<StockInModalProps> = ({
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                Prix unitaire d'achat (FCFA)
+                Prix unitaire d'achat (AED)
               </label>
               <NumericInput
                 min={0}
-                step={100}
+                step={1}
                 value={unitPrice}
                 onChange={(val) => setUnitPrice(val)}
                 placeholder="0"
@@ -372,7 +372,7 @@ export const StockInModal: React.FC<StockInModalProps> = ({
           <div className="text-right text-xs text-slate-600 font-medium">
             Valeur totale de l'entrée :{' '}
             <span className="font-mono font-bold text-slate-900">
-              {formatFCFA((Number(quantity) || 0) * (Number(unitPrice) || 0))}
+              {formatAED((Number(quantity) || 0) * (Number(unitPrice) || 0))}
             </span>
           </div>
 

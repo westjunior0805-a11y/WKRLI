@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { SupplierOrder } from '../../types';
-import { formatFCFA, formatDate } from '../../utils/formatters';
+import { formatAED, formatDate } from '../../utils/formatters';
 import { downloadElementAsPdf, printElementById } from '../../utils/pdfExporter';
 import { Printer, X, Download, Building2, Calendar, FileText, CheckCircle2 } from 'lucide-react';
 
@@ -182,10 +182,10 @@ export const PurchaseOrderPrintModal: React.FC<PurchaseOrderPrintModalProps> = (
                       {item.quantityOrdered} <span className="text-[10px] text-slate-400 font-normal">{item.unit}</span>
                     </td>
                     <td className="py-2.5 px-3 text-right font-mono text-slate-700">
-                      {formatFCFA(item.purchasePrice)}
+                      {formatAED(item.purchasePrice)}
                     </td>
                     <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">
-                      {formatFCFA(item.lineTotal)}
+                      {formatAED(item.lineTotal)}
                     </td>
                   </tr>
                 ))}
@@ -211,21 +211,21 @@ export const PurchaseOrderPrintModal: React.FC<PurchaseOrderPrintModalProps> = (
               <div className="flex justify-between text-slate-600">
                 <span>Sous-total articles :</span>
                 <span className="font-mono font-semibold text-slate-900">
-                  {formatFCFA(order.items.reduce((s, it) => s + it.lineTotal, 0))}
+                  {formatAED(order.items.reduce((s, it) => s + it.lineTotal, 0))}
                 </span>
               </div>
               {order.additionalFees > 0 && (
                 <div className="flex justify-between text-slate-600">
                   <span>Frais transport / Douane :</span>
                   <span className="font-mono font-semibold text-slate-900">
-                    {formatFCFA(order.additionalFees)}
+                    {formatAED(order.additionalFees)}
                   </span>
                 </div>
               )}
               <div className="flex justify-between text-sm font-bold text-slate-900 pt-2 border-t border-slate-200">
                 <span>Total Commande :</span>
                 <span className="font-mono text-emerald-700 text-base">
-                  {formatFCFA(order.totalAmount)}
+                  {formatAED(order.totalAmount)}
                 </span>
               </div>
             </div>

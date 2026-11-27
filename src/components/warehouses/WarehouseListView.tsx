@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useDeferredValue, useRef } from 'react';
 import { useStock } from '../../context/StockContext';
 import { Warehouse, Article, WarehouseStock } from '../../types';
-import { formatFCFA, exportToCSV } from '../../utils/formatters';
+import { formatAED, formatFCFA, exportToCSV } from '../../utils/formatters';
 import {
   Building2,
   Plus,
@@ -493,7 +493,7 @@ export const WarehouseListView: React.FC<WarehouseListViewProps> = ({
       'Quantité disponible',
       'Emplacement',
       'Numéro de facture',
-      'Prix achat unitaire (FCFA)',
+      'Prix achat unitaire (AED)',
       'Prix vente unitaire (FCFA)',
       'Seuil minimum',
       'Dépôt',
@@ -1023,7 +1023,7 @@ export const WarehouseListView: React.FC<WarehouseListViewProps> = ({
                                 </div>
 
                                 <div className="flex items-center justify-between pt-1 border-t border-slate-200/60 text-[10px] font-mono text-slate-500">
-                                  <span>PA: {formatFCFA(offer.purchasePrice)}</span>
+                                  <span>PA: {formatAED(offer.purchasePrice)}</span>
                                   <span className="font-bold text-emerald-700">
                                     PV: {formatFCFA(offer.salePrice)}
                                   </span>
@@ -1179,7 +1179,7 @@ export const WarehouseListView: React.FC<WarehouseListViewProps> = ({
                     onClick={() => handleToggleSort('purchasePrice')}
                     className="inline-flex items-center justify-end gap-1 ml-auto hover:text-slate-900 transition-colors cursor-pointer uppercase tracking-wider font-semibold"
                   >
-                    <span>P. Achat</span>
+                    <span>P. Achat (AED)</span>
                     {renderSortIcon('purchasePrice')}
                   </button>
                 </th>
@@ -1415,7 +1415,7 @@ export const WarehouseListView: React.FC<WarehouseListViewProps> = ({
                               key={`${art.id}-pa-${idx}`}
                               className="h-6 flex items-center justify-end truncate"
                             >
-                              {formatFCFA(offer.purchasePrice)}
+                              {formatAED(offer.purchasePrice)}
                             </div>
                           ))}
                         </div>

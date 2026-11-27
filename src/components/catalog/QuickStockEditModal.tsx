@@ -9,7 +9,7 @@ import {
   getBrandInvoiceNumber,
   cleanBrandName,
 } from '../../utils/articleHelpers';
-import { formatFCFA } from '../../utils/formatters';
+import { formatAED, formatFCFA } from '../../utils/formatters';
 import {
   X,
   MapPin,
@@ -769,11 +769,11 @@ export const QuickStockEditModal: React.FC<QuickStockEditModalProps> = ({
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-[#595959] mb-1.5 flex items-center gap-1">
                   <DollarSign className="w-3.5 h-3.5 text-[#595959]" />
-                  Prix d'achat unit. (FCFA)
+                  Prix d'achat unit. (AED)
                 </label>
                 <NumericInput
                   min={0}
-                  step={100}
+                  step={1}
                   value={activeSlot.purchasePrice}
                   onChange={(val) =>
                     updateActiveSlot({ purchasePrice: Math.max(0, val) })
@@ -782,7 +782,7 @@ export const QuickStockEditModal: React.FC<QuickStockEditModalProps> = ({
                   className="w-full px-3 py-2 font-mono font-bold text-xs text-[#111111] border border-[#E0E0E0] focus:outline-none focus:border-[#FFCD11] tabular-nums"
                 />
                 <span className="text-[10px] text-[#595959] font-mono mt-0.5 block">
-                  {formatFCFA(activeSlot.purchasePrice)}
+                  {formatAED(activeSlot.purchasePrice)}
                 </span>
               </div>
 

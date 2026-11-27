@@ -49,7 +49,7 @@ export function buildArticlePriceUpdate(
   const hasPurchaseUpdate =
     newPurchasePrice !== undefined && !Number.isNaN(Number(newPurchasePrice));
   const cleanPurchase = hasPurchaseUpdate
-    ? Math.max(0, Math.round(Number(newPurchasePrice) || 0))
+    ? Math.max(0, Math.round((Number(newPurchasePrice) || 0) * 100) / 100)
     : undefined;
 
   const targetBrand = cleanBrandName(brandName !== undefined ? brandName : article.brand);

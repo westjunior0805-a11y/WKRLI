@@ -354,7 +354,7 @@ export const InventorySessionView: React.FC<InventorySessionViewProps> = ({
       'Quantité comptée',
       'Écart',
       ...(currentPermissions.canViewPurchasePrices
-        ? ['Coût unitaire (FCFA)', 'Impact financier (FCFA)']
+        ? ['Coût unitaire (AED)', 'Impact financier (AED)']
         : []),
       'Observation',
     ];
@@ -1407,7 +1407,7 @@ export const InventorySessionView: React.FC<InventorySessionViewProps> = ({
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-bold text-[#595959] dark:text-slate-300 mb-1">
-                      Prix achat (FCFA)
+                      Prix achat (AED)
                     </label>
                     <NumericInput
                       value={newPurchasePrice}

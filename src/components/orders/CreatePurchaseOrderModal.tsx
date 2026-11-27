@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useDeferredValue } from 'react';
 import { SupplierOrder } from '../../types';
 import { useStock } from '../../context/StockContext';
-import { formatFCFA } from '../../utils/formatters';
+import { formatAED } from '../../utils/formatters';
 import { getArticleBrandOffers, cleanBrandName } from '../../utils/articleHelpers';
 import {
   Truck,
@@ -984,7 +984,7 @@ export const CreatePurchaseOrderModal: React.FC<CreatePurchaseOrderModalProps> =
                             />
                           </td>
                           <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">
-                            {formatFCFA(lineTotal)}
+                            {formatAED(lineTotal)}
                           </td>
                           <td className="py-2.5 px-3 text-center">
                             <button
@@ -1054,7 +1054,7 @@ export const CreatePurchaseOrderModal: React.FC<CreatePurchaseOrderModalProps> =
                             </span>
                           </div>
                           <span className="font-mono text-slate-500 text-[11px] shrink-0">
-                            {formatFCFA(art.purchasePrice)}
+                            {formatAED(art.purchasePrice)}
                           </span>
                         </div>
                       ))}
@@ -1105,7 +1105,7 @@ export const CreatePurchaseOrderModal: React.FC<CreatePurchaseOrderModalProps> =
 
                 <div className="sm:col-span-2">
                   <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
-                    Prix Achat (FCFA)
+                    Prix Achat (AED)
                   </label>
                   <NumericInput
                     min={0}
@@ -1113,7 +1113,7 @@ export const CreatePurchaseOrderModal: React.FC<CreatePurchaseOrderModalProps> =
                     onChange={(val) => setPriceToAdd(val)}
                     placeholder="0"
                     className="w-full px-2.5 py-2 border border-slate-300 rounded-lg font-mono text-right bg-white"
-                    title="Prix d'achat unitaire (FCFA)"
+                    title="Prix d'achat unitaire (AED)"
                   />
                 </div>
 
@@ -1184,7 +1184,7 @@ export const CreatePurchaseOrderModal: React.FC<CreatePurchaseOrderModalProps> =
             <div className="text-xs">
               <span className="text-slate-500">Montant total commande : </span>
               <span className="font-mono font-bold text-base text-slate-900 ml-1">
-                {formatFCFA(total)}
+                {formatAED(total)}
               </span>
             </div>
             <div className="flex items-center gap-2">

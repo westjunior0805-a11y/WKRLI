@@ -4,6 +4,7 @@ import { X, Plus, Trash2, Image as ImageIcon, Upload, Link as LinkIcon, Camera, 
 import { compressImageFile } from '../../utils/imageCompressor';
 import { NumericInput } from '../common/NumericInput';
 import { cleanBrandName } from '../../utils/articleHelpers';
+import { formatAED, formatFCFA } from '../../utils/formatters';
 
 interface ArticleFormModalProps {
   isOpen: boolean;
@@ -733,9 +734,6 @@ export const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
 
               <div className="space-y-2.5">
                 {brandOffers.map((offer, idx) => {
-                  const margin = (offer.salePrice || 0) - (offer.purchasePrice || 0);
-                  const marginPercent = offer.purchasePrice > 0 ? Math.round((margin / offer.purchasePrice) * 100) : 0;
-
                   return (
                     <div
                       key={offer.id || idx}
@@ -800,11 +798,11 @@ export const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
 
                         <div>
                           <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
-                            Prix Achat Unit.
+                            Prix Achat Unit. (AED)
                           </label>
                           <NumericInput
                             min={0}
-                            step={100}
+                            step={1}
                             value={offer.purchasePrice}
                             onChange={(val) => handleUpdateBrandOffer(offer.id, { purchasePrice: val })}
                             placeholder="0"
@@ -814,7 +812,7 @@ export const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
 
                         <div>
                           <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
-                            Prix Vente Unit.
+                            Prix Vente Unit. (FCFA)
                           </label>
                           <NumericInput
                             min={0}
@@ -829,10 +827,9 @@ export const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
 
                       <div className="flex items-center justify-between text-[11px] pt-1 text-slate-500 border-t border-slate-100">
                         <span>
-                          Marge brute :{' '}
-                          <strong className={margin >= 0 ? 'text-emerald-700 font-mono' : 'text-rose-600 font-mono'}>
-                            {margin.toLocaleString()} FCFA ({marginPercent}%)
-                          </strong>
+                          Achat : <strong className="font-mono text-slate-800">{formatAED(offer.purchasePrice)}</strong>
+                          {' • '}
+                          Vente : <strong className="font-mono text-emerald-700">{formatFCFA(offer.salePrice)}</strong>
                         </span>
                       </div>
                     </div>

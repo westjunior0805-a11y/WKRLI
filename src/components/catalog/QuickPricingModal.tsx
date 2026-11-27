@@ -86,8 +86,18 @@ export const QuickPricingModal: React.FC<QuickPricingModalProps> = ({
     };
   };
 
+  const parseAedInput = (raw: string): number => {
+    const parsed = parseFloat(raw.replace(',', '.'));
+    if (isNaN(parsed) || parsed <= 0) return 0;
+    return Math.round(parsed * 100) / 100;
+  };
+
   const setRowDraft = (row: MissingPriceRow, field: keyof DraftPrices, rawValue: string) => {
-    if (rawValue !== '' && !/^\d+$/.test(rawValue)) return;
+    if (field === 'purchasePrice') {
+      if (rawValue !== '' && !/^\d*[.,]?\d*$/.test(rawValue)) return;
+    } else if (rawValue !== '' && !/^\d+$/.test(rawValue)) {
+      return;
+    }
     setDrafts((prev) => {
       const current = prev[row.key] || {
         salePrice: row.salePrice > 0 ? String(row.salePrice) : '',
@@ -107,7 +117,7 @@ export const QuickPricingModal: React.FC<QuickPricingModalProps> = ({
     const d = drafts[row.key];
     if (!d) return false;
     const nextSale = d.salePrice === '' ? 0 : parseInt(d.salePrice, 10);
-    const nextPurchase = d.purchasePrice === '' ? 0 : parseInt(d.purchasePrice, 10);
+    const nextPurchase = d.purchasePrice === '' ? 0 : parseAedInput(d.purchasePrice);
     return nextSale !== row.salePrice || nextPurchase !== row.purchasePrice;
   };
 
@@ -119,7 +129,7 @@ export const QuickPricingModal: React.FC<QuickPricingModalProps> = ({
     const nextPurchase = currentPermissions.canViewPurchasePrices
       ? d.purchasePrice === ''
         ? row.purchasePrice
-        : Math.max(0, parseInt(d.purchasePrice, 10) || 0)
+        : parseAedInput(d.purchasePrice)
       : undefined;
 
     if (nextSale === row.salePrice && (nextPurchase === undefined || nextPurchase === row.purchasePrice)) {
@@ -166,7 +176,7 @@ export const QuickPricingModal: React.FC<QuickPricingModalProps> = ({
       const nextPurchase = currentPermissions.canViewPurchasePrices
         ? d.purchasePrice === ''
           ? row.purchasePrice
-          : Math.max(0, parseInt(d.purchasePrice, 10) || 0)
+          : parseAedInput(d.purchasePrice)
         : undefined;
 
       const updates = buildArticlePriceUpdate(row.article, row.brand, nextSale, nextPurchase);
@@ -313,7 +323,7 @@ export const QuickPricingModal: React.FC<QuickPricingModalProps> = ({
                     <th className="py-2.5 px-4">Pièce &amp; Marque</th>
                     <th className="py-2.5 px-3 text-center w-24">Stock</th>
                     {currentPermissions.canViewPurchasePrices && (
-                      <th className="py-2.5 px-3 w-40">Prix d’achat (FCFA)</th>
+                      <th className="py-2.5 px-3 w-40">Prix d’achat (AED)</th>
                     )}
                     <th className="py-2.5 px-3 w-44">Prix de vente (FCFA)</th>
                     <th className="py-2.5 px-4 text-right w-28">Action</th>
@@ -367,7 +377,7 @@ export const QuickPricingModal: React.FC<QuickPricingModalProps> = ({
                           <td className="py-2.5 px-3">
                             <input
                               type="text"
-                              inputMode="numeric"
+                              inputMode="decimal"
                               value={draft.purchasePrice}
                               onChange={(e) => setRowDraft(row, 'purchasePrice', e.target.value)}
                               onKeyDown={(e) => {
@@ -473,14 +483,14 @@ export const QuickPricingModal: React.FC<QuickPricingModalProps> = ({
                         {currentPermissions.canViewPurchasePrices && (
                           <div>
                             <label className="block text-[10px] font-bold uppercase text-[#595959] dark:text-slate-400 mb-1">
-                              Prix achat
+                              Prix achat (AED)
                             </label>
                             <input
                               type="text"
-                              inputMode="numeric"
+                              inputMode="decimal"
                               value={draft.purchasePrice}
                               onChange={(e) => setRowDraft(row, 'purchasePrice', e.target.value)}
-                              placeholder="0 FCFA"
+                              placeholder="0 AED"
                               className="w-full px-2.5 py-2 font-mono text-xs font-bold bg-white dark:bg-[#1A1A1A] border border-[#CCCCCC] dark:border-[#444444] text-[#111111] dark:text-white"
                             />
                           </div>

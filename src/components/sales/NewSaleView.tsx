@@ -3933,7 +3933,7 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
               {currentPermissions.canViewPurchasePrices && (
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-[#595959] dark:text-slate-300 mb-1.5">
-                    Prix d’achat unitaire (FCFA) — optionnel
+                    Prix d’achat unitaire (AED) — optionnel
                   </label>
                   <NumericInput
                     value={quickPurchasePriceInput}

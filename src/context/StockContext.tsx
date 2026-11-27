@@ -7080,7 +7080,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         ? '__NEW__'
         : cleanBrandName(bu.originalBrandKey);
       const normOrig = origClean.toLowerCase();
-      const cleanPurchase = Math.max(0, Math.round(Number(bu.purchasePrice) || 0));
+      const cleanPurchase = Math.max(0, Math.round((Number(bu.purchasePrice) || 0) * 100) / 100);
       const cleanSale = Math.max(0, Math.round(Number(bu.salePrice) || 0));
       const cleanInv = bu.invoiceNumber !== undefined ? bu.invoiceNumber.trim() : undefined;
 

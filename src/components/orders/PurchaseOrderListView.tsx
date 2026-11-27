@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Supplier, SupplierOrder, SupplierOrderStatus } from '../../types';
 import { useStock } from '../../context/StockContext';
-import { formatFCFA, formatDate } from '../../utils/formatters';
+import { formatAED, formatDate } from '../../utils/formatters';
 import {
   Truck,
   Plus,
@@ -30,10 +30,12 @@ import {
   Eye,
   ChevronLeft,
   ChevronRight,
+  FileText,
 } from 'lucide-react';
 import { CreatePurchaseOrderModal } from './CreatePurchaseOrderModal';
 import { ReceiveOrderModal } from './ReceiveOrderModal';
 import { PurchaseOrderPrintModal } from './PurchaseOrderPrintModal';
+import { InvoicePdfPriceImportModal } from '../catalog/InvoicePdfPriceImportModal';
 import { RowActionsMenu } from '../common/RowActionsMenu';
 import { SearchField } from '../common/SearchField';
 
@@ -73,9 +75,11 @@ export const PurchaseOrderListView: React.FC<PurchaseOrderListViewProps> = ({
     createSupplier,
     updateSupplier,
     deleteSupplier,
+    currentPermissions,
   } = useStock();
 
   const [activeTab, setActiveTab] = useState<'ORDERS' | 'SUPPLIERS'>('ORDERS');
+  const [isPdfPriceImportOpen, setIsPdfPriceImportOpen] = useState(false);
 
   // Tab 1: Orders search, filter, sort & pagination
   const [searchQuery, setSearchQuery] = useState('');
@@ -494,6 +498,18 @@ export const PurchaseOrderListView: React.FC<PurchaseOrderListViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          {currentPermissions.canViewPurchasePrices && (
+            <button
+              type="button"
+              onClick={() => setIsPdfPriceImportOpen(true)}
+              className="px-3.5 py-2 bg-[#FFF9DF] hover:bg-[#FFCD11]/40 text-[#7A5C00] border border-[#E5C130] font-bold text-xs rounded-xl shadow-2xs transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+              title="Extraire les prix d'achat en AED depuis vos factures PDF fournisseurs"
+            >
+              <FileText className="w-4 h-4 text-[#7A5C00]" />
+              Extraire Prix PDF (AED)
+            </button>
+          )}
+
           <button
             onClick={openCreateSupplierModal}
             className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 font-semibold text-xs rounded-xl shadow-2xs transition-colors inline-flex items-center gap-1.5 cursor-pointer"
@@ -708,7 +724,7 @@ export const PurchaseOrderListView: React.FC<PurchaseOrderListViewProps> = ({
                             {order.items.length} réf. ({totalQtyReceived}/{totalQtyOrdered} reçu)
                           </span>
                           <span className="font-mono font-bold text-[#111111]">
-                            {formatFCFA(order.totalAmount)}
+                            {formatAED(order.totalAmount)}
                           </span>
                         </div>
                       </div>
@@ -819,7 +835,7 @@ export const PurchaseOrderListView: React.FC<PurchaseOrderListViewProps> = ({
                             </button>
                           </td>
                           <td className="py-2.5 px-2.5 text-right font-mono font-bold text-slate-900 truncate">
-                            {formatFCFA(order.totalAmount)}
+                            {formatAED(order.totalAmount)}
                           </td>
                           <td className="py-2.5 px-2 text-center">
                             {getStatusBadge(order.status)}
@@ -989,7 +1005,7 @@ export const PurchaseOrderListView: React.FC<PurchaseOrderListViewProps> = ({
                 Volume Cumulé d&apos;Achats
               </span>
               <div className="text-xl font-bold font-mono text-amber-700 mt-1">
-                {formatFCFA(
+                {formatAED(
                   supplierOrders
                     .filter((o) => o.status !== 'CANCELLED')
                     .reduce((s, o) => s + o.totalAmount, 0)
@@ -1156,7 +1172,7 @@ export const PurchaseOrderListView: React.FC<PurchaseOrderListViewProps> = ({
                             )}
                           </td>
                           <td className="py-2.5 px-2.5 text-right font-mono font-bold text-slate-900 truncate">
-                            {formatFCFA(totalOrderedAmount)}
+                            {formatAED(totalOrderedAmount)}
                           </td>
                           <td className="hidden lg:table-cell py-2.5 px-2 text-center text-slate-500 whitespace-nowrap font-mono text-[11px]">
                             {lastOrderDate ? formatDate(lastOrderDate) : 'Aucune'}
@@ -1298,7 +1314,7 @@ export const PurchaseOrderListView: React.FC<PurchaseOrderListViewProps> = ({
                   {getStatusBadge(orderToInspect.status)}
                 </div>
                 <div className="font-mono font-bold text-slate-900 text-sm">
-                  Total : {formatFCFA(orderToInspect.totalAmount)}
+                  Total : {formatAED(orderToInspect.totalAmount)}
                 </div>
               </div>
 
@@ -1330,10 +1346,10 @@ export const PurchaseOrderListView: React.FC<PurchaseOrderListViewProps> = ({
                           {it.quantityReceived}
                         </td>
                         <td className="py-2.5 px-3 text-right font-mono text-slate-600">
-                          {formatFCFA(it.purchasePrice)}
+                          {formatAED(it.purchasePrice)}
                         </td>
                         <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">
-                          {formatFCFA(it.lineTotal)}
+                          {formatAED(it.lineTotal)}
                         </td>
                       </tr>
                     ))}
@@ -1595,7 +1611,7 @@ export const PurchaseOrderListView: React.FC<PurchaseOrderListViewProps> = ({
                         <div>
                           <span className="text-[11px] text-slate-500 block">Volume total commandé</span>
                           <span className="text-base font-bold font-mono text-amber-700">
-                            {formatFCFA(totalVolume)}
+                            {formatAED(totalVolume)}
                           </span>
                         </div>
                       </div>
@@ -1665,7 +1681,7 @@ export const PurchaseOrderListView: React.FC<PurchaseOrderListViewProps> = ({
                                   </div>
                                 </td>
                                 <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">
-                                  {formatFCFA(ord.totalAmount)}
+                                  {formatAED(ord.totalAmount)}
                                 </td>
                                 <td className="py-2.5 px-3 text-center">
                                   {getStatusBadge(ord.status)}
@@ -1895,6 +1911,11 @@ export const PurchaseOrderListView: React.FC<PurchaseOrderListViewProps> = ({
           </div>
         </div>
       )}
+      <InvoicePdfPriceImportModal
+        isOpen={isPdfPriceImportOpen}
+        onClose={() => setIsPdfPriceImportOpen(false)}
+        onSuccess={(msg) => setNotification(msg)}
+      />
     </div>
   );
 };

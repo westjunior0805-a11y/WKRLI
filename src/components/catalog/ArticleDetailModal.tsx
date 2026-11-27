@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Article, Warehouse } from '../../types';
-import { formatFCFA, formatDate } from '../../utils/formatters';
+import { formatAED, formatFCFA, formatDate } from '../../utils/formatters';
 import {
   getEffectiveArticleBrandOffers,
   formatSalePriceRange,
@@ -250,7 +250,7 @@ export const ArticleDetailModal: React.FC<ArticleDetailModalProps> = ({
 
             <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
               <span className="text-[11px] text-slate-500 uppercase font-semibold block">
-                Prix d'Achat
+                Prix d'Achat (AED)
               </span>
               <span className="text-sm font-bold font-mono text-slate-900 tabular-nums block truncate">
                 {formatPurchasePriceRange(article)}
@@ -275,9 +275,9 @@ export const ArticleDetailModal: React.FC<ArticleDetailModalProps> = ({
                 Valeur en Stock
               </span>
               <span className="text-base font-bold font-mono text-slate-900 tabular-nums">
-                {formatFCFA(totalPurchaseVal)}
+                {formatAED(totalPurchaseVal)}
               </span>
-              <div className="mt-1 text-[11px] text-slate-500">Au coût d'achat</div>
+              <div className="mt-1 text-[11px] text-slate-500">Au coût d'achat (AED)</div>
             </div>
           </div>
 
@@ -298,8 +298,8 @@ export const ArticleDetailModal: React.FC<ArticleDetailModalProps> = ({
                     <th className="py-2.5 px-2.5 text-right w-[14%]">Qté dispo</th>
                     <th className="py-2.5 px-2.5 w-[16%]">Emplacement</th>
                     <th className="py-2.5 px-2.5 w-[15%]">N° Facture</th>
-                    <th className="py-2.5 px-2.5 text-right w-[13%]">P. Achat</th>
-                    <th className="py-2.5 px-2.5 text-right w-[13%]">P. Vente</th>
+                    <th className="py-2.5 px-2.5 text-right w-[13%]">P. Achat (AED)</th>
+                    <th className="py-2.5 px-2.5 text-right w-[13%]">P. Vente (FCFA)</th>
                     {(onQuickEditStock || onOpenPurchaseOrder) && (
                       <th className="py-2.5 px-2.5 text-right w-[9%]">Action</th>
                     )}
@@ -342,7 +342,7 @@ export const ArticleDetailModal: React.FC<ArticleDetailModalProps> = ({
                           {brandInv}
                         </td>
                         <td className="py-2.5 px-3 text-right font-mono text-slate-700">
-                          {formatFCFA(bo.purchasePrice)}
+                          {formatAED(bo.purchasePrice)}
                         </td>
                         <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-700">
                           {formatFCFA(bo.salePrice)}

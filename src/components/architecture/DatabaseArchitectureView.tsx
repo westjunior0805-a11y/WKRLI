@@ -180,8 +180,8 @@ export const DatabaseArchitectureView: React.FC = () => {
           },
           {
             key: 'purchasePrice',
-            label: 'Prix Achat',
-            render: (r) => `${Number(r.purchasePrice || 0).toLocaleString('fr-FR')} F`,
+            label: 'Prix Achat (AED)',
+            render: (r) => `${Number(r.purchasePrice || 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} AED`,
           },
           {
             key: 'salePrice',

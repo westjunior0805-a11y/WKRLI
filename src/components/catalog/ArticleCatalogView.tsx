@@ -35,12 +35,14 @@ import {
   ShoppingBag,
   ExternalLink,
   Tractor,
+  FileText,
 } from 'lucide-react';
 import { ArticleDetailModal } from './ArticleDetailModal';
 import { ArticleFormModal } from './ArticleFormModal';
 import { ImportCatalogModal } from './ImportCatalogModal';
 import { QuickStockEditModal } from './QuickStockEditModal';
 import { QuickPricingModal } from './QuickPricingModal';
+import { InvoicePdfPriceImportModal } from './InvoicePdfPriceImportModal';
 import { MachineWhereUsedModal } from './MachineWhereUsedModal';
 import { SortableTh } from '../common/TablePagination';
 import { RowActionsMenu } from '../common/RowActionsMenu';
@@ -86,6 +88,7 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
     deleteArticle,
     deleteMultipleArticles,
     currentUser,
+    currentPermissions,
     sales,
     movements,
     inventories,
@@ -102,6 +105,7 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
   const [selectedBrand, setSelectedBrand] = useState<string>('ALL');
   const [stockStatusFilter, setStockStatusFilter] = useState<'ALL' | 'IN_STOCK' | 'LOW' | 'OUT' | 'NO_PRICE'>('ALL');
   const [isQuickPricingOpen, setIsQuickPricingOpen] = useState(false);
+  const [isPdfPriceImportOpen, setIsPdfPriceImportOpen] = useState(false);
 
   const missingPriceCount = useMemo(
     () => extractMissingPriceRows(articles, stocks, selectedWarehouseId).filter((r) => r.missingSale).length,
@@ -624,6 +628,20 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
                 <FileSpreadsheet className="w-3.5 h-3.5 text-[#7A5C00]" />
                 <span>Importer</span>
               </button>
+              {currentPermissions.canViewPurchasePrices && (
+                <>
+                  <div className="w-px h-4 bg-[#E0E0E0]" />
+                  <button
+                    type="button"
+                    onClick={() => setIsPdfPriceImportOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#7A5C00] bg-[#FFF9DF] hover:bg-[#FFCD11]/40 transition-colors whitespace-nowrap cursor-pointer"
+                    title="Extraire automatiquement les prix d'achat en AED depuis vos factures PDF fournisseurs"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-[#7A5C00]" />
+                    <span>Factures PDF (AED)</span>
+                  </button>
+                </>
+              )}
               <div className="w-px h-4 bg-[#E0E0E0]" />
               <button
                 type="button"
@@ -1885,6 +1903,12 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
         isOpen={isQuickPricingOpen}
         onClose={() => setIsQuickPricingOpen(false)}
         warehouseId={selectedWarehouseId}
+        onSuccess={(message) => setActionFeedback({ type: 'success', message })}
+      />
+
+      <InvoicePdfPriceImportModal
+        isOpen={isPdfPriceImportOpen}
+        onClose={() => setIsPdfPriceImportOpen(false)}
         onSuccess={(message) => setActionFeedback({ type: 'success', message })}
       />
     </div>

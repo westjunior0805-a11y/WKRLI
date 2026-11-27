@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useStock } from '../../context/StockContext';
-import { formatFCFA, formatDateTime } from '../../utils/formatters';
+import { formatAED, formatFCFA, formatDateTime } from '../../utils/formatters';
 import {
   Boxes,
   Package,
@@ -255,10 +255,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="label">Valeur (Achat)</div>
           <div className="mt-3">
             <div className="stat-val text-3xl sm:text-[2.15rem] tabular-nums">
-              {stockPurchaseValue.toLocaleString('fr-FR')}
+              {(Math.round(stockPurchaseValue * 100) / 100).toLocaleString('fr-FR', {
+                maximumFractionDigits: 2,
+              })}
             </div>
             <div className="meta font-bold uppercase mt-1">
-              FCFA
+              AED
             </div>
           </div>
           <div className="mt-3 pt-3 border-t border-[#E0E0E0] flex items-center justify-between text-xs">
@@ -358,7 +360,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <div className="text-right">
                   <span className="label block">Valeur d'achat</span>
                   <span className="text-sm font-bold font-mono text-[#7A5C00] tabular-nums">
-                    {formatFCFA(item.value)}
+                    {formatAED(item.value)}
                   </span>
                 </div>
               </div>

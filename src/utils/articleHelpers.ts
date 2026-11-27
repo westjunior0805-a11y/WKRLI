@@ -1,5 +1,5 @@
 import { Article, ArticleBrandOffer, Warehouse, WarehouseStock } from '../types';
-import { formatFCFA } from './formatters';
+import { formatAED, formatFCFA } from './formatters';
 
 /**
  * Parses a single location segment to separate an optional "<Prefix> :" from the inner shelf code.
@@ -268,18 +268,18 @@ export function formatSalePriceRange(article: Article): string {
 }
 
 /**
- * Formats a clean purchase price string or range for cost analysis.
+ * Formats a clean purchase price string or range in AED for cost analysis.
  */
 export function formatPurchasePriceRange(article: Article): string {
   const offers = getArticleBrandOffers(article);
   const prices = offers.map((o) => o.purchasePrice).filter((p) => p > 0);
-  if (prices.length === 0) return formatFCFA(article.purchasePrice || 0);
+  if (prices.length === 0) return formatAED(article.purchasePrice || 0);
   const min = Math.min(...prices);
   const max = Math.max(...prices);
   if (min === max) {
-    return formatFCFA(min);
+    return formatAED(min);
   }
-  return `${formatFCFA(min)} — ${formatFCFA(max)}`;
+  return `${formatAED(min)} — ${formatAED(max)}`;
 }
 
 /**

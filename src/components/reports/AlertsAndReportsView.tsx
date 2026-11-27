@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useDeferredValue } from 'react';
 import { useStock } from '../../context/StockContext';
-import { formatFCFA, exportToCSV } from '../../utils/formatters';
+import { formatAED, formatFCFA, exportToCSV } from '../../utils/formatters';
 import { cleanBrandName, getArticleBrandOffers } from '../../utils/articleHelpers';
 import {
   AlertTriangle,
@@ -419,7 +419,7 @@ export const AlertsAndReportsView: React.FC<AlertsAndReportsViewProps> = ({
       'Seuil Minimal',
       'Qté Conseillée',
       'Fournisseur',
-      'Prix Achat Unit. (FCFA)',
+      'Prix Achat Unit. (AED)',
       'Statut Commande',
     ];
 
@@ -447,9 +447,8 @@ export const AlertsAndReportsView: React.FC<AlertsAndReportsViewProps> = ({
       'Magasin Nom',
       'Localisation',
       'Pièces en Stock',
-      'Valeur Achat (FCFA)',
+      'Valeur Achat (AED)',
       'Valeur Vente (FCFA)',
-      'Marge Potentielle (FCFA)',
       'Total Entrées (qté)',
       'Total Sorties (qté)',
     ];
@@ -461,7 +460,6 @@ export const AlertsAndReportsView: React.FC<AlertsAndReportsViewProps> = ({
       w.pieceCount,
       w.purchaseVal,
       w.saleVal,
-      w.margin,
       w.inQty,
       w.outQty,
     ]);
@@ -770,7 +768,7 @@ export const AlertsAndReportsView: React.FC<AlertsAndReportsViewProps> = ({
                         onClick={() => togglePieceSort('purchasePrice')}
                         className="hidden xl:table-cell py-2.5 px-2 text-right cursor-pointer hover:text-slate-900 select-none w-[10%]"
                       >
-                        P. Achat {renderPieceSortIcon('purchasePrice')}
+                        P. Achat (AED) {renderPieceSortIcon('purchasePrice')}
                       </th>
                       <th
                         onClick={() => togglePieceSort('orderStatus')}
@@ -871,7 +869,7 @@ export const AlertsAndReportsView: React.FC<AlertsAndReportsViewProps> = ({
                             </span>
                           </td>
                           <td className="hidden xl:table-cell py-2.5 px-2 text-right font-mono text-slate-700 truncate">
-                            {formatFCFA(s.purchasePrice)}
+                            {formatAED(s.purchasePrice)}
                           </td>
                           <td className="py-2.5 px-2 text-right whitespace-nowrap">
                             <RowActionsMenu
@@ -969,17 +967,17 @@ export const AlertsAndReportsView: React.FC<AlertsAndReportsViewProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="p-4 bg-white border border-slate-200 rounded-xl">
               <span className="text-xs text-slate-500 font-semibold uppercase block">
-                Valeur Totale d&apos;Achat
+                Valeur Totale d&apos;Achat (AED)
               </span>
               <span className="text-2xl font-bold font-mono text-slate-900 mt-1 block">
-                {formatFCFA(getStockValueTotal())}
+                {formatAED(getStockValueTotal())}
               </span>
-              <p className="text-xs text-slate-500 mt-1">Investissement immobilisé</p>
+              <p className="text-xs text-slate-500 mt-1">Investissement immobilisé (Dirham EAU)</p>
             </div>
 
             <div className="p-4 bg-white border border-slate-200 rounded-xl">
               <span className="text-xs text-slate-500 font-semibold uppercase block">
-                Valeur Totale de Vente
+                Valeur Totale de Vente (FCFA)
               </span>
               <span className="text-2xl font-bold font-mono text-emerald-700 mt-1 block">
                 {formatFCFA(getSaleValueTotal())}
@@ -989,12 +987,14 @@ export const AlertsAndReportsView: React.FC<AlertsAndReportsViewProps> = ({
 
             <div className="p-4 bg-white border border-slate-200 rounded-xl">
               <span className="text-xs text-slate-500 font-semibold uppercase block">
-                Marge Potentielle
+                Devises actives
               </span>
-              <span className="text-2xl font-bold font-mono text-amber-700 mt-1 block">
-                {formatFCFA(getSaleValueTotal() - getStockValueTotal())}
+              <span className="text-xl font-bold font-mono text-[#7A5C00] mt-1 block">
+                AED / FCFA
               </span>
-              <p className="text-xs text-slate-500 mt-1">Bénéfice brut prévisionnel</p>
+              <p className="text-xs text-slate-500 mt-1">
+                Achats en Dirham (AED) • Ventes en FCFA
+              </p>
             </div>
           </div>
 
@@ -1007,12 +1007,11 @@ export const AlertsAndReportsView: React.FC<AlertsAndReportsViewProps> = ({
               <table className="w-full table-fixed text-left text-xs">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold text-[10px]">
                   <tr>
-                    <SortableTh label="Magasin" active={valSort.field === 'name'} direction={valSort.dir} onClick={() => toggleValSort('name')} className="w-[22%]" />
-                    <SortableTh label="Localisation" active={valSort.field === 'location'} direction={valSort.dir} onClick={() => toggleValSort('location')} className="hidden md:table-cell w-[18%]" />
-                    <SortableTh label="Pièces" active={valSort.field === 'pieceCount'} direction={valSort.dir} onClick={() => toggleValSort('pieceCount')} align="right" className="w-[12%]" />
-                    <SortableTh label="Val. Achat" active={valSort.field === 'purchaseVal'} direction={valSort.dir} onClick={() => toggleValSort('purchaseVal')} align="right" className="w-[16%]" />
-                    <SortableTh label="Val. Vente" active={valSort.field === 'saleVal'} direction={valSort.dir} onClick={() => toggleValSort('saleVal')} align="right" className="w-[16%]" />
-                    <SortableTh label="Marge Brute" active={valSort.field === 'margin'} direction={valSort.dir} onClick={() => toggleValSort('margin')} align="right" className="w-[16%]" />
+                    <SortableTh label="Magasin" active={valSort.field === 'name'} direction={valSort.dir} onClick={() => toggleValSort('name')} className="w-[26%]" />
+                    <SortableTh label="Localisation" active={valSort.field === 'location'} direction={valSort.dir} onClick={() => toggleValSort('location')} className="hidden md:table-cell w-[22%]" />
+                    <SortableTh label="Pièces" active={valSort.field === 'pieceCount'} direction={valSort.dir} onClick={() => toggleValSort('pieceCount')} align="right" className="w-[14%]" />
+                    <SortableTh label="Val. Achat (AED)" active={valSort.field === 'purchaseVal'} direction={valSort.dir} onClick={() => toggleValSort('purchaseVal')} align="right" className="w-[19%]" />
+                    <SortableTh label="Val. Vente (FCFA)" active={valSort.field === 'saleVal'} direction={valSort.dir} onClick={() => toggleValSort('saleVal')} align="right" className="w-[19%]" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -1029,13 +1028,10 @@ export const AlertsAndReportsView: React.FC<AlertsAndReportsViewProps> = ({
                         {item.pieceCount.toLocaleString('fr-FR')}
                       </td>
                       <td className="py-2.5 px-2.5 text-right font-mono font-bold text-slate-900 tabular-nums truncate">
-                        {formatFCFA(item.purchaseVal)}
+                        {formatAED(item.purchaseVal)}
                       </td>
                       <td className="py-2.5 px-2.5 text-right font-mono font-bold text-emerald-700 tabular-nums truncate">
                         {formatFCFA(item.saleVal)}
-                      </td>
-                      <td className="py-2.5 px-2.5 text-right font-mono font-bold text-amber-700 tabular-nums truncate">
-                        {formatFCFA(item.margin)}
                       </td>
                     </tr>
                   ))}

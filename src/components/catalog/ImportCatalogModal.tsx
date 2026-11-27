@@ -7,7 +7,7 @@ import {
   ParsedImportRow,
   ImportResultReport,
 } from '../../types';
-import { formatFCFA, exportToCSV } from '../../utils/formatters';
+import { formatAED, formatFCFA, exportToCSV } from '../../utils/formatters';
 import {
   autoDetectMapping,
   detectImportModeFromColumns,
@@ -1105,8 +1105,8 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
                           <th className="py-2.5 px-3 text-right">Quantité</th>
                           <th className="py-2.5 px-3">Emplacement</th>
                           <th className="py-2.5 px-3">Numéro de facture de commande</th>
-                          <th className="py-2.5 px-3 text-right">Prix d'achat unitaire</th>
-                          <th className="py-2.5 px-3 text-right">Prix de vente unitaire</th>
+                          <th className="py-2.5 px-3 text-right">Prix d'achat (AED)</th>
+                          <th className="py-2.5 px-3 text-right">Prix de vente (FCFA)</th>
                           <th className="py-2.5 px-3">Détails</th>
                         </tr>
                       </thead>
@@ -1174,7 +1174,7 @@ export const ImportCatalogModal: React.FC<ImportCatalogModalProps> = ({
                                 {row.invoiceNumber || '-'}
                               </td>
                               <td className="py-2 px-3 text-right font-mono text-slate-700">
-                                {formatFCFA(row.purchasePrice)}
+                                {formatAED(row.purchasePrice)}
                               </td>
                               <td className="py-2 px-3 text-right font-mono font-bold text-slate-900">
                                 {formatFCFA(row.salePrice)}

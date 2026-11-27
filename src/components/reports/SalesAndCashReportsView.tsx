@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useStock } from '../../context/StockContext';
 import { Sale, CashMovement, PaymentRecord, Customer } from '../../types';
-import { formatFCFA, formatDate, formatDateTime } from '../../utils/formatters';
+import { formatAED, formatFCFA, formatDate, formatDateTime } from '../../utils/formatters';
 import { getCustomerCreditSummary } from '../../utils/customerAccount';
 import { downloadElementAsPdf, printElementById } from '../../utils/pdfExporter';
 import { ReceiptModal } from '../sales/ReceiptModal';
@@ -1722,9 +1722,9 @@ export const SalesAndCashReportsView: React.FC = () => {
                 </span>
               </div>
               <div className="mt-2 text-xs text-slate-500 border-t border-slate-100 pt-2 flex justify-between">
-                <span>Marge brute estimée</span>
-                <span className="font-mono font-bold text-emerald-700">
-                  {formatFCFA(grossMargin)} ({marginPercent}%)
+                <span>Coût d'achat pièces</span>
+                <span className="font-mono font-bold text-[#7A5C00]">
+                  {formatAED(totalCostOfGoods)}
                 </span>
               </div>
             </div>
@@ -1961,6 +1961,9 @@ export const SalesAndCashReportsView: React.FC = () => {
           companyPhone={companyInfo.phone}
           companyLogoUrl={companyInfo.logoUrl}
           periodLabel={periodLabel}
+          periodMode={periodMode}
+          effectiveStart={effectiveStart}
+          effectiveEnd={effectiveEnd}
           warehouseLabel={warehouseLabel}
           totalRevenue={totalRevenue}
           totalSalesCollected={totalSalesCollected}
@@ -1985,6 +1988,9 @@ interface SmartphoneReportModalProps {
   companyPhone?: string;
   companyLogoUrl?: string;
   periodLabel: string;
+  periodMode: PeriodMode;
+  effectiveStart: string;
+  effectiveEnd: string;
   warehouseLabel: string;
   totalRevenue: number;
   totalSalesCollected: number;
@@ -2000,6 +2006,9 @@ interface SmartphoneReportModalProps {
 const SmartphoneReportModal: React.FC<SmartphoneReportModalProps> = ({
   onClose,
   periodLabel,
+  periodMode,
+  effectiveStart,
+  effectiveEnd,
   totalRevenue,
   totalSalesCollected,
   totalCustomerPaymentsCollected,
@@ -2019,9 +2028,16 @@ const SmartphoneReportModal: React.FC<SmartphoneReportModalProps> = ({
   const handleDownloadPdf = async () => {
     setIsDownloadingPdf(true);
     try {
+      const reportDateSlug =
+        periodMode === 'ALL'
+          ? 'Historique_Complet'
+          : effectiveStart === effectiveEnd
+          ? effectiveStart
+          : `${effectiveStart}_au_${effectiveEnd}`;
+
       await downloadElementAsPdf(
         'printable-smartphone-report',
-        `Rapport_Caisse_${new Date().toISOString().slice(0, 10)}`,
+        `Rapport_Caisse_${reportDateSlug}`,
         'TICKET_80MM'
       );
     } finally {

@@ -13,6 +13,31 @@ export function formatFCFA(amount: number): string {
   return `${formatted} FCFA`;
 }
 
+/**
+ * Round a UAE Dirham (AED) amount to 2 decimal places (fils precision).
+ */
+export function roundAED(amount: number): number {
+  const num = Number(amount);
+  if (!Number.isFinite(num) || num <= 0) return 0;
+  return Math.round(num * 100) / 100;
+}
+
+/**
+ * Standard UAE Dirham (AED) formatting for supplier purchase prices.
+ * Preserves 2 decimals when fractional (e.g. 18,50 AED), clean integer when whole (e.g. 1 250 AED).
+ */
+export function formatAED(amount: number): string {
+  if (isNaN(amount) || amount === null || amount === undefined) {
+    return '0 AED';
+  }
+  const rounded = Math.round(amount * 100) / 100;
+  const isWhole = Math.abs(rounded - Math.round(rounded)) < 0.001;
+  const fixed = isWhole ? Math.round(rounded).toString() : rounded.toFixed(2);
+  const [intPart, decPart] = fixed.split('.');
+  const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  return decPart ? `${formattedInt},${decPart} AED` : `${formattedInt} AED`;
+}
+
 export function formatDate(isoString?: string): string {
   if (!isoString) return '-';
   try {
