@@ -6,7 +6,6 @@ import {
   ArrowUpRight,
   ArrowLeftRight,
   AlertTriangle,
-  Menu,
   LogIn,
   LogOut,
   ShieldCheck,
@@ -146,15 +145,8 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="sis-header sticky top-0 z-30 bg-[#111111] text-white border-b-[3px] border-[#FFCD11] px-3 py-2.5 sm:px-6 sm:py-3 lg:px-8 lg:py-3.5">
       <div className="header-bar flex flex-wrap md:flex-nowrap items-center justify-between gap-x-2.5 sm:gap-x-4 gap-y-2">
-        {/* Left: Mobile hamburger + Editorial View Title */}
+        {/* Left: Editorial View Title (Mobile menu lives in bottom navigation bar) */}
         <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1 md:flex-initial">
-          <button
-            onClick={onToggleSidebarMobile}
-            className="sis-header-ctrl lg:hidden p-2 text-white bg-[#1F1F1F] border border-[#3A3A3A] transition-colors shrink-0"
-            aria-label="Ouvrir le menu"
-          >
-            <Menu className="w-5 h-5 text-[#FFCD11]" />
-          </button>
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline gap-2 sm:gap-3 min-w-0">
               <h2 className="font-display text-xl sm:text-2xl lg:text-3xl font-semibold text-white tracking-[-0.015em] leading-tight truncate">
@@ -166,21 +158,20 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Mobile Row-1 Right / Desktop Right-End: Primary CTA + Critical Alert + User Menu */}
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 md:order-3">
-          {/* Permanent Primary Header CTA Button: + Nouvelle Vente (Caterpillar Yellow) */}
+          {/* Desktop Primary Header CTA Button: + Nouvelle Vente (on mobile/tablet, Vente lives in MobileBottomNav) */}
           {onOpenNewSale && (
             <button
               type="button"
               onClick={onOpenNewSale}
               title="Accéder au Guichet Comptoir / Nouvelle Vente"
-              className={`cta-btn inline-flex items-center gap-1.5 px-2.5 sm:px-4 py-1.5 sm:py-2 font-bold text-xs uppercase tracking-[0.05em] border-0 cursor-pointer transition-colors whitespace-nowrap ${
+              className={`cta-btn hidden lg:inline-flex items-center gap-1.5 px-4 py-2 font-bold text-xs uppercase tracking-[0.05em] border-0 cursor-pointer transition-colors whitespace-nowrap ${
                 activeView === 'new_sale'
                   ? 'bg-[#E5B700]! text-[#111111]!'
                   : 'bg-[#FFCD11]! hover:bg-[#E5B700]! text-[#111111]!'
               }`}
             >
               <ShoppingCart className="w-3.5 h-3.5 text-[#111111] shrink-0" />
-              <span className="hidden sm:inline">+ Nouvelle Vente</span>
-              <span className="sm:hidden">Vente</span>
+              <span>+ Nouvelle Vente</span>
             </button>
           )}
 

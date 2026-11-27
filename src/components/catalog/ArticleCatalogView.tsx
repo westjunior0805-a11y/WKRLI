@@ -44,6 +44,7 @@ import { QuickPricingModal } from './QuickPricingModal';
 import { MachineWhereUsedModal } from './MachineWhereUsedModal';
 import { SortableTh } from '../common/TablePagination';
 import { RowActionsMenu } from '../common/RowActionsMenu';
+import { OrderStatusBadge } from '../common/OrderStatusBadge';
 import { SearchField } from '../common/SearchField';
 import {
   scoreArticleByScope,
@@ -1084,6 +1085,7 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
                 <tbody className="divide-y divide-slate-100">
                   {displayedArticles.map((article, idx) => {
                     const isSelected = selectedArticleIds.includes(article.id);
+                    const activeOrder = getActiveOrderForArticle(article.id);
 
                     return (
                       <tr
@@ -1123,9 +1125,20 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
                                 )}
                               </div>
                             )}
-                            <span className="font-mono font-bold text-[13px] sm:text-sm text-slate-900 group-hover:text-amber-600 transition-colors">
-                              {article.mainReference}
-                            </span>
+                            <div className="min-w-0">
+                              <span className="font-mono font-bold text-[13px] sm:text-sm text-slate-900 group-hover:text-amber-600 transition-colors block">
+                                {article.mainReference}
+                              </span>
+                              {activeOrder && (
+                                <div className="mt-0.5">
+                                  <OrderStatusBadge
+                                    order={activeOrder}
+                                    onNavigate={onNavigateToPurchaseOrder}
+                                    compact
+                                  />
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </td>
 
@@ -1318,6 +1331,7 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
               <div className="md:hidden divide-y divide-slate-100">
                 {displayedArticles.map((article, idx) => {
                   const isSelected = selectedArticleIds.includes(article.id);
+                  const activeOrder = getActiveOrderForArticle(article.id);
 
                   return (
                     <div
@@ -1338,9 +1352,18 @@ export const ArticleCatalogView: React.FC<ArticleCatalogViewProps> = ({
                             aria-label={`Sélectionner ${article.mainReference}`}
                           />
                           <div className="min-w-0">
-                            <span className="font-mono font-bold text-sm text-slate-900 block truncate">
-                              {article.mainReference}
-                            </span>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-mono font-bold text-sm text-slate-900 truncate">
+                                {article.mainReference}
+                              </span>
+                              {activeOrder && (
+                                <OrderStatusBadge
+                                  order={activeOrder}
+                                  onNavigate={onNavigateToPurchaseOrder}
+                                  compact
+                                />
+                              )}
+                            </div>
                             <span className="text-xs text-slate-700 font-semibold truncate block">
                               {article.designation}
                             </span>

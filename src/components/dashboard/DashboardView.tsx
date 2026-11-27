@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { TablePagination, SortableTh, usePagination } from '../common/TablePagination';
 import { RowActionsMenu } from '../common/RowActionsMenu';
+import { OrderStatusBadge } from '../common/OrderStatusBadge';
 
 interface DashboardViewProps {
   onNavigateToCatalog: () => void;
@@ -424,15 +425,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                             </span>
                           </td>
                           <td className="text-center">
-                            <span
-                              className={`font-mono font-bold text-[10px] uppercase tracking-wider ${
-                                alert.alertType === 'RUPTURE'
-                                  ? 'text-rose-600'
-                                  : 'text-[#7A5C00]'
-                              }`}
-                            >
-                              {alert.alertType === 'RUPTURE' ? 'RUPTURE' : 'BAS'}
-                            </span>
+                            <div className="flex flex-col items-center gap-1">
+                              <span
+                                className={`font-mono font-bold text-[10px] uppercase tracking-wider ${
+                                  alert.alertType === 'RUPTURE'
+                                    ? 'text-rose-600'
+                                    : 'text-[#7A5C00]'
+                                }`}
+                              >
+                                {alert.alertType === 'RUPTURE' ? 'RUPTURE' : 'BAS'}
+                              </span>
+                              {linkedOrder && (
+                                <OrderStatusBadge
+                                  order={linkedOrder}
+                                  onNavigate={onNavigateToPurchaseOrder}
+                                  compact
+                                />
+                              )}
+                            </div>
                           </td>
                           <td className="text-right whitespace-nowrap">
                             <RowActionsMenu

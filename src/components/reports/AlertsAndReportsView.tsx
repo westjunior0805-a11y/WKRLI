@@ -24,6 +24,7 @@ import {
 import { CreatePurchaseOrderModal } from '../orders/CreatePurchaseOrderModal';
 import { TablePagination, SortableTh, usePagination } from '../common/TablePagination';
 import { RowActionsMenu } from '../common/RowActionsMenu';
+import { OrderStatusBadge } from '../common/OrderStatusBadge';
 import { SearchField } from '../common/SearchField';
 
 interface AlertsAndReportsViewProps {
@@ -820,21 +821,30 @@ export const AlertsAndReportsView: React.FC<AlertsAndReportsViewProps> = ({
                             {s.primaryBrand || '—'}
                           </td>
                           <td className="py-2.5 px-1.5 text-center">
-                            {s.status === 'RUPTURE' ? (
-                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700">
-                                <AlertOctagon className="w-3 h-3 shrink-0" />
-                                Rupture
-                              </span>
-                            ) : s.status === 'SOUS_SEUIL' ? (
-                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">
-                                <AlertTriangle className="w-3 h-3 shrink-0" />
-                                Bas
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700">
-                                Dispo
-                              </span>
-                            )}
+                            <div className="flex flex-col items-center gap-1">
+                              {s.status === 'RUPTURE' ? (
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700">
+                                  <AlertOctagon className="w-3 h-3 shrink-0" />
+                                  Rupture
+                                </span>
+                              ) : s.status === 'SOUS_SEUIL' ? (
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">
+                                  <AlertTriangle className="w-3 h-3 shrink-0" />
+                                  Bas
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700">
+                                  Dispo
+                                </span>
+                              )}
+                              {linkedOrder && (
+                                <OrderStatusBadge
+                                  order={linkedOrder}
+                                  onNavigate={onNavigateToPurchaseOrder}
+                                  compact
+                                />
+                              )}
+                            </div>
                           </td>
                           <td className="py-2.5 px-2 text-right font-mono font-bold">
                             <span

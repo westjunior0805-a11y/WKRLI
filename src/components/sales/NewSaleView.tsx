@@ -49,6 +49,7 @@ import {
   Tag,
   FileText,
   Layers,
+  ShoppingBag,
 } from 'lucide-react';
 import { ReceiptModal } from './ReceiptModal';
 import { QuotePrintModal } from '../quotes/QuotePrintModal';
@@ -57,6 +58,7 @@ import { ArticleFormModal } from '../catalog/ArticleFormModal';
 import { QuickStockEditModal } from '../catalog/QuickStockEditModal';
 import { NumericInput } from '../common/NumericInput';
 import { VoiceSearchButton } from '../common/VoiceSearchButton';
+import { OrderStatusBadge } from '../common/OrderStatusBadge';
 
 interface CartItem {
   article: Article;
@@ -147,6 +149,7 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
     sales,
     users,
     getTotalStockForArticle,
+    getActiveOrderForArticle,
     recordSale,
     createQuote,
     updateArticle,
@@ -610,11 +613,13 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
 
   const hasAnySales = salesStatsByArticleId.size > 0;
 
-  // Filtered Articles for Search
+  // Filtered Articles for Search (includes out-of-stock parts when user is actively searching)
   const filteredArticles = useMemo(() => {
+    const trimmedQuery = deferredSearchQuery.trim();
+
     const activeArticles = articles.filter((art) => {
       if (art.status === 'archived') return false;
-      if (!isStockFrozen) {
+      if (!trimmedQuery && !isStockFrozen) {
         const totalStock = getTotalStockForArticle(art.id);
         if (totalStock <= 0) return false;
       }
@@ -624,7 +629,6 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
       return true;
     });
 
-    const trimmedQuery = deferredSearchQuery.trim();
     if (!trimmedQuery) {
       return [...activeArticles]
         .sort((a, b) => {
@@ -641,17 +645,22 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
         .slice(0, 15);
     }
 
-    const scored: Array<{ art: Article; score: number }> = [];
+    const scored: Array<{ art: Article; score: number; hasStock: boolean }> = [];
     for (const art of activeArticles) {
       const artStocks = stocksByArticleId.get(art.id) || [];
       const score = scoreArticleByScope(art, trimmedQuery, searchScope, artStocks);
       if (score > 0) {
-        scored.push({ art, score });
+        scored.push({
+          art,
+          score,
+          hasStock: isStockFrozen || getTotalStockForArticle(art.id) > 0,
+        });
       }
     }
 
     scored.sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
+      if (a.hasStock !== b.hasStock) return a.hasStock ? -1 : 1;
       return a.art.mainReference.localeCompare(b.art.mainReference);
     });
 
@@ -950,18 +959,24 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
     setQuickPriceError('');
   };
 
-  // Enter key in search input adds best match immediately
+  // Enter key in search input adds best sellable match immediately
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && searchQuery.trim() && filteredArticles.length > 0) {
       e.preventDefault();
       const q = searchQuery.trim().toLowerCase();
       const exactMatch =
-        filteredArticles.find((a) => a.mainReference.toLowerCase() === q) ||
-        filteredArticles[0];
+        filteredArticles.find(
+          (a) =>
+            a.mainReference.toLowerCase() === q &&
+            (isStockFrozen || getTotalStockForArticle(a.id) > 0)
+        ) ||
+        filteredArticles.find((a) => isStockFrozen || getTotalStockForArticle(a.id) > 0);
       if (exactMatch) {
         const opts = getSaleOptionsForArticle(exactMatch);
-        const firstAvailable = opts.find((o) => o.stockQty > 0) || opts[0];
-        handleAddToCart(exactMatch, firstAvailable);
+        const firstAvailable = opts.find((o) => o.stockQty > 0 || isStockFrozen);
+        if (firstAvailable) {
+          handleAddToCart(exactMatch, firstAvailable);
+        }
       }
     }
   };
@@ -1774,7 +1789,9 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
               <div className="card py-14 text-center text-[#595959] space-y-2 bg-white border border-[#E0E0E0]">
                 <Boxes className="w-8 h-8 mx-auto opacity-40" />
                 <p className="font-display text-xl font-semibold text-[#111111]">
-                  Aucune pièce en stock ne correspond à votre recherche
+                  {searchQuery.trim()
+                    ? 'Aucune pièce ne correspond à votre recherche'
+                    : 'Aucune pièce en stock ne correspond à votre filtre'}
                 </p>
                 <p className="text-xs">
                   Essayez un autre mot-clé ou changez le filtre de ciblage ci-dessus.
@@ -1783,13 +1800,17 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
             ) : (
               filteredArticles.map((art) => {
                 const totalStock = getTotalStockForArticle(art.id);
+                const isOutOfStock = totalStock <= 0 && !isStockFrozen;
+                const activeOrder = getActiveOrderForArticle(art.id);
                 const saleOptions = getSaleOptionsForArticle(art);
                 const soldQty = salesStatsByArticleId.get(art.id)?.totalQtySold || 0;
 
                 return (
                   <div
                     key={art.id}
-                    className="bg-white border border-[#E0E0E0] p-4 sm:p-6 shadow-[0_2px_12px_rgba(0,0,0,0.03)] space-y-3 sm:space-y-4"
+                    className={`bg-white border p-4 sm:p-6 shadow-[0_2px_12px_rgba(0,0,0,0.03)] space-y-3 sm:space-y-4 ${
+                      isOutOfStock ? 'border-rose-200 bg-rose-50/15' : 'border-[#E0E0E0]'
+                    }`}
                   >
                     {/* En-tête éditorial */}
                     <div className="flex flex-wrap items-start sm:items-end justify-between gap-2.5 sm:gap-4">
@@ -1821,9 +1842,23 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                         )}
 
                         <div className="min-w-0 flex-1">
-                          <span className="font-mono font-bold text-sm sm:text-base text-[#7A5C00] block mb-0.5 sm:mb-1 tracking-[0.04em] truncate">
-                            REF: {art.mainReference}
-                          </span>
+                          <div className="flex items-center gap-2 flex-wrap mb-0.5 sm:mb-1">
+                            <span className="font-mono font-bold text-sm sm:text-base text-[#7A5C00] tracking-[0.04em] truncate">
+                              REF: {art.mainReference}
+                            </span>
+                            {isOutOfStock && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200 font-mono text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider shrink-0">
+                                <AlertTriangle className="w-3 h-3 shrink-0" />
+                                Rupture
+                              </span>
+                            )}
+                            {activeOrder && (
+                              <OrderStatusBadge
+                                order={activeOrder}
+                                onNavigate={onNavigateToPurchaseOrder}
+                              />
+                            )}
+                          </div>
                           <h3
                             className="font-display text-lg sm:text-2xl font-semibold text-[#111111] leading-tight line-clamp-2 sm:truncate"
                             title={art.designation}
@@ -1839,9 +1874,11 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                             {soldQty} vendue{soldQty > 1 ? 's' : ''}
                           </span>
                         )}
-                        <span className="hidden sm:inline font-mono text-xs font-bold text-[#111111] border-b-2 border-[#111111] pb-0.5 tabular-nums">
-                          {totalStock} {art.unit}
-                        </span>
+                        {!isOutOfStock && (
+                          <span className="hidden sm:inline font-mono text-xs font-bold text-[#111111] border-b-2 border-[#111111] pb-0.5 tabular-nums">
+                            {totalStock} {art.unit}
+                          </span>
+                        )}
                         <button
                           type="button"
                           onClick={() => setDetailArticle(art)}
@@ -1853,96 +1890,143 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                       </div>
                     </div>
 
-                    {/* Tableau léger des offres */}
-                    <div className="border-t border-[#E0E0E0] divide-y divide-[#EBEBEB]">
-                      {saleOptions.map((opt) => {
-                        const canSellOption = opt.stockQty > 0 || isStockFrozen;
-                        return (
-                          <button
-                            key={opt.key}
-                            type="button"
-                            disabled={!canSellOption}
-                            onClick={() => handleAddToCart(art, opt)}
-                            className={`w-full text-left py-3 px-1.5 sm:py-3.5 sm:px-2 transition-colors flex flex-col sm:grid sm:grid-cols-[minmax(95px,135px)_minmax(0,1fr)_auto_auto_auto] sm:items-center gap-2 sm:gap-x-4 group bg-transparent! border-0 ${
-                              canSellOption
-                                ? 'hover:bg-[#FFFDF2]! cursor-pointer'
-                                : 'opacity-50 cursor-not-allowed'
-                            }`}
-                          >
-                            {/* Mobile Row 1 (dissolves into grid cols on sm+): Marque + Magasin & Emplacement */}
-                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0 sm:contents">
-                              {/* 1. Marque */}
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <Tag className="w-3 h-3 text-[#595959] shrink-0" />
-                                <span
-                                  className="font-semibold text-xs text-[#111111] truncate"
-                                  title={opt.brand}
-                                >
-                                  {opt.brand || '—'}
-                                </span>
-                              </div>
+                    {/* Offres disponibles OU bandeau Rupture de stock avec statut Commande / Bouton Commander */}
+                    {isOutOfStock ? (
+                      <div className="border-t border-rose-200/80 pt-3 flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[#595959]">
+                          <span className="font-mono font-bold text-rose-700">
+                            Stock : 0 {art.unit}
+                          </span>
+                          {art.brand && (
+                            <span className="inline-flex items-center gap-1 font-semibold text-[#111111]">
+                              <Tag className="w-3 h-3 text-[#595959]" />
+                              {art.brand}
+                            </span>
+                          )}
+                          {art.salePrice > 0 && (
+                            <span className="font-mono font-semibold text-[#111111] tabular-nums">
+                              Tarif indicatif : {formatFCFA(art.salePrice)}
+                            </span>
+                          )}
+                        </div>
 
-                              {/* 2. Magasin & Emplacement */}
-                              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 min-w-0 text-xs">
-                                <span
-                                  className="inline-flex items-center gap-1 min-w-0 truncate font-semibold text-[#111111]"
-                                  title={opt.warehouseName}
-                                >
-                                  <Building2 className="w-3 h-3 text-[#595959] shrink-0" />
-                                  <span className="truncate">{opt.warehouseName}</span>
-                                </span>
-                                {opt.location && (
-                                  <span
-                                    className="inline-flex items-center gap-1 min-w-0 truncate font-mono text-[11px] text-[#595959]"
-                                    title={opt.location}
-                                  >
-                                    <MapPin className="w-3 h-3 text-[#737373] shrink-0" />
-                                    <span className="truncate">{opt.location}</span>
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Mobile Row 2 (dissolves into grid cols on sm+): Stock + Prix + Bouton + */}
-                            <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-[#F0F0F0] sm:border-t-0 sm:pt-0 sm:contents">
-                              {/* 3. Stock disponible */}
-                              <span
-                                className={`font-mono font-bold text-xs tabular-nums px-2.5 py-1 bg-[#F4F4F4] whitespace-nowrap ${
-                                  opt.stockQty > 0 ? 'text-[#111111]' : 'text-rose-600'
-                                }`}
+                        <div className="flex items-center gap-2 ml-auto">
+                          {activeOrder ? (
+                            onNavigateToPurchaseOrder && (
+                              <button
+                                type="button"
+                                onClick={() => onNavigateToPurchaseOrder(activeOrder.id)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#FFF9DF] hover:bg-[#FFCD11]/30 text-[#7A5C00] border border-[#E5C130] font-semibold text-xs rounded transition-colors cursor-pointer whitespace-nowrap"
                               >
-                                {opt.stockQty} {art.unit}
-                              </span>
-
-                              <div className="flex items-center gap-2.5 sm:contents">
-                                {/* 4. Prix de vente */}
-                                {opt.salePrice > 0 ? (
-                                  <span className="font-mono font-bold text-xs sm:text-sm text-[#111111] tabular-nums sm:min-w-[96px] sm:text-right whitespace-nowrap">
-                                    {formatFCFA(opt.salePrice)}
+                                <ShoppingBag className="w-3.5 h-3.5 shrink-0" />
+                                <span>Voir la commande {activeOrder.orderNumber}</span>
+                              </button>
+                            )
+                          ) : (
+                            onOpenPurchaseOrder && (
+                              <button
+                                type="button"
+                                onClick={() => onOpenPurchaseOrder(art.id, art.brand)}
+                                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#FFCD11] hover:bg-[#E5B700] text-[#111111] font-bold text-xs uppercase tracking-[0.04em] rounded transition-colors cursor-pointer whitespace-nowrap"
+                              >
+                                <ShoppingBag className="w-3.5 h-3.5 shrink-0" />
+                                <span>Commander</span>
+                              </button>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="border-t border-[#E0E0E0] divide-y divide-[#EBEBEB]">
+                        {saleOptions.map((opt) => {
+                          const canSellOption = opt.stockQty > 0 || isStockFrozen;
+                          return (
+                            <button
+                              key={opt.key}
+                              type="button"
+                              disabled={!canSellOption}
+                              onClick={() => handleAddToCart(art, opt)}
+                              className={`w-full text-left py-3 px-1.5 sm:py-3.5 sm:px-2 transition-colors flex flex-col sm:grid sm:grid-cols-[minmax(95px,135px)_minmax(0,1fr)_auto_auto_auto] sm:items-center gap-2 sm:gap-x-4 group bg-transparent! border-0 ${
+                                canSellOption
+                                  ? 'hover:bg-[#FFFDF2]! cursor-pointer'
+                                  : 'opacity-50 cursor-not-allowed'
+                              }`}
+                            >
+                              {/* Mobile Row 1 (dissolves into grid cols on sm+): Marque + Magasin & Emplacement */}
+                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0 sm:contents">
+                                {/* 1. Marque */}
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <Tag className="w-3 h-3 text-[#595959] shrink-0" />
+                                  <span
+                                    className="font-semibold text-xs text-[#111111] truncate"
+                                    title={opt.brand}
+                                  >
+                                    {opt.brand || '—'}
                                   </span>
-                                ) : (
-                                  <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-[#FFF9DF] text-[#7A5C00] border border-[#FFCD11] sm:min-w-[96px] justify-center whitespace-nowrap">
-                                    Prix à définir
-                                  </span>
-                                )}
+                                </div>
 
-                                {/* 5. Bouton + Cat Yellow (.add-btn) */}
-                                <span
-                                  className={`w-9 h-9 inline-flex items-center justify-center transition-colors shrink-0 ${
-                                    canSellOption
-                                      ? 'bg-[#FFCD11] group-hover:bg-[#E5B700] text-[#111111]'
-                                      : 'bg-[#EAEAEA] text-[#595959]'
-                                  }`}
-                                  title="Ajouter au panier"
-                                >
-                                  <Plus className="w-4 h-4 stroke-[2.5]" />
-                                </span>
+                                {/* 2. Magasin & Emplacement */}
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 min-w-0 text-xs">
+                                  <span
+                                    className="inline-flex items-center gap-1 min-w-0 truncate font-semibold text-[#111111]"
+                                    title={opt.warehouseName}
+                                  >
+                                    <Building2 className="w-3 h-3 text-[#595959] shrink-0" />
+                                    <span className="truncate">{opt.warehouseName}</span>
+                                  </span>
+                                  {opt.location && (
+                                    <span
+                                      className="inline-flex items-center gap-1 min-w-0 truncate font-mono text-[11px] text-[#595959]"
+                                      title={opt.location}
+                                    >
+                                      <MapPin className="w-3 h-3 text-[#737373] shrink-0" />
+                                      <span className="truncate">{opt.location}</span>
+                                    </span>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
+
+                              {/* Mobile Row 2 (dissolves into grid cols on sm+): Stock + Prix + Bouton + */}
+                              <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-[#F0F0F0] sm:border-t-0 sm:pt-0 sm:contents">
+                                {/* 3. Stock disponible */}
+                                <span
+                                  className={`font-mono font-bold text-xs tabular-nums px-2.5 py-1 bg-[#F4F4F4] whitespace-nowrap ${
+                                    opt.stockQty > 0 ? 'text-[#111111]' : 'text-rose-600'
+                                  }`}
+                                >
+                                  {opt.stockQty} {art.unit}
+                                </span>
+
+                                <div className="flex items-center gap-2.5 sm:contents">
+                                  {/* 4. Prix de vente */}
+                                  {opt.salePrice > 0 ? (
+                                    <span className="font-mono font-bold text-xs sm:text-sm text-[#111111] tabular-nums sm:min-w-[96px] sm:text-right whitespace-nowrap">
+                                      {formatFCFA(opt.salePrice)}
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-[#FFF9DF] text-[#7A5C00] border border-[#FFCD11] sm:min-w-[96px] justify-center whitespace-nowrap">
+                                      Prix à définir
+                                    </span>
+                                  )}
+
+                                  {/* 5. Bouton + Cat Yellow (.add-btn) */}
+                                  <span
+                                    className={`w-9 h-9 inline-flex items-center justify-center transition-colors shrink-0 ${
+                                      canSellOption
+                                        ? 'bg-[#FFCD11] group-hover:bg-[#E5B700] text-[#111111]'
+                                        : 'bg-[#EAEAEA] text-[#595959]'
+                                    }`}
+                                    title="Ajouter au panier"
+                                  >
+                                    <Plus className="w-4 h-4 stroke-[2.5]" />
+                                  </span>
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 );
               })
@@ -2326,13 +2410,20 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                     ) : (
                       filteredArticles.map((art) => {
                         const stockQty = getTotalStockForArticle(art.id);
+                        const isOutOfStock = stockQty <= 0 && !isStockFrozen;
+                        const activeOrder = getActiveOrderForArticle(art.id);
                         const saleOptions = getSaleOptionsForArticle(art);
                         const soldQty = salesStatsByArticleId.get(art.id)?.totalQtySold || 0;
 
                         return (
-                          <div key={art.id} className="px-3.5 py-2.5 bg-white space-y-2">
+                          <div
+                            key={art.id}
+                            className={`px-3.5 py-2.5 space-y-2 ${
+                              isOutOfStock ? 'bg-rose-50/25' : 'bg-white'
+                            }`}
+                          >
                             <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-2 min-w-0 flex-1 text-xs">
+                              <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1 text-xs">
                                 <span className="font-mono font-bold text-sm text-[#7A5C00] shrink-0">
                                   {art.mainReference}
                                 </span>
@@ -2344,81 +2435,109 @@ export const NewSaleView: React.FC<NewSaleViewProps> = ({
                                     {soldQty} vendue{soldQty > 1 ? 's' : ''}
                                   </span>
                                 )}
-                                <span className="font-mono text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded shrink-0">
-                                  Total : {stockQty}
-                                </span>
+                                {isOutOfStock ? (
+                                  <span className="inline-flex items-center gap-1 font-mono text-[10px] font-extrabold uppercase text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded shrink-0">
+                                    <AlertTriangle className="w-3 h-3 shrink-0" />
+                                    Rupture
+                                  </span>
+                                ) : (
+                                  <span className="font-mono text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded shrink-0">
+                                    Total : {stockQty}
+                                  </span>
+                                )}
+                                {activeOrder && (
+                                  <OrderStatusBadge
+                                    order={activeOrder}
+                                    onNavigate={onNavigateToPurchaseOrder}
+                                    compact
+                                  />
+                                )}
                               </div>
-                              <button
-                                type="button"
-                                onClick={() => setDetailArticle(art)}
-                                className="p-1 text-[#1B1B1B]/50 hover:text-[#1B1B1B] bg-transparent! border-0! rounded cursor-pointer shrink-0"
-                                title="Voir fiche article"
-                              >
-                                <Info className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-
-                            <div className="space-y-1">
-                              {saleOptions.map((opt) => {
-                                const canSellOption = opt.stockQty > 0 || isStockFrozen;
-                                return (
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {isOutOfStock && !activeOrder && onOpenPurchaseOrder && (
                                   <button
-                                    key={opt.key}
                                     type="button"
-                                    disabled={!canSellOption}
-                                    onClick={() => handleAddToCart(art, opt)}
-                                    className={`w-full text-left px-2.5 py-1.5 rounded border text-xs flex flex-wrap items-center justify-between gap-2 transition-colors ${
-                                      canSellOption
-                                        ? 'bg-[#F9FAFB] hover:bg-[#FFF9DF] border-[#E5E5E5] hover:border-[#FFCD11] cursor-pointer'
-                                        : 'bg-slate-50 border-slate-200 opacity-60 cursor-not-allowed'
-                                    }`}
+                                    onClick={() => onOpenPurchaseOrder(art.id, art.brand)}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-[#FFCD11] hover:bg-[#E5B700] text-[#111111] font-bold text-[11px] uppercase cursor-pointer transition-colors whitespace-nowrap"
                                   >
-                                    <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
-                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#1B1B1B] text-white font-semibold text-[11px]">
-                                        <Tag className="w-3 h-3 text-[#7A5C00]" />
-                                        {opt.brand}
-                                      </span>
-                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white border border-[#E5E5E5] text-[#1B1B1B] font-semibold text-[11px]">
-                                        <Building2 className="w-3 h-3 text-[#7A5C00]" />
-                                        {opt.warehouseName}
-                                      </span>
-                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white border border-[#E5E5E5] text-[#1B1B1B]/75 font-mono text-[11px]">
-                                        <MapPin className="w-3 h-3 text-[#7A5C00]" />
-                                        {opt.location}
-                                      </span>
-                                    </div>
-
-                                    <div className="flex items-center gap-2.5 shrink-0 ml-auto">
-                                      <span
-                                        className={`font-mono text-[11px] font-bold ${
-                                          opt.stockQty > 0 ? 'text-emerald-700' : 'text-rose-600'
-                                        }`}
-                                      >
-                                        {opt.stockQty} {art.unit}
-                                      </span>
-                                      {opt.salePrice > 0 ? (
-                                        <strong className="font-mono text-[#1B1B1B] tabular-nums">
-                                          {formatFCFA(opt.salePrice)}
-                                        </strong>
-                                      ) : (
-                                        <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase bg-[#FFF9DF] text-[#7A5C00] border border-[#FFCD11]">
-                                          Prix à définir
-                                        </span>
-                                      )}
-                                      <span
-                                        className={`px-2 py-0.5 rounded font-semibold text-[11px] ${
-                                          canSellOption
-                                            ? 'bg-[#1B1B1B] text-white'
-                                            : 'bg-slate-200 text-slate-500'
-                                        }`}
-                                      >
-                                        + Ajouter
-                                      </span>
-                                    </div>
+                                    <ShoppingBag className="w-3 h-3 shrink-0" />
+                                    <span>Commander</span>
                                   </button>
-                                );
-                              })}
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => setDetailArticle(art)}
+                                  className="p-1 text-[#1B1B1B]/50 hover:text-[#1B1B1B] bg-transparent! border-0! rounded cursor-pointer shrink-0"
+                                  title="Voir fiche article"
+                                >
+                                  <Info className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             </div>
+
+                            {!isOutOfStock && (
+                              <div className="space-y-1">
+                                {saleOptions.map((opt) => {
+                                  const canSellOption = opt.stockQty > 0 || isStockFrozen;
+                                  return (
+                                    <button
+                                      key={opt.key}
+                                      type="button"
+                                      disabled={!canSellOption}
+                                      onClick={() => handleAddToCart(art, opt)}
+                                      className={`w-full text-left px-2.5 py-1.5 rounded border text-xs flex flex-wrap items-center justify-between gap-2 transition-colors ${
+                                        canSellOption
+                                          ? 'bg-[#F9FAFB] hover:bg-[#FFF9DF] border-[#E5E5E5] hover:border-[#FFCD11] cursor-pointer'
+                                          : 'bg-slate-50 border-slate-200 opacity-60 cursor-not-allowed'
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
+                                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#1B1B1B] text-white font-semibold text-[11px]">
+                                          <Tag className="w-3 h-3 text-[#7A5C00]" />
+                                          {opt.brand}
+                                        </span>
+                                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white border border-[#E5E5E5] text-[#1B1B1B] font-semibold text-[11px]">
+                                          <Building2 className="w-3 h-3 text-[#7A5C00]" />
+                                          {opt.warehouseName}
+                                        </span>
+                                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white border border-[#E5E5E5] text-[#1B1B1B]/75 font-mono text-[11px]">
+                                          <MapPin className="w-3 h-3 text-[#7A5C00]" />
+                                          {opt.location}
+                                        </span>
+                                      </div>
+
+                                      <div className="flex items-center gap-2.5 shrink-0 ml-auto">
+                                        <span
+                                          className={`font-mono text-[11px] font-bold ${
+                                            opt.stockQty > 0 ? 'text-emerald-700' : 'text-rose-600'
+                                          }`}
+                                        >
+                                          {opt.stockQty} {art.unit}
+                                        </span>
+                                        {opt.salePrice > 0 ? (
+                                          <strong className="font-mono text-[#1B1B1B] tabular-nums">
+                                            {formatFCFA(opt.salePrice)}
+                                          </strong>
+                                        ) : (
+                                          <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase bg-[#FFF9DF] text-[#7A5C00] border border-[#FFCD11]">
+                                            Prix à définir
+                                          </span>
+                                        )}
+                                        <span
+                                          className={`px-2 py-0.5 rounded font-semibold text-[11px] ${
+                                            canSellOption
+                                              ? 'bg-[#1B1B1B] text-white'
+                                              : 'bg-slate-200 text-slate-500'
+                                          }`}
+                                        >
+                                          + Ajouter
+                                        </span>
+                                      </div>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
                         );
                       })

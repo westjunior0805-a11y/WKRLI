@@ -44,6 +44,7 @@ import { QuickStockEditModal } from '../catalog/QuickStockEditModal';
 import { QuickPricingModal } from '../catalog/QuickPricingModal';
 import { ImportCatalogModal } from '../catalog/ImportCatalogModal';
 import { RowActionsMenu } from '../common/RowActionsMenu';
+import { OrderStatusBadge } from '../common/OrderStatusBadge';
 import { SearchField } from '../common/SearchField';
 import { scoreArticleByScope } from '../../utils/fuzzySearch';
 import {
@@ -1229,6 +1230,7 @@ export const WarehouseListView: React.FC<WarehouseListViewProps> = ({
                       ? allOffers.filter((o) => o.brand === selectedBrand)
                       : allOffers;
                   const offersToRender = displayedOffers.length > 0 ? displayedOffers : allOffers;
+                  const activeOrder = getActiveOrderForArticle(art.id);
 
                   return (
                     <tr
@@ -1257,6 +1259,15 @@ export const WarehouseListView: React.FC<WarehouseListViewProps> = ({
                             {art.equivalentReferences.length > 0 && (
                               <div className="text-[10px] text-slate-400 font-mono mt-0.5">
                                 Éq: {art.equivalentReferences.slice(0, 2).join(', ')}
+                              </div>
+                            )}
+                            {activeOrder && (
+                              <div className="mt-1">
+                                <OrderStatusBadge
+                                  order={activeOrder}
+                                  onNavigate={onNavigateToPurchaseOrder}
+                                  compact
+                                />
                               </div>
                             )}
                           </div>

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { StockProvider, useStock } from './context/StockContext';
 import { Header } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
@@ -80,6 +80,17 @@ function AppContent() {
     isMobileViewport() ? 'sales_reports' : 'dashboard'
   );
   const [isSidebarMobileOpen, setIsSidebarMobileOpen] = useState(false);
+  const mainContainerRef = useRef<HTMLDivElement>(null);
+
+  // Remettre le défilement en haut de page à chaque changement de vue (avant le rendu visuel)
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    if (mainContainerRef.current) {
+      mainContainerRef.current.scrollTop = 0;
+    }
+  }, [activeView, isAuthenticated, showAuthGate]);
 
   // Si un utilisateur sans accès aux rapports arrive sur sales_reports, basculer sur le tableau de bord
   useEffect(() => {
@@ -432,7 +443,7 @@ function AppContent() {
         />
 
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
+        <div ref={mainContainerRef} className="flex-1 flex flex-col min-w-0 overflow-x-clip">
           <Header
             activeView={activeView}
             onToggleSidebarMobile={() => setIsSidebarMobileOpen((prev) => !prev)}

@@ -884,7 +884,7 @@ export const SalesAndCashReportsView: React.FC = () => {
               }`}
               title="Ventes en temps réel d'aujourd'hui"
             >
-              <span className="text-[#ffffff]">Aujourd&apos;hui (Temps réel)</span>
+              <span className="text-[#111111]">Aujourd&apos;hui (Temps réel)</span>
             </button>
 
             <button
