@@ -35,6 +35,11 @@ interface SummaryDetailModalProps {
   allPeriodPayments: PaymentRecord[];
   standaloneCustomerPayments: PaymentRecord[];
   cashDrawerExpenses: CashMovement[];
+  electronicToDrawerTransfers?: CashMovement[];
+  electronicOutTransfers?: CashMovement[];
+  manualCashAdditions?: CashMovement[];
+  cashDrawerWithdrawals?: CashMovement[];
+  cashDrawerRefunds?: CashMovement[];
   customers: Customer[];
   totalRevenue: number;
   totalSalesCollected: number;
@@ -44,6 +49,11 @@ interface SummaryDetailModalProps {
   totalItemsSold: number;
   netDrawerCash: number;
   totalCashDrawerExpenses: number;
+  totalElectronicToDrawerTransfers?: number;
+  totalManualCashAdditions?: number;
+  totalCashDrawerWithdrawals?: number;
+  totalCashDrawerRefunds?: number;
+  electronicTransferredOutByMethod?: Record<string, number>;
   paymentBreakdown: Record<string, number>;
   onOpenSaleReceipt: (sale: Sale) => void;
   onOpenCustomerPaymentReceipt: (payment: PaymentRecord, customer: Customer | null) => void;
@@ -73,6 +83,11 @@ export const SummaryDetailModal: React.FC<SummaryDetailModalProps> = ({
   allPeriodPayments,
   standaloneCustomerPayments,
   cashDrawerExpenses,
+  electronicToDrawerTransfers = [],
+  electronicOutTransfers = [],
+  manualCashAdditions = [],
+  cashDrawerWithdrawals = [],
+  cashDrawerRefunds = [],
   customers,
   totalRevenue,
   totalSalesCollected,
@@ -82,6 +97,11 @@ export const SummaryDetailModal: React.FC<SummaryDetailModalProps> = ({
   totalItemsSold,
   netDrawerCash,
   totalCashDrawerExpenses,
+  totalElectronicToDrawerTransfers = 0,
+  totalManualCashAdditions = 0,
+  totalCashDrawerWithdrawals = 0,
+  totalCashDrawerRefunds = 0,
+  electronicTransferredOutByMethod = {},
   paymentBreakdown,
   onOpenSaleReceipt,
   onOpenCustomerPaymentReceipt,
@@ -128,12 +148,22 @@ export const SummaryDetailModal: React.FC<SummaryDetailModalProps> = ({
     [allPeriodPayments]
   );
 
-  const sortedCashExpenses = useMemo(
+  const sortedDrawerAdjustments = useMemo(
     () =>
-      [...cashDrawerExpenses].sort(
-        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-      ),
-    [cashDrawerExpenses]
+      [
+        ...electronicToDrawerTransfers,
+        ...manualCashAdditions,
+        ...cashDrawerExpenses,
+        ...cashDrawerWithdrawals,
+        ...cashDrawerRefunds,
+      ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+    [
+      electronicToDrawerTransfers,
+      manualCashAdditions,
+      cashDrawerExpenses,
+      cashDrawerWithdrawals,
+      cashDrawerRefunds,
+    ]
   );
 
   const paymentMethodKey = activeType.startsWith('PAYMENT_')
@@ -144,6 +174,13 @@ export const SummaryDetailModal: React.FC<SummaryDetailModalProps> = ({
     if (!paymentMethodKey) return [];
     return sortedAllPayments.filter((p) => p.method === paymentMethodKey);
   }, [sortedAllPayments, paymentMethodKey]);
+
+  const filteredMethodTransfersOut = useMemo(() => {
+    if (!paymentMethodKey) return [];
+    return [...electronicOutTransfers]
+      .filter((m) => m.method === paymentMethodKey)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [electronicOutTransfers, paymentMethodKey]);
 
   const cashInPayments = useMemo(
     () => sortedAllPayments.filter((p) => p.method === 'ESPECES'),
@@ -667,62 +704,121 @@ export const SummaryDetailModal: React.FC<SummaryDetailModalProps> = ({
           {/* 4. DRAWER CASH DETAIL */}
           {activeType === 'DRAWER_CASH' && (
             <>
-              {/* Simple balance calculation */}
+              {/* Complete balance calculation */}
               <div className="p-4 bg-white border border-[#E0E0E0] rounded-xl space-y-2.5 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-[#595959]">(+) Espèces encaissées</span>
-                  <span className="font-mono font-black text-emerald-700 tabular-nums text-base">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold text-[#595959]">(+) Espèces encaissées (ventes &amp; acomptes)</span>
+                  <span className="font-mono font-black text-emerald-700 tabular-nums text-base shrink-0">
                     +{formatFCFA(paymentBreakdown.ESPECES || 0)}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
+                {totalElectronicToDrawerTransfers > 0 && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold text-[#595959]">
+                      (+) Retraits Wave / OM / Banque vers tiroir ({electronicToDrawerTransfers.length})
+                    </span>
+                    <span className="font-mono font-black text-emerald-700 tabular-nums text-base shrink-0">
+                      +{formatFCFA(totalElectronicToDrawerTransfers)}
+                    </span>
+                  </div>
+                )}
+                {totalManualCashAdditions > 0 && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold text-[#595959]">
+                      (+) Apports espèces ({manualCashAdditions.length})
+                    </span>
+                    <span className="font-mono font-black text-emerald-700 tabular-nums text-base shrink-0">
+                      +{formatFCFA(totalManualCashAdditions)}
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between gap-2">
                   <span className="font-semibold text-[#595959]">
-                    (-) Dépenses payées en espèces ({sortedCashExpenses.length})
+                    (-) Dépenses payées en espèces ({cashDrawerExpenses.length})
                   </span>
-                  <span className="font-mono font-black text-rose-700 tabular-nums text-base">
+                  <span className="font-mono font-black text-rose-700 tabular-nums text-base shrink-0">
                     -{formatFCFA(totalCashDrawerExpenses)}
                   </span>
                 </div>
-                <div className="pt-2.5 border-t border-[#E0E0E0] flex items-center justify-between">
+                {totalCashDrawerWithdrawals > 0 && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold text-[#595959]">
+                      (-) Retraits caisse / Versements ({cashDrawerWithdrawals.length})
+                    </span>
+                    <span className="font-mono font-black text-rose-700 tabular-nums text-base shrink-0">
+                      -{formatFCFA(totalCashDrawerWithdrawals)}
+                    </span>
+                  </div>
+                )}
+                {totalCashDrawerRefunds > 0 && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold text-[#595959]">
+                      (-) Remboursements espèces ({cashDrawerRefunds.length})
+                    </span>
+                    <span className="font-mono font-black text-rose-700 tabular-nums text-base shrink-0">
+                      -{formatFCFA(totalCashDrawerRefunds)}
+                    </span>
+                  </div>
+                )}
+                <div className="pt-2.5 border-t border-[#E0E0E0] flex items-center justify-between gap-2">
                   <span className="font-extrabold text-[#111111]">(=) Solde net en tiroir</span>
-                  <span className="font-mono font-black text-[#111111] tabular-nums text-lg">
+                  <span className="font-mono font-black text-[#111111] tabular-nums text-lg shrink-0">
                     {formatFCFA(netDrawerCash)}
                   </span>
                 </div>
               </div>
 
-              {/* Cash Expenses List */}
+              {/* All Cash Drawer Operations (Transfers from Wave/OM, Withdrawals, Expenses, Apports) */}
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-bold text-[#111111] flex items-center gap-1.5">
-                    <TrendingDown className="w-4 h-4 text-rose-600" />
-                    Dépenses espèces déduites ({sortedCashExpenses.length})
+                    <TrendingDown className="w-4 h-4 text-[#7A5C00]" />
+                    Mouvements de caisse (retraits Wave/OM, dépenses, apports) ({sortedDrawerAdjustments.length})
                   </span>
                 </div>
 
-                {sortedCashExpenses.length === 0 ? (
+                {sortedDrawerAdjustments.length === 0 ? (
                   <p className="py-4 px-4 text-sm text-[#595959] bg-[#F4F4F4] rounded-xl border border-[#E0E0E0]">
-                    Aucune dépense en espèces sur cette période.
+                    Aucun retrait, transfert Wave/OM ou dépense en espèces sur cette période.
                   </p>
                 ) : (
                   <div className="space-y-2">
-                    {sortedCashExpenses.map((m) => {
+                    {sortedDrawerAdjustments.map((m) => {
                       const dt = formatSaleDateTime(m.date);
+                      const isIn = m.direction === 'IN';
+                      const typeLabel =
+                        m.type === 'TRANSFERT_ELECTRONIQUE_TIROIR'
+                          ? 'Retrait électronique ➔ Tiroir'
+                          : m.type === 'RETRAIT_BANQUE'
+                          ? 'Retrait caisse / Versement'
+                          : m.type === 'APPORT_ESPECES'
+                          ? 'Apport espèces'
+                          : m.type === 'REMBOURSEMENT'
+                          ? 'Remboursement espèces'
+                          : 'Dépense espèces';
                       return (
                         <div
                           key={m.id}
-                          className="p-3.5 bg-rose-50/70 border border-rose-200 rounded-xl flex items-center justify-between gap-3"
+                          className={`p-3.5 rounded-xl flex items-center justify-between gap-3 border ${
+                            isIn
+                              ? 'bg-emerald-50/70 border-emerald-200'
+                              : 'bg-rose-50/70 border-rose-200'
+                          }`}
                         >
                           <div className="min-w-0">
                             <div className="text-sm font-bold text-[#111111] truncate">
-                              {m.reason || m.notes || 'Dépense de caisse'}
+                              {m.reason || m.notes || typeLabel}
                             </div>
                             <div className="text-xs text-[#595959] font-mono tabular-nums mt-0.5">
-                              {dt.date} à {dt.time} · {m.userName || 'Opérateur'}
+                              {dt.date} à {dt.time} · {typeLabel} · {m.userName || 'Opérateur'}
                             </div>
                           </div>
-                          <span className="font-mono text-base font-black text-rose-700 tabular-nums shrink-0">
-                            -{formatFCFA(m.amount)}
+                          <span
+                            className={`font-mono text-base font-black tabular-nums shrink-0 ${
+                              isIn ? 'text-emerald-700' : 'text-rose-700'
+                            }`}
+                          >
+                            {isIn ? '+' : '-'}{formatFCFA(m.amount)}
                           </span>
                         </div>
                       );
@@ -753,23 +849,79 @@ export const SummaryDetailModal: React.FC<SummaryDetailModalProps> = ({
 
           {/* 5. SPECIFIC PAYMENT METHOD DETAIL */}
           {paymentMethodKey && (
-            <div className="space-y-2.5">
-              <div className="flex items-center justify-between text-xs font-bold text-[#595959]">
-                <span className="text-sm text-[#111111]">
-                  Opérations reçues ({filteredMethodPayments.length})
-                </span>
-                {filteredMethodPayments.length > 0 && <span>Appuyer pour voir le reçu</span>}
-              </div>
-
-              {filteredMethodPayments.length === 0 ? (
-                <p className="py-8 text-center text-sm text-[#595959] bg-[#F4F4F4] rounded-xl border border-dashed border-[#E0E0E0]">
-                  Aucun encaissement en {METHOD_LABELS[paymentMethodKey] || paymentMethodKey} sur cette période.
-                </p>
-              ) : (
-                <div className="space-y-2.5">
-                  {filteredMethodPayments.map(renderPaymentRow)}
+            <div className="space-y-4">
+              {(electronicTransferredOutByMethod[paymentMethodKey] || 0) > 0 && (
+                <div className="p-4 bg-[#FFF9DF] border border-[#E5C130] rounded-xl space-y-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-[#595959]">Encaissé brut ({METHOD_LABELS[paymentMethodKey] || paymentMethodKey})</span>
+                    <span className="font-mono font-bold text-[#111111] tabular-nums">
+                      {formatFCFA(paymentBreakdown[paymentMethodKey] || 0)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-[#7A5C00]">
+                      (-) Retiré vers tiroir espèces ({filteredMethodTransfersOut.length})
+                    </span>
+                    <span className="font-mono font-black text-rose-700 tabular-nums">
+                      -{formatFCFA(electronicTransferredOutByMethod[paymentMethodKey] || 0)}
+                    </span>
+                  </div>
+                  <div className="pt-2 border-t border-[#E5C130] flex items-center justify-between">
+                    <span className="font-extrabold text-[#111111]">(=) Solde net restant sur {METHOD_LABELS[paymentMethodKey] || paymentMethodKey}</span>
+                    <span className="font-mono font-black text-[#111111] tabular-nums text-base">
+                      {formatFCFA(Math.max(0, (paymentBreakdown[paymentMethodKey] || 0) - (electronicTransferredOutByMethod[paymentMethodKey] || 0)))}
+                    </span>
+                  </div>
                 </div>
               )}
+
+              {filteredMethodTransfersOut.length > 0 && (
+                <div className="space-y-2">
+                  <span className="text-sm font-bold text-[#111111] block">
+                    Retraits transférés vers le tiroir espèces ({filteredMethodTransfersOut.length})
+                  </span>
+                  {filteredMethodTransfersOut.map((m) => {
+                    const dt = formatSaleDateTime(m.date);
+                    return (
+                      <div
+                        key={m.id}
+                        className="p-3.5 bg-rose-50/70 border border-rose-200 rounded-xl flex items-center justify-between gap-3"
+                      >
+                        <div className="min-w-0">
+                          <div className="text-sm font-bold text-[#111111] truncate">
+                            {m.reason || 'Transfert vers espèces en tiroir'}
+                          </div>
+                          <div className="text-xs text-[#595959] font-mono tabular-nums mt-0.5">
+                            {dt.date} à {dt.time} · {m.userName || 'Opérateur'}
+                          </div>
+                        </div>
+                        <span className="font-mono text-base font-black text-rose-700 tabular-nums shrink-0">
+                          -{formatFCFA(m.amount)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between text-xs font-bold text-[#595959]">
+                  <span className="text-sm text-[#111111]">
+                    Opérations reçues ({filteredMethodPayments.length})
+                  </span>
+                  {filteredMethodPayments.length > 0 && <span>Appuyer pour voir le reçu</span>}
+                </div>
+
+                {filteredMethodPayments.length === 0 ? (
+                  <p className="py-8 text-center text-sm text-[#595959] bg-[#F4F4F4] rounded-xl border border-dashed border-[#E0E0E0]">
+                    Aucun encaissement en {METHOD_LABELS[paymentMethodKey] || paymentMethodKey} sur cette période.
+                  </p>
+                ) : (
+                  <div className="space-y-2.5">
+                    {filteredMethodPayments.map(renderPaymentRow)}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

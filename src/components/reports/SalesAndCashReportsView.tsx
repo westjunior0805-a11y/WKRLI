@@ -310,9 +310,57 @@ export const SalesAndCashReportsView: React.FC = () => {
     };
   }, [filteredPayments, filteredAllCashMovements, customers]);
 
-  // Filter cash expenses in the period
-  const filteredCashExpenses = useMemo(() => {
-    return filteredAllCashMovements.filter((m) => m.type === 'DEPENSE');
+  // Categorize all physical cash drawer adjustments in the period (beyond sales & client payments)
+  const {
+    filteredCashExpenses,
+    electronicToDrawerTransfers,
+    electronicOutTransfers,
+    manualCashAdditions,
+    cashDrawerWithdrawals,
+    cashDrawerRefunds,
+  } = useMemo(() => {
+    const expenses: CashMovement[] = [];
+    const elecToDrawer: CashMovement[] = [];
+    const elecOut: CashMovement[] = [];
+    const manualIn: CashMovement[] = [];
+    const withdrawals: CashMovement[] = [];
+    const refunds: CashMovement[] = [];
+
+    filteredAllCashMovements.forEach((m) => {
+      const isInitMvt =
+        m.id.startsWith('CSM-INIT') ||
+        m.reason === 'Fond de caisse initial à l’ouverture';
+
+      if (m.type === 'DEPENSE' && m.direction === 'OUT') {
+        expenses.push(m);
+      } else if (m.type === 'RETRAIT_BANQUE' && m.direction === 'OUT' && m.isCashInDrawer !== false) {
+        withdrawals.push(m);
+      } else if (m.type === 'REMBOURSEMENT' && m.direction === 'OUT' && m.isCashInDrawer !== false) {
+        refunds.push(m);
+      } else if (
+        m.type === 'APPORT_ESPECES' &&
+        m.direction === 'IN' &&
+        m.isCashInDrawer !== false &&
+        !isInitMvt
+      ) {
+        manualIn.push(m);
+      } else if (m.type === 'TRANSFERT_ELECTRONIQUE_TIROIR') {
+        if (m.direction === 'IN' && m.isCashInDrawer !== false) {
+          elecToDrawer.push(m);
+        } else if (m.direction === 'OUT') {
+          elecOut.push(m);
+        }
+      }
+    });
+
+    return {
+      filteredCashExpenses: expenses,
+      electronicToDrawerTransfers: elecToDrawer,
+      electronicOutTransfers: elecOut,
+      manualCashAdditions: manualIn,
+      cashDrawerWithdrawals: withdrawals,
+      cashDrawerRefunds: refunds,
+    };
   }, [filteredAllCashMovements]);
 
   // Key Aggregates (accounting for any partial returns)
@@ -361,6 +409,37 @@ export const SalesAndCashReportsView: React.FC = () => {
       .reduce((sum, m) => sum + m.amount, 0);
   }, [filteredCashExpenses]);
 
+  const totalElectronicToDrawerTransfers = useMemo(() => {
+    return electronicToDrawerTransfers.reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
+  }, [electronicToDrawerTransfers]);
+
+  const totalManualCashAdditions = useMemo(() => {
+    return manualCashAdditions.reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
+  }, [manualCashAdditions]);
+
+  const totalCashDrawerWithdrawals = useMemo(() => {
+    return cashDrawerWithdrawals.reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
+  }, [cashDrawerWithdrawals]);
+
+  const totalCashDrawerRefunds = useMemo(() => {
+    return cashDrawerRefunds.reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
+  }, [cashDrawerRefunds]);
+
+  const electronicTransferredOutByMethod = useMemo(() => {
+    const stats: Record<string, number> = {
+      WAVE: 0,
+      ORANGE_MONEY: 0,
+      VIREMENT: 0,
+      CARTE: 0,
+    };
+    electronicOutTransfers.forEach((m) => {
+      if (stats[m.method] !== undefined) {
+        stats[m.method] += Number(m.amount) || 0;
+      }
+    });
+    return stats;
+  }, [electronicOutTransfers]);
+
   // Payment Breakdown (Ventes + Acomptes & Règlements clients)
   const paymentBreakdown = useMemo(() => {
     const stats: Record<string, number> = {
@@ -383,7 +462,14 @@ export const SalesAndCashReportsView: React.FC = () => {
     return stats;
   }, [filteredPayments, orphanCashCustomerPayments]);
 
-  const netDrawerCash = (paymentBreakdown.ESPECES || 0) - totalCashDrawerExpenses;
+  const totalDrawerCashOut =
+    totalCashDrawerExpenses + totalCashDrawerWithdrawals + totalCashDrawerRefunds;
+
+  const netDrawerCash =
+    (paymentBreakdown.ESPECES || 0) +
+    totalElectronicToDrawerTransfers +
+    totalManualCashAdditions -
+    totalDrawerCashOut;
 
   // Selected warehouse object
   const activeWarehouseObj = warehouses.find((w) => w.id === selectedWarehouseFilter);
@@ -410,15 +496,19 @@ export const SalesAndCashReportsView: React.FC = () => {
     lines.push(`"  dont Encaissements sur Ventes"${sep}"${totalSalesCollected}"`);
     lines.push(`"  dont Acomptes & Règlements Clients"${sep}"${totalCustomerPaymentsCollected}"`);
     lines.push(`"Crédits Accordés (Reste Dû)"${sep}"${totalUnpaid}"`);
-    lines.push(`"Dépenses Décaissées"${sep}"${totalExpenses}"`);
+    lines.push(`"Retraits Wave / OM / Banque vers Tiroir (+)"${sep}"${totalElectronicToDrawerTransfers}"`);
+    lines.push(`"Apports Espèces en Caisse (+)"${sep}"${totalManualCashAdditions}"`);
+    lines.push(`"Dépenses Espèces (-)"${sep}"${totalCashDrawerExpenses}"`);
+    lines.push(`"Retraits Caisse / Versements (-)"${sep}"${totalCashDrawerWithdrawals}"`);
+    lines.push(`"Remboursements Espèces (-)"${sep}"${totalCashDrawerRefunds}"`);
     lines.push(`"Solde Net Espèces en Tiroir"${sep}"${netDrawerCash}"`);
     lines.push(`"Nombre de Ventes Réalisées"${sep}"${sortedSales.length}"`);
     lines.push(`"Nombre d'Acomptes / Règlements Clients"${sep}"${standaloneCustomerPayments.length}"`);
     lines.push(`"Total Pièces Vendues"${sep}"${totalItemsSold}"`);
     lines.push(`"--- Ventilation des Encaissements ---"`);
     lines.push(`"Espèces"${sep}"${paymentBreakdown.ESPECES || 0}"`);
-    lines.push(`"Wave"${sep}"${paymentBreakdown.WAVE || 0}"`);
-    lines.push(`"Orange Money"${sep}"${paymentBreakdown.ORANGE_MONEY || 0}"`);
+    lines.push(`"Wave (Brut / Retiré vers tiroir / Reste)"${sep}"${paymentBreakdown.WAVE || 0} / -${electronicTransferredOutByMethod.WAVE || 0} / ${Math.max(0, (paymentBreakdown.WAVE || 0) - (electronicTransferredOutByMethod.WAVE || 0))}"`);
+    lines.push(`"Orange Money (Brut / Retiré vers tiroir / Reste)"${sep}"${paymentBreakdown.ORANGE_MONEY || 0} / -${electronicTransferredOutByMethod.ORANGE_MONEY || 0} / ${Math.max(0, (paymentBreakdown.ORANGE_MONEY || 0) - (electronicTransferredOutByMethod.ORANGE_MONEY || 0))}"`);
     lines.push(`"Virement"${sep}"${paymentBreakdown.VIREMENT || 0}"`);
     lines.push(`"Carte Bancaire"${sep}"${paymentBreakdown.CARTE || 0}"`);
     lines.push('');
@@ -1222,8 +1312,29 @@ export const SalesAndCashReportsView: React.FC = () => {
                     {formatFCFA(netDrawerCash)}
                   </div>
                 </div>
-                <div className="w-full mt-5 pt-3.5 border-t border-[#E0E0E0] text-sm text-[#595959] flex items-center justify-between gap-3">
-                  <span>Après dépenses espèces (-{formatFCFA(totalCashDrawerExpenses)})</span>
+                <div className="w-full mt-5 pt-3.5 border-t border-[#E0E0E0] text-xs sm:text-sm text-[#595959] flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    {totalElectronicToDrawerTransfers > 0 && (
+                      <span className="font-semibold text-emerald-700">
+                        +{formatFCFA(totalElectronicToDrawerTransfers)} retrait Wave/OM
+                      </span>
+                    )}
+                    {totalManualCashAdditions > 0 && (
+                      <span className="font-semibold text-emerald-700">
+                        +{formatFCFA(totalManualCashAdditions)} apport
+                      </span>
+                    )}
+                    {totalDrawerCashOut > 0 ? (
+                      <span className="font-semibold text-rose-700">
+                        -{formatFCFA(totalDrawerCashOut)} sorties/retraits
+                      </span>
+                    ) : (
+                      totalElectronicToDrawerTransfers === 0 &&
+                      totalManualCashAdditions === 0 && (
+                        <span>Aucune sortie ni retrait</span>
+                      )
+                    )}
+                  </div>
                   <span className="font-bold text-emerald-700 shrink-0">En caisse</span>
                 </div>
               </button>
@@ -1272,6 +1383,14 @@ export const SalesAndCashReportsView: React.FC = () => {
                   <div className="font-mono font-black text-2xl sm:text-[26px] text-[#111111] mt-2.5 tabular-nums tracking-tight">
                     {formatFCFA(paymentBreakdown.WAVE || 0)}
                   </div>
+                  {(electronicTransferredOutByMethod.WAVE || 0) > 0 && (
+                    <div className="mt-2 pt-2 border-t border-[#E0E0E0] text-xs font-semibold text-[#7A5C00] flex items-center justify-between gap-2">
+                      <span>Retiré tiroir : -{formatFCFA(electronicTransferredOutByMethod.WAVE)}</span>
+                      <span className="font-mono font-bold text-[#111111]">
+                        Reste : {formatFCFA(Math.max(0, (paymentBreakdown.WAVE || 0) - electronicTransferredOutByMethod.WAVE))}
+                      </span>
+                    </div>
+                  )}
                 </button>
 
                 <button
@@ -1289,6 +1408,14 @@ export const SalesAndCashReportsView: React.FC = () => {
                   <div className="font-mono font-black text-2xl sm:text-[26px] text-[#111111] mt-2.5 tabular-nums tracking-tight">
                     {formatFCFA(paymentBreakdown.ORANGE_MONEY || 0)}
                   </div>
+                  {(electronicTransferredOutByMethod.ORANGE_MONEY || 0) > 0 && (
+                    <div className="mt-2 pt-2 border-t border-[#E0E0E0] text-xs font-semibold text-[#7A5C00] flex items-center justify-between gap-2">
+                      <span>Retiré tiroir : -{formatFCFA(electronicTransferredOutByMethod.ORANGE_MONEY)}</span>
+                      <span className="font-mono font-bold text-[#111111]">
+                        Reste : {formatFCFA(Math.max(0, (paymentBreakdown.ORANGE_MONEY || 0) - electronicTransferredOutByMethod.ORANGE_MONEY))}
+                      </span>
+                    </div>
+                  )}
                 </button>
 
                 <button
@@ -1306,6 +1433,14 @@ export const SalesAndCashReportsView: React.FC = () => {
                   <div className="font-mono font-black text-2xl sm:text-[26px] text-[#111111] mt-2.5 tabular-nums tracking-tight">
                     {formatFCFA(paymentBreakdown.VIREMENT || 0)}
                   </div>
+                  {(electronicTransferredOutByMethod.VIREMENT || 0) > 0 && (
+                    <div className="mt-2 pt-2 border-t border-[#E0E0E0] text-xs font-semibold text-[#7A5C00] flex items-center justify-between gap-2">
+                      <span>Retiré tiroir : -{formatFCFA(electronicTransferredOutByMethod.VIREMENT)}</span>
+                      <span className="font-mono font-bold text-[#111111]">
+                        Reste : {formatFCFA(Math.max(0, (paymentBreakdown.VIREMENT || 0) - electronicTransferredOutByMethod.VIREMENT))}
+                      </span>
+                    </div>
+                  )}
                 </button>
 
                 <button
@@ -1323,6 +1458,14 @@ export const SalesAndCashReportsView: React.FC = () => {
                   <div className="font-mono font-black text-2xl sm:text-[26px] text-[#111111] mt-2.5 tabular-nums tracking-tight">
                     {formatFCFA(paymentBreakdown.CARTE || 0)}
                   </div>
+                  {(electronicTransferredOutByMethod.CARTE || 0) > 0 && (
+                    <div className="mt-2 pt-2 border-t border-[#E0E0E0] text-xs font-semibold text-[#7A5C00] flex items-center justify-between gap-2">
+                      <span>Retiré tiroir : -{formatFCFA(electronicTransferredOutByMethod.CARTE)}</span>
+                      <span className="font-mono font-bold text-[#111111]">
+                        Reste : {formatFCFA(Math.max(0, (paymentBreakdown.CARTE || 0) - electronicTransferredOutByMethod.CARTE))}
+                      </span>
+                    </div>
+                  )}
                 </button>
               </div>
             </div>
@@ -1912,6 +2055,11 @@ export const SalesAndCashReportsView: React.FC = () => {
           allPeriodPayments={[...filteredPayments, ...orphanCashCustomerPayments]}
           standaloneCustomerPayments={standaloneCustomerPayments}
           cashDrawerExpenses={filteredCashExpenses.filter((m) => m.isCashInDrawer !== false)}
+          electronicToDrawerTransfers={electronicToDrawerTransfers}
+          electronicOutTransfers={electronicOutTransfers}
+          manualCashAdditions={manualCashAdditions}
+          cashDrawerWithdrawals={cashDrawerWithdrawals}
+          cashDrawerRefunds={cashDrawerRefunds}
           customers={customers}
           totalRevenue={totalRevenue}
           totalSalesCollected={totalSalesCollected}
@@ -1921,6 +2069,11 @@ export const SalesAndCashReportsView: React.FC = () => {
           totalItemsSold={totalItemsSold}
           netDrawerCash={netDrawerCash}
           totalCashDrawerExpenses={totalCashDrawerExpenses}
+          totalElectronicToDrawerTransfers={totalElectronicToDrawerTransfers}
+          totalManualCashAdditions={totalManualCashAdditions}
+          totalCashDrawerWithdrawals={totalCashDrawerWithdrawals}
+          totalCashDrawerRefunds={totalCashDrawerRefunds}
+          electronicTransferredOutByMethod={electronicTransferredOutByMethod}
           paymentBreakdown={paymentBreakdown}
           onOpenSaleReceipt={(sale) => {
             setActiveSummaryDetail(null);
@@ -1970,6 +2123,10 @@ export const SalesAndCashReportsView: React.FC = () => {
           totalCustomerPaymentsCollected={totalCustomerPaymentsCollected}
           totalCollected={totalCollected}
           totalUnpaid={totalUnpaid}
+          netDrawerCash={netDrawerCash}
+          totalElectronicToDrawerTransfers={totalElectronicToDrawerTransfers}
+          totalDrawerCashOut={totalDrawerCashOut}
+          electronicTransferredOutByMethod={electronicTransferredOutByMethod}
           paymentBreakdown={paymentBreakdown}
           sortedSales={sortedSales}
           standaloneCustomerPayments={standaloneCustomerPayments}
@@ -1997,6 +2154,10 @@ interface SmartphoneReportModalProps {
   totalCustomerPaymentsCollected: number;
   totalCollected: number;
   totalUnpaid: number;
+  netDrawerCash: number;
+  totalElectronicToDrawerTransfers: number;
+  totalDrawerCashOut: number;
+  electronicTransferredOutByMethod: Record<string, number>;
   paymentBreakdown: Record<string, number>;
   sortedSales: Sale[];
   standaloneCustomerPayments: PaymentRecord[];
@@ -2014,6 +2175,10 @@ const SmartphoneReportModal: React.FC<SmartphoneReportModalProps> = ({
   totalCustomerPaymentsCollected,
   totalCollected,
   totalUnpaid,
+  netDrawerCash,
+  totalElectronicToDrawerTransfers,
+  totalDrawerCashOut,
+  electronicTransferredOutByMethod,
   paymentBreakdown,
   sortedSales,
   standaloneCustomerPayments,
@@ -2278,6 +2443,31 @@ const SmartphoneReportModal: React.FC<SmartphoneReportModalProps> = ({
                 {formatFCFA(totalUnpaid)}
               </span>
             </div>
+
+            <div className="p-4 sm:p-5 bg-[#F4F4F4] border border-[#E0E0E0] rounded-xl">
+              <span className="text-sm font-bold text-[#595959] block">
+                4. Espèces net en tiroir
+              </span>
+              <span className="font-mono font-black text-3xl text-[#111111] tabular-nums block mt-1.5 leading-none">
+                {formatFCFA(netDrawerCash)}
+              </span>
+              {(totalElectronicToDrawerTransfers > 0 || totalDrawerCashOut > 0) && (
+                <div className="mt-2.5 pt-2 border-t border-[#E0E0E0] flex flex-col gap-1 text-xs font-medium text-[#595959]">
+                  {totalElectronicToDrawerTransfers > 0 && (
+                    <div className="flex items-center justify-between text-emerald-700">
+                      <span>Retraits Wave / OM vers tiroir</span>
+                      <strong className="font-mono tabular-nums">+{formatFCFA(totalElectronicToDrawerTransfers)}</strong>
+                    </div>
+                  )}
+                  {totalDrawerCashOut > 0 && (
+                    <div className="flex items-center justify-between text-rose-700">
+                      <span>Dépenses / Retraits espèces</span>
+                      <strong className="font-mono tabular-nums">-{formatFCFA(totalDrawerCashOut)}</strong>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* 3. Enlarged Payment Methods Breakdown */}
@@ -2289,13 +2479,33 @@ const SmartphoneReportModal: React.FC<SmartphoneReportModalProps> = ({
               <span className="font-semibold text-[#595959]">Espèces</span>
               <strong className="font-mono text-lg font-black text-[#111111] tabular-nums">{formatFCFA(paymentBreakdown.ESPECES || 0)}</strong>
             </div>
-            <div className="flex items-center justify-between py-1.5 border-b border-[#E0E0E0]/70 text-sm">
-              <span className="font-semibold text-[#595959]">Wave</span>
-              <strong className="font-mono text-lg font-black text-[#111111] tabular-nums">{formatFCFA(paymentBreakdown.WAVE || 0)}</strong>
+            <div className="py-1.5 border-b border-[#E0E0E0]/70 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-[#595959]">Wave</span>
+                <strong className="font-mono text-lg font-black text-[#111111] tabular-nums">{formatFCFA(paymentBreakdown.WAVE || 0)}</strong>
+              </div>
+              {(electronicTransferredOutByMethod.WAVE || 0) > 0 && (
+                <div className="mt-1 flex items-center justify-between text-xs text-[#7A5C00] font-semibold">
+                  <span>Retiré vers tiroir : -{formatFCFA(electronicTransferredOutByMethod.WAVE)}</span>
+                  <span className="font-mono text-[#111111]">
+                    Reste : {formatFCFA(Math.max(0, (paymentBreakdown.WAVE || 0) - electronicTransferredOutByMethod.WAVE))}
+                  </span>
+                </div>
+              )}
             </div>
-            <div className="flex items-center justify-between py-1.5 border-b border-[#E0E0E0]/70 text-sm">
-              <span className="font-semibold text-[#595959]">Orange Money</span>
-              <strong className="font-mono text-lg font-black text-[#111111] tabular-nums">{formatFCFA(paymentBreakdown.ORANGE_MONEY || 0)}</strong>
+            <div className="py-1.5 border-b border-[#E0E0E0]/70 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-[#595959]">Orange Money</span>
+                <strong className="font-mono text-lg font-black text-[#111111] tabular-nums">{formatFCFA(paymentBreakdown.ORANGE_MONEY || 0)}</strong>
+              </div>
+              {(electronicTransferredOutByMethod.ORANGE_MONEY || 0) > 0 && (
+                <div className="mt-1 flex items-center justify-between text-xs text-[#7A5C00] font-semibold">
+                  <span>Retiré vers tiroir : -{formatFCFA(electronicTransferredOutByMethod.ORANGE_MONEY)}</span>
+                  <span className="font-mono text-[#111111]">
+                    Reste : {formatFCFA(Math.max(0, (paymentBreakdown.ORANGE_MONEY || 0) - electronicTransferredOutByMethod.ORANGE_MONEY))}
+                  </span>
+                </div>
+              )}
             </div>
             {(paymentBreakdown.VIREMENT > 0 || paymentBreakdown.CARTE > 0) && (
               <div className="flex items-center justify-between py-1.5 text-sm">
