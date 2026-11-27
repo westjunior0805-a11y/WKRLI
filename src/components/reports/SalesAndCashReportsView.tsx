@@ -1312,29 +1312,8 @@ export const SalesAndCashReportsView: React.FC = () => {
                     {formatFCFA(netDrawerCash)}
                   </div>
                 </div>
-                <div className="w-full mt-5 pt-3.5 border-t border-[#E0E0E0] text-xs sm:text-sm text-[#595959] flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                    {totalElectronicToDrawerTransfers > 0 && (
-                      <span className="font-semibold text-emerald-700">
-                        +{formatFCFA(totalElectronicToDrawerTransfers)} retrait Wave/OM
-                      </span>
-                    )}
-                    {totalManualCashAdditions > 0 && (
-                      <span className="font-semibold text-emerald-700">
-                        +{formatFCFA(totalManualCashAdditions)} apport
-                      </span>
-                    )}
-                    {totalDrawerCashOut > 0 ? (
-                      <span className="font-semibold text-rose-700">
-                        -{formatFCFA(totalDrawerCashOut)} sorties/retraits
-                      </span>
-                    ) : (
-                      totalElectronicToDrawerTransfers === 0 &&
-                      totalManualCashAdditions === 0 && (
-                        <span>Aucune sortie ni retrait</span>
-                      )
-                    )}
-                  </div>
+                <div className="w-full mt-5 pt-3.5 border-t border-[#E0E0E0] text-sm text-[#595959] flex items-center justify-between gap-3">
+                  <span>Solde disponible en caisse</span>
                   <span className="font-bold text-emerald-700 shrink-0">En caisse</span>
                 </div>
               </button>
@@ -1383,14 +1362,6 @@ export const SalesAndCashReportsView: React.FC = () => {
                   <div className="font-mono font-black text-2xl sm:text-[26px] text-[#111111] mt-2.5 tabular-nums tracking-tight">
                     {formatFCFA(paymentBreakdown.WAVE || 0)}
                   </div>
-                  {(electronicTransferredOutByMethod.WAVE || 0) > 0 && (
-                    <div className="mt-2 pt-2 border-t border-[#E0E0E0] text-xs font-semibold text-[#7A5C00] flex items-center justify-between gap-2">
-                      <span>Retiré tiroir : -{formatFCFA(electronicTransferredOutByMethod.WAVE)}</span>
-                      <span className="font-mono font-bold text-[#111111]">
-                        Reste : {formatFCFA(Math.max(0, (paymentBreakdown.WAVE || 0) - electronicTransferredOutByMethod.WAVE))}
-                      </span>
-                    </div>
-                  )}
                 </button>
 
                 <button
@@ -1408,14 +1379,6 @@ export const SalesAndCashReportsView: React.FC = () => {
                   <div className="font-mono font-black text-2xl sm:text-[26px] text-[#111111] mt-2.5 tabular-nums tracking-tight">
                     {formatFCFA(paymentBreakdown.ORANGE_MONEY || 0)}
                   </div>
-                  {(electronicTransferredOutByMethod.ORANGE_MONEY || 0) > 0 && (
-                    <div className="mt-2 pt-2 border-t border-[#E0E0E0] text-xs font-semibold text-[#7A5C00] flex items-center justify-between gap-2">
-                      <span>Retiré tiroir : -{formatFCFA(electronicTransferredOutByMethod.ORANGE_MONEY)}</span>
-                      <span className="font-mono font-bold text-[#111111]">
-                        Reste : {formatFCFA(Math.max(0, (paymentBreakdown.ORANGE_MONEY || 0) - electronicTransferredOutByMethod.ORANGE_MONEY))}
-                      </span>
-                    </div>
-                  )}
                 </button>
 
                 <button
@@ -1433,14 +1396,6 @@ export const SalesAndCashReportsView: React.FC = () => {
                   <div className="font-mono font-black text-2xl sm:text-[26px] text-[#111111] mt-2.5 tabular-nums tracking-tight">
                     {formatFCFA(paymentBreakdown.VIREMENT || 0)}
                   </div>
-                  {(electronicTransferredOutByMethod.VIREMENT || 0) > 0 && (
-                    <div className="mt-2 pt-2 border-t border-[#E0E0E0] text-xs font-semibold text-[#7A5C00] flex items-center justify-between gap-2">
-                      <span>Retiré tiroir : -{formatFCFA(electronicTransferredOutByMethod.VIREMENT)}</span>
-                      <span className="font-mono font-bold text-[#111111]">
-                        Reste : {formatFCFA(Math.max(0, (paymentBreakdown.VIREMENT || 0) - electronicTransferredOutByMethod.VIREMENT))}
-                      </span>
-                    </div>
-                  )}
                 </button>
 
                 <button
@@ -1458,14 +1413,6 @@ export const SalesAndCashReportsView: React.FC = () => {
                   <div className="font-mono font-black text-2xl sm:text-[26px] text-[#111111] mt-2.5 tabular-nums tracking-tight">
                     {formatFCFA(paymentBreakdown.CARTE || 0)}
                   </div>
-                  {(electronicTransferredOutByMethod.CARTE || 0) > 0 && (
-                    <div className="mt-2 pt-2 border-t border-[#E0E0E0] text-xs font-semibold text-[#7A5C00] flex items-center justify-between gap-2">
-                      <span>Retiré tiroir : -{formatFCFA(electronicTransferredOutByMethod.CARTE)}</span>
-                      <span className="font-mono font-bold text-[#111111]">
-                        Reste : {formatFCFA(Math.max(0, (paymentBreakdown.CARTE || 0) - electronicTransferredOutByMethod.CARTE))}
-                      </span>
-                    </div>
-                  )}
                 </button>
               </div>
             </div>
@@ -2451,22 +2398,6 @@ const SmartphoneReportModal: React.FC<SmartphoneReportModalProps> = ({
               <span className="font-mono font-black text-3xl text-[#111111] tabular-nums block mt-1.5 leading-none">
                 {formatFCFA(netDrawerCash)}
               </span>
-              {(totalElectronicToDrawerTransfers > 0 || totalDrawerCashOut > 0) && (
-                <div className="mt-2.5 pt-2 border-t border-[#E0E0E0] flex flex-col gap-1 text-xs font-medium text-[#595959]">
-                  {totalElectronicToDrawerTransfers > 0 && (
-                    <div className="flex items-center justify-between text-emerald-700">
-                      <span>Retraits Wave / OM vers tiroir</span>
-                      <strong className="font-mono tabular-nums">+{formatFCFA(totalElectronicToDrawerTransfers)}</strong>
-                    </div>
-                  )}
-                  {totalDrawerCashOut > 0 && (
-                    <div className="flex items-center justify-between text-rose-700">
-                      <span>Dépenses / Retraits espèces</span>
-                      <strong className="font-mono tabular-nums">-{formatFCFA(totalDrawerCashOut)}</strong>
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           </div>
 
@@ -2479,33 +2410,13 @@ const SmartphoneReportModal: React.FC<SmartphoneReportModalProps> = ({
               <span className="font-semibold text-[#595959]">Espèces</span>
               <strong className="font-mono text-lg font-black text-[#111111] tabular-nums">{formatFCFA(paymentBreakdown.ESPECES || 0)}</strong>
             </div>
-            <div className="py-1.5 border-b border-[#E0E0E0]/70 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-[#595959]">Wave</span>
-                <strong className="font-mono text-lg font-black text-[#111111] tabular-nums">{formatFCFA(paymentBreakdown.WAVE || 0)}</strong>
-              </div>
-              {(electronicTransferredOutByMethod.WAVE || 0) > 0 && (
-                <div className="mt-1 flex items-center justify-between text-xs text-[#7A5C00] font-semibold">
-                  <span>Retiré vers tiroir : -{formatFCFA(electronicTransferredOutByMethod.WAVE)}</span>
-                  <span className="font-mono text-[#111111]">
-                    Reste : {formatFCFA(Math.max(0, (paymentBreakdown.WAVE || 0) - electronicTransferredOutByMethod.WAVE))}
-                  </span>
-                </div>
-              )}
+            <div className="flex items-center justify-between py-1.5 border-b border-[#E0E0E0]/70 text-sm">
+              <span className="font-semibold text-[#595959]">Wave</span>
+              <strong className="font-mono text-lg font-black text-[#111111] tabular-nums">{formatFCFA(paymentBreakdown.WAVE || 0)}</strong>
             </div>
-            <div className="py-1.5 border-b border-[#E0E0E0]/70 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-[#595959]">Orange Money</span>
-                <strong className="font-mono text-lg font-black text-[#111111] tabular-nums">{formatFCFA(paymentBreakdown.ORANGE_MONEY || 0)}</strong>
-              </div>
-              {(electronicTransferredOutByMethod.ORANGE_MONEY || 0) > 0 && (
-                <div className="mt-1 flex items-center justify-between text-xs text-[#7A5C00] font-semibold">
-                  <span>Retiré vers tiroir : -{formatFCFA(electronicTransferredOutByMethod.ORANGE_MONEY)}</span>
-                  <span className="font-mono text-[#111111]">
-                    Reste : {formatFCFA(Math.max(0, (paymentBreakdown.ORANGE_MONEY || 0) - electronicTransferredOutByMethod.ORANGE_MONEY))}
-                  </span>
-                </div>
-              )}
+            <div className="flex items-center justify-between py-1.5 border-b border-[#E0E0E0]/70 text-sm">
+              <span className="font-semibold text-[#595959]">Orange Money</span>
+              <strong className="font-mono text-lg font-black text-[#111111] tabular-nums">{formatFCFA(paymentBreakdown.ORANGE_MONEY || 0)}</strong>
             </div>
             {(paymentBreakdown.VIREMENT > 0 || paymentBreakdown.CARTE > 0) && (
               <div className="flex items-center justify-between py-1.5 text-sm">
