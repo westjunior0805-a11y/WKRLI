@@ -73,8 +73,8 @@ export async function downloadElementAsPdf(
 
   // Standard target rendering width in pixels
   // 330px for 80mm thermal receipts ensures thicker, larger, high-contrast strokes when scaled to 80mm roll
-  // 380px for smartphone reports, 800px for standard A4 (210mm at 96 DPI is ~794px)
-  const targetRenderWidth = isThermalReceipt ? 330 : isTicket ? 380 : 800;
+  // 430px for smartphone reports gives clean breathing room for 5-column Excel tables on phone screens, 800px for standard A4
+  const targetRenderWidth = isThermalReceipt ? 330 : isTicket ? 430 : 800;
 
   // Create dedicated offscreen staging sandbox in document.body
   let sandbox: HTMLElement | null = null;

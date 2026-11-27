@@ -1130,6 +1130,29 @@ export const generateCustomerId = (existingCount: number): string => {
   return `CLI-${String(existingCount + 1).padStart(3, '0')}-${rand}`;
 };
 
+export const getNextCustomerCode = (existingCustomers: Customer[]): string => {
+  const existingCodes = new Set(
+    existingCustomers.map((c) => (c.code || '').trim().toUpperCase()).filter(Boolean)
+  );
+  let maxNum = 0;
+  for (const c of existingCustomers) {
+    const match = (c.code || '').trim().match(/^CLI-(\d+)$/i);
+    if (match) {
+      const parsed = parseInt(match[1], 10);
+      if (Number.isFinite(parsed) && parsed > maxNum) {
+        maxNum = parsed;
+      }
+    }
+  }
+  let nextNum = Math.max(maxNum, existingCustomers.length) + 1;
+  let candidate = `CLI-${String(nextNum).padStart(3, '0')}`;
+  while (existingCodes.has(candidate)) {
+    nextNum += 1;
+    candidate = `CLI-${String(nextNum).padStart(3, '0')}`;
+  }
+  return candidate;
+};
+
 export const generateArticleId = (existingCount: number): string => {
   seqArt += 1;
   const rand = Math.random().toString(36).substring(2, 5).toUpperCase();
@@ -2632,8 +2655,9 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       outstandingBalance?: number;
     }
   ) => {
-    const code = customerData.code.trim().toUpperCase();
-    const exists = customers.some((c) => c.code === code);
+    const rawCode = (customerData.code || '').trim().toUpperCase();
+    const code = rawCode || getNextCustomerCode(customers);
+    const exists = customers.some((c) => (c.code || '').trim().toUpperCase() === code);
     if (exists) {
       return { success: false, error: `Le code client "${code}" existe déjà.` };
     }
@@ -2755,13 +2779,11 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         updatedCount += 1;
       } else {
         let codeToUse = rawCode;
-        if (!codeToUse || nextCustomers.some((c) => c.code.toUpperCase() === codeToUse)) {
-          let seqNum = nextCustomers.length + 1;
-          codeToUse = `CLI-${String(seqNum).padStart(3, '0')}`;
-          while (nextCustomers.some((c) => c.code.toUpperCase() === codeToUse)) {
-            seqNum += 1;
-            codeToUse = `CLI-${String(seqNum).padStart(3, '0')}`;
-          }
+        if (
+          !codeToUse ||
+          nextCustomers.some((c) => (c.code || '').trim().toUpperCase() === codeToUse)
+        ) {
+          codeToUse = getNextCustomerCode(nextCustomers);
         }
 
         const newCust: Customer = {
@@ -7080,7 +7102,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         ? '__NEW__'
         : cleanBrandName(bu.originalBrandKey);
       const normOrig = origClean.toLowerCase();
-      const cleanPurchase = Math.max(0, Math.round((Number(bu.purchasePrice) || 0) * 100) / 100);
+      const cleanPurchase = Math.max(0, Math.round(Number(bu.purchasePrice) || 0));
       const cleanSale = Math.max(0, Math.round(Number(bu.salePrice) || 0));
       const cleanInv = bu.invoiceNumber !== undefined ? bu.invoiceNumber.trim() : undefined;
 

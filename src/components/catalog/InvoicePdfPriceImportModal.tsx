@@ -3,6 +3,7 @@ import { useStock } from '../../context/StockContext';
 import { Article, ArticleBrandOffer } from '../../types';
 import { formatAED, roundAED, exportToCSV } from '../../utils/formatters';
 import { cleanBrandName, getArticleBrandOffers } from '../../utils/articleHelpers';
+import { extractInvoiceFromPdfLocally } from '../../utils/localPdfInvoiceParser';
 import {
   X,
   FileText,
@@ -302,9 +303,26 @@ export const InvoicePdfPriceImportModal: React.FC<InvoicePdfPriceImportModalProp
           }),
         });
 
-        const payload = await resp.json().catch(() => ({}));
-        if (!resp.ok) {
-          throw new Error(payload?.error || `Erreur serveur (${resp.status})`);
+        let payload: any = null;
+        if (resp.status === 404) {
+          // Static host without /api backend: parse digital PDF text layer directly in the browser
+          const isPdfFile =
+            mimeType === 'application/pdf' || qf.file.name.toLowerCase().endsWith('.pdf');
+          if (!isPdfFile) {
+            throw new Error(
+              "Le serveur d'analyse d'images (/api/extract-invoice-prices) n'est pas actif sur cet hébergement. Utilisez un fichier PDF numérique ou déployez la route API."
+            );
+          }
+          const knownRefs = new Set<string>([
+            ...catalogIndex.byMainRef.keys(),
+            ...catalogIndex.byCompatRef.keys(),
+          ]);
+          payload = await extractInvoiceFromPdfLocally(qf.file, knownRefs);
+        } else {
+          payload = await resp.json().catch(() => ({}));
+          if (!resp.ok) {
+            throw new Error(payload?.error || `Erreur serveur (${resp.status})`);
+          }
         }
 
         const currency = String(payload.currency || 'AED').toUpperCase();

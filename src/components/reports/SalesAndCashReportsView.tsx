@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useStock } from '../../context/StockContext';
 import { Sale, CashMovement, PaymentRecord, Customer } from '../../types';
-import { formatAED, formatFCFA, formatDate, formatDateTime } from '../../utils/formatters';
+import { formatFCFA, formatDate, formatDateTime } from '../../utils/formatters';
 import { getCustomerCreditSummary } from '../../utils/customerAccount';
 import { downloadElementAsPdf, printElementById } from '../../utils/pdfExporter';
 import { ReceiptModal } from '../sales/ReceiptModal';
@@ -884,7 +884,7 @@ export const SalesAndCashReportsView: React.FC = () => {
               }`}
               title="Ventes en temps réel d'aujourd'hui"
             >
-              <span className="text-[#111111]">Aujourd&apos;hui (Temps réel)</span>
+              <span className="text-[#ffffff]">Aujourd&apos;hui (Temps réel)</span>
             </button>
 
             <button
@@ -1722,9 +1722,9 @@ export const SalesAndCashReportsView: React.FC = () => {
                 </span>
               </div>
               <div className="mt-2 text-xs text-slate-500 border-t border-slate-100 pt-2 flex justify-between">
-                <span>Coût d'achat pièces</span>
-                <span className="font-mono font-bold text-[#7A5C00]">
-                  {formatAED(totalCostOfGoods)}
+                <span>Marge brute estimée</span>
+                <span className="font-mono font-bold text-emerald-700">
+                  {formatFCFA(grossMargin)} ({marginPercent}%)
                 </span>
               </div>
             </div>
@@ -2108,7 +2108,137 @@ const SmartphoneReportModal: React.FC<SmartphoneReportModalProps> = ({
             </p>
           </div>
 
-          {/* Enlarged Stacked Summary Cards for Effortless Phone Reading */}
+          {/* 1. Excel-Style Sold Products Table (Référence, Produit, Qté, P.U., Total) */}
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between pb-2 border-b border-[#E0E0E0] gap-2">
+              <span className="text-sm font-black text-[#111111] flex items-center gap-1.5">
+                <Receipt className="w-4 h-4 text-[#7A5C00]" />
+                Produits vendus
+              </span>
+              <span className="text-[11px] font-mono font-semibold text-[#595959]">
+                Montants en FCFA
+              </span>
+            </div>
+
+            {(() => {
+              const soldLines = sortedSales.flatMap((s) =>
+                s.items.map((it, itemIdx) => {
+                  const effectiveUnitPrice =
+                    it.discountAmount > 0 && it.quantity > 0
+                      ? Math.round(it.totalLine / it.quantity)
+                      : it.unitPrice;
+                  return {
+                    key: `${s.id}-${itemIdx}`,
+                    ref: it.mainReference || '—',
+                    name: it.designation || '—',
+                    qty: it.quantity,
+                    unitPrice: effectiveUnitPrice,
+                    total: it.totalLine,
+                  };
+                })
+              );
+
+              if (soldLines.length === 0) {
+                return (
+                  <p className="text-sm text-[#595959] italic text-center py-3">
+                    Aucune vente enregistrée sur cette période.
+                  </p>
+                );
+              }
+
+              const totalQty = soldLines.reduce((acc, l) => acc + l.qty, 0);
+              const rawItemsTotal = soldLines.reduce((acc, l) => acc + l.total, 0);
+              const globalAdjustment = totalRevenue - rawItemsTotal;
+              const formatExcelNum = (n: number) =>
+                Math.round(n).toLocaleString('fr-FR');
+
+              return (
+                <div className="overflow-x-auto border border-[#BFBFBF]">
+                  <table className="w-full border-collapse text-[11px] sm:text-xs">
+                    <thead>
+                      <tr className="bg-[#111111] text-white">
+                        <th className="py-2 px-1.5 text-left font-mono font-bold uppercase tracking-wider border-r border-[#333333] w-[21%]">
+                          Réf.
+                        </th>
+                        <th className="py-2 px-1.5 text-left font-bold uppercase tracking-wider border-r border-[#333333] w-[33%]">
+                          Produit
+                        </th>
+                        <th className="py-2 px-1 text-center font-mono font-bold uppercase tracking-wider border-r border-[#333333] w-[10%]">
+                          Qté
+                        </th>
+                        <th className="py-2 px-1.5 text-right font-mono font-bold uppercase tracking-wider border-r border-[#333333] w-[18%]">
+                          P.U.
+                        </th>
+                        <th className="py-2 px-1.5 text-right font-mono font-bold uppercase tracking-wider w-[18%]">
+                          Total
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {soldLines.map((line, idx) => (
+                        <tr
+                          key={line.key}
+                          className={`border-t border-[#D4D4D4] ${
+                            idx % 2 === 1 ? 'bg-[#F7F7F7]' : 'bg-white'
+                          }`}
+                        >
+                          <td className="py-2 px-1.5 font-mono font-bold text-[#7A5C00] align-top break-words border-r border-[#E0E0E0]">
+                            {line.ref}
+                          </td>
+                          <td className="py-2 px-1.5 font-medium text-[#111111] align-top leading-snug break-words border-r border-[#E0E0E0]">
+                            {line.name}
+                          </td>
+                          <td className="py-2 px-1 font-mono font-bold text-center text-[#111111] align-top tabular-nums border-r border-[#E0E0E0]">
+                            {line.qty}
+                          </td>
+                          <td className="py-2 px-1.5 font-mono text-right text-[#333333] align-top tabular-nums whitespace-nowrap border-r border-[#E0E0E0]">
+                            {formatExcelNum(line.unitPrice)}
+                          </td>
+                          <td className="py-2 px-1.5 font-mono font-bold text-right text-[#111111] align-top tabular-nums whitespace-nowrap">
+                            {formatExcelNum(line.total)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      {globalAdjustment !== 0 && (
+                        <tr className="border-t border-[#BFBFBF] bg-[#FAFAFA] text-[#595959]">
+                          <td
+                            colSpan={4}
+                            className="py-1.5 px-1.5 text-right font-semibold border-r border-[#E0E0E0]"
+                          >
+                            Remises / Avoirs
+                          </td>
+                          <td className="py-1.5 px-1.5 font-mono font-bold text-right tabular-nums whitespace-nowrap text-rose-700">
+                            {formatExcelNum(globalAdjustment)}
+                          </td>
+                        </tr>
+                      )}
+                      <tr className="border-t-2 border-[#111111] bg-[#FFF9DF] text-[#111111]">
+                        <td
+                          colSpan={2}
+                          className="py-2 px-1.5 font-black uppercase tracking-wide border-r border-[#E5C130]"
+                        >
+                          TOTAL ({soldLines.length} ligne{soldLines.length > 1 ? 's' : ''})
+                        </td>
+                        <td className="py-2 px-1 font-mono font-black text-center tabular-nums border-r border-[#E5C130]">
+                          {totalQty}
+                        </td>
+                        <td className="py-2 px-1.5 text-right text-[#7A5C00] font-mono border-r border-[#E5C130]">
+                          —
+                        </td>
+                        <td className="py-2 px-1.5 font-mono font-black text-right tabular-nums whitespace-nowrap">
+                          {formatExcelNum(totalRevenue)}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* 2. Enlarged Stacked Summary Cards for Effortless Phone Reading */}
           <div className="space-y-3">
             <div className="p-4 sm:p-5 bg-[#F4F4F4] border border-[#E0E0E0] rounded-xl">
               <span className="text-sm font-bold text-[#595959] block">
@@ -2150,7 +2280,7 @@ const SmartphoneReportModal: React.FC<SmartphoneReportModalProps> = ({
             </div>
           </div>
 
-          {/* Enlarged Payment Methods Breakdown */}
+          {/* 3. Enlarged Payment Methods Breakdown */}
           <div className="p-4 sm:p-5 bg-[#F4F4F4] rounded-xl border border-[#E0E0E0] space-y-2">
             <span className="text-sm font-bold text-[#111111] block mb-2">
               Modes d&apos;encaissement
@@ -2173,80 +2303,6 @@ const SmartphoneReportModal: React.FC<SmartphoneReportModalProps> = ({
                 <strong className="font-mono text-lg font-black text-[#111111] tabular-nums">
                   {formatFCFA((paymentBreakdown.VIREMENT || 0) + (paymentBreakdown.CARTE || 0))}
                 </strong>
-              </div>
-            )}
-          </div>
-
-          {/* Line-by-Line Sales Details (Untruncated for Full WhatsApp & PDF Text Search) */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-[#E0E0E0]">
-              <span className="text-sm font-black text-[#111111] flex items-center gap-1.5">
-                <Receipt className="w-4 h-4 text-[#7A5C00]" />
-                Détail des ventes ({sortedSales.length})
-              </span>
-            </div>
-
-            {sortedSales.length === 0 ? (
-              <p className="text-sm text-[#595959] italic text-center py-3">
-                Aucune vente enregistrée sur cette période.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {sortedSales.map((s, idx) => {
-                  const saleDateFormatted = new Date(s.date).toLocaleDateString('fr-FR', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric',
-                  });
-                  const saleTimeFormatted = new Date(s.date).toLocaleTimeString('fr-FR', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  });
-                  const netSaleTotal = Math.max(0, s.totalAmount - (s.refundedAmount || 0));
-
-                  return (
-                    <div
-                      key={s.id}
-                      className="p-3.5 bg-[#F4F4F4] border border-[#E0E0E0] rounded-xl space-y-2"
-                    >
-                      <div className="flex items-center justify-between gap-2 text-sm">
-                        <div className="flex items-center gap-1.5 font-bold text-[#111111] flex-wrap">
-                          <span className="text-[#7A5C00] font-mono">#{idx + 1}</span>
-                          <span>{s.receiptNumber}</span>
-                          <span className="text-xs text-[#595959] font-mono">
-                            · {saleDateFormatted} {saleTimeFormatted}
-                          </span>
-                        </div>
-                        <span className="font-mono text-base font-black text-[#111111] tabular-nums shrink-0">
-                          {formatFCFA(netSaleTotal)}
-                        </span>
-                      </div>
-
-                      <div className="text-xs text-[#595959] flex items-center justify-between gap-2">
-                        <span>Client : <strong className="text-[#111111]">{s.customerName || 'Client Comptoir'}</strong> {s.customerPhone ? `(${s.customerPhone})` : ''}</span>
-                        <span className={`font-bold shrink-0 ${
-                          s.remainingDue > 0 ? 'text-rose-700' : 'text-emerald-700'
-                        }`}>
-                          {s.remainingDue > 0 ? `Reste ${formatFCFA(s.remainingDue)}` : 'Payé'}
-                        </span>
-                      </div>
-
-                      {/* Items inside sale - full reference & date visible for PDF/WhatsApp search */}
-                      <div className="pt-2 border-t border-[#E0E0E0] space-y-1.5 text-xs">
-                        {s.items.map((it, itemIdx) => (
-                          <div key={itemIdx} className="flex items-start justify-between gap-2 text-[#111111]">
-                            <span className="break-words pr-1 leading-snug">
-                              <strong className="font-mono text-[#111111]">{it.quantity}x {it.mainReference}</strong> — {it.designation} ({it.brand})
-                            </span>
-                            <span className="font-mono font-bold shrink-0 text-[#111111] tabular-nums">
-                              {formatFCFA(it.totalLine)}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
               </div>
             )}
           </div>

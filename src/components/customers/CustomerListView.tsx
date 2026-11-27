@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { useStock } from '../../context/StockContext';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useStock, getNextCustomerCode } from '../../context/StockContext';
 import { Customer, PaymentMethod, PaymentRecord, Sale } from '../../types';
 import { formatFCFA, formatDate, exportToCSV } from '../../utils/formatters';
 import { getCustomerCreditSummary, getNetSaleAmount } from '../../utils/customerAccount';
@@ -233,9 +233,21 @@ export const CustomerListView: React.FC = () => {
     return { totalPurchases, totalAcomptes, totalCreances };
   }, [customers, customerSummaryMap]);
 
+  // Si la liste clients évolue pendant la création (ex. synchro cloud) et que le code proposé existe déjà, le recalculer automatiquement
+  useEffect(() => {
+    if (!isCustomerModalOpen || editingCustomer) return;
+    const normalized = customerCode.trim().toUpperCase();
+    const alreadyExists =
+      !normalized ||
+      customers.some((c) => (c.code || '').trim().toUpperCase() === normalized);
+    if (alreadyExists) {
+      setCustomerCode(getNextCustomerCode(customers));
+    }
+  }, [isCustomerModalOpen, editingCustomer, customers]);
+
   const handleOpenCreateModal = () => {
     setEditingCustomer(null);
-    setCustomerCode(`CLI-${String(customers.length + 1).padStart(3, '0')}`);
+    setCustomerCode(getNextCustomerCode(customers));
     setCustomerName('');
     setCustomerPhone('');
     setCustomerAddress('');
@@ -323,6 +335,7 @@ export const CustomerListView: React.FC = () => {
       if (!result.success) {
         setFormError(result.error || 'Erreur lors de la création.');
       } else {
+        setCustomerCode('');
         setIsCustomerModalOpen(false);
       }
     }
