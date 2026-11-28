@@ -152,6 +152,22 @@ interface RecordSaleParams {
   notes?: string;
 }
 
+export interface StockAuditDiscrepancy {
+  articleId: string;
+  mainReference: string;
+  designation: string;
+  brand: string;
+  unit: string;
+  currentStock: number;
+  expectedStock: number;
+  delta: number; // currentStock - expectedStock (>0 means displayed stock is too high)
+  targetWarehouseId: string;
+  movementsCount: number;
+  salesCount: number;
+  missingSaleDeductionQty: number;
+  explanation: string;
+}
+
 interface StockContextType {
   // Current user, directory & Firebase Auth
   currentUser: UserProfile;
@@ -407,6 +423,17 @@ interface StockContextType {
     totalUnits: number;
     failedItems?: Array<{ articleId: string; reason: string }>;
   };
+
+  // Stock vs Movements Audit & Correction
+  auditStockDiscrepancies: () => StockAuditDiscrepancy[];
+  applyStockAuditCorrections: (
+    corrections: Array<{
+      articleId: string;
+      targetQty: number;
+      warehouseId?: string;
+      reason?: string;
+    }>
+  ) => { success: boolean; updatedCount: number; error?: string };
 
   // Article Management
   createArticle: (articleData: Omit<Article, 'id' | 'createdAt' | 'updatedAt'>) => {
@@ -1368,27 +1395,51 @@ const reconcileWarehouseStock = (st: WarehouseStock): WarehouseStock => {
   }
 
   const finalKeys = Object.keys(nextBd);
-  const bdSum = finalKeys.reduce((acc, k) => acc + nextBd[k], 0);
-  let finalQty = cleanQty;
+  let bdSum = finalKeys.reduce((acc, k) => acc + nextBd[k], 0);
+  const finalQty = cleanQty;
 
   if (cleanQty === 0) {
     for (const k of finalKeys) nextBd[k] = 0;
-    finalQty = 0;
-  } else if (droppedGhostPlaceholder || hadDuplicateOrDirtyKey) {
-    // Breakdown was canonicalized/cleaned -> exact sum of real brands is authoritative
-    finalQty = bdSum;
-  } else if (bdSum > 0 && bdSum !== cleanQty) {
-    // Strictly align quantity with the exact sum of its brand breakdown so Total === Sum(brands)
-    finalQty = bdSum;
-  } else if (bdSum === 0 && cleanQty > 0 && finalKeys.length === 1) {
-    // Single-brand record with uninitialized 0 breakdown -> restore cleanQty to that brand
-    nextBd[finalKeys[0]] = cleanQty;
+  } else if (bdSum > cleanQty) {
+    // CRITICAL: Never inflate quantity above cleanQty (prevents resurrected/phantom stock after sales).
+    // Trim excess from brandBreakdown so sum(nextBd) === cleanQty strictly.
+    let excess = bdSum - cleanQty;
+    if (Object.prototype.hasOwnProperty.call(nextBd, '') && nextBd[''] > 0) {
+      const cut = Math.min(nextBd[''], excess);
+      nextBd[''] -= cut;
+      excess -= cut;
+    }
+    if (excess > 0) {
+      const sortedKeys = [...finalKeys].sort((a, b) => (nextBd[b] || 0) - (nextBd[a] || 0));
+      for (const k of sortedKeys) {
+        if (excess <= 0) break;
+        const avail = Math.max(0, nextBd[k] || 0);
+        if (avail > 0) {
+          const cut = Math.min(avail, excess);
+          nextBd[k] = avail - cut;
+          excess -= cut;
+        }
+      }
+    }
+    bdSum = cleanQty;
+  } else if (bdSum < cleanQty) {
+    // Distribute missing breakdown remainder to the first existing brand key so sum(nextBd) === cleanQty
+    const diff = cleanQty - bdSum;
+    if (finalKeys.length > 0) {
+      nextBd[finalKeys[0]] = (nextBd[finalKeys[0]] || 0) + diff;
+    } else {
+      nextBd[''] = diff;
+    }
+    bdSum = cleanQty;
   }
 
+  const normalizedKeys = Object.keys(nextBd);
   const unchanged =
     st.quantity === finalQty &&
-    rawKeys.length === finalKeys.length &&
-    finalKeys.every((k) => Object.prototype.hasOwnProperty.call(st.brandBreakdown, k) && st.brandBreakdown![k] === nextBd[k]);
+    rawKeys.length === normalizedKeys.length &&
+    normalizedKeys.every(
+      (k) => Object.prototype.hasOwnProperty.call(st.brandBreakdown, k) && st.brandBreakdown![k] === nextBd[k]
+    );
 
   return unchanged ? st : { ...st, quantity: finalQty, brandBreakdown: nextBd };
 };
@@ -4122,16 +4173,27 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     // 4. ATOMIC DATA UPDATES:
-    // A. Decrement stocks across warehouses (starting with effectiveWarehouseId) and record Stock Movements of type SORTIE
-    let nextStocks = [...stocks];
+    // A. Decrement stocks across warehouses (starting with preferred/effective warehouse) and record Stock Movements of type SORTIE
+    let nextStocks = deduplicateStocksList(stocks);
+    const touchedStockPairs = new Set<string>();
     const newStockMovements: StockMovement[] = [];
+    const activeWhIdSet = new Set(warehouses.map((w) => w.id));
+
+    const getLiveArticleTotalStock = (stocksList: WarehouseStock[], targetArtId: string): number => {
+      let sum = 0;
+      for (const s of stocksList) {
+        if (s.articleId !== targetArtId) continue;
+        if (activeWhIdSet.size > 0 && !activeWhIdSet.has(s.warehouseId)) continue;
+        sum += Math.max(0, Number(s.quantity) || 0);
+      }
+      return sum;
+    };
 
     if (!shouldFreezeStock) {
       validatedItems.forEach((it, itemIdx) => {
         const rawInputItem = params.items[itemIdx];
         const preferredWhId = rawInputItem?.sourceWarehouseId || effectiveWarehouseId;
-        const totalBefore = getTotalStockForArticle(it.articleId);
-        const totalAfter = Math.max(0, totalBefore - it.quantity);
+        const totalBefore = getLiveArticleTotalStock(nextStocks, it.articleId);
 
         // Order warehouses: preferred/clicked warehouse first, then effectiveWarehouseId, then others with positive stock
         const orderedWarehouseIds = Array.from(
@@ -4143,12 +4205,19 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         );
 
         let remainingToDeduct = it.quantity;
+        const deductedByWarehouse: Array<{ warehouseId: string; qty: number }> = [];
+
         for (const candidateWhId of orderedWarehouseIds) {
           if (remainingToDeduct <= 0) break;
           const candidateStockRecord = nextStocks.find(
             (s) => s.articleId === it.articleId && s.warehouseId === candidateWhId
           );
-          const whAvail = candidateStockRecord ? candidateStockRecord.quantity : 0;
+          const reconciledCandidate = candidateStockRecord
+            ? reconcileWarehouseStock(candidateStockRecord)
+            : undefined;
+          const whAvail = reconciledCandidate
+            ? Math.max(0, Number(reconciledCandidate.quantity) || 0)
+            : 0;
           if (whAvail > 0) {
             const deductHere = Math.min(whAvail, remainingToDeduct);
             nextStocks = applyStockDelta(
@@ -4158,40 +4227,76 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               -deductHere,
               it.brand
             );
+            touchedStockPairs.add(`${it.articleId}__${candidateWhId}`);
+            deductedByWarehouse.push({ warehouseId: candidateWhId, qty: deductHere });
             remainingToDeduct -= deductHere;
           }
         }
 
-        // Fallback if stock was stored only on brandOffers
+        // Fallback if stock record was missing or stored only on brandOffers
         if (remainingToDeduct > 0) {
           nextStocks = applyStockDelta(
             nextStocks,
             it.articleId,
-            effectiveWarehouseId,
+            preferredWhId,
             -remainingToDeduct,
             it.brand
           );
+          touchedStockPairs.add(`${it.articleId}__${preferredWhId}`);
+          deductedByWarehouse.push({ warehouseId: preferredWhId, qty: remainingToDeduct });
         }
 
-        const mvtId = generateMovementId();
-        newStockMovements.push({
-          id: mvtId,
-          date: nowIso,
-          type: 'SORTIE',
-          articleId: it.articleId,
-          quantity: it.quantity,
-          sourceWarehouseId: preferredWhId,
-          userId: currentUser.id,
-          userName: currentUser.name,
-          documentRef: saleId,
-          reason: `Vente pièces - Reçu ${receiptNumber}`,
-          thirdParty: newSale.customerName,
-          unitPrice: it.unitPrice,
-          totalPrice: it.totalLine,
-          stockBefore: totalBefore,
-          stockAfter: totalAfter,
-          notes: `Réf commande / vente ${saleId}`,
-        });
+        const totalAfter = getLiveArticleTotalStock(nextStocks, it.articleId);
+        const primarySourceWhId = deductedByWarehouse[0]?.warehouseId || preferredWhId;
+
+        if (deductedByWarehouse.length <= 1) {
+          const mvtId = generateMovementId();
+          newStockMovements.push({
+            id: mvtId,
+            date: nowIso,
+            type: 'SORTIE',
+            articleId: it.articleId,
+            quantity: it.quantity,
+            sourceWarehouseId: primarySourceWhId,
+            userId: currentUser.id,
+            userName: currentUser.name,
+            documentRef: saleId,
+            reason: `Vente pièces - Reçu ${receiptNumber}`,
+            thirdParty: newSale.customerName,
+            unitPrice: it.unitPrice,
+            totalPrice: it.totalLine,
+            stockBefore: totalBefore,
+            stockAfter: totalAfter,
+            notes: `Réf commande / vente ${saleId}`,
+          });
+        } else {
+          // Record exact movement per source warehouse when a sale item spans multiple depots
+          let runningTotal = totalBefore;
+          deductedByWarehouse.forEach((seg) => {
+            const segBefore = runningTotal;
+            const segAfter = Math.max(0, runningTotal - seg.qty);
+            runningTotal = segAfter;
+            const segRatio = it.quantity > 0 ? seg.qty / it.quantity : 1;
+            newStockMovements.push({
+              id: generateMovementId(),
+              date: nowIso,
+              type: 'SORTIE',
+              articleId: it.articleId,
+              quantity: seg.qty,
+              sourceWarehouseId: seg.warehouseId,
+              userId: currentUser.id,
+              userName: currentUser.name,
+              documentRef: saleId,
+              reason: `Vente pièces - Reçu ${receiptNumber}`,
+              thirdParty: newSale.customerName,
+              unitPrice: it.unitPrice,
+              totalPrice: Math.round(it.totalLine * segRatio),
+              stockBefore: segBefore,
+              stockAfter: segAfter,
+              notes: `Réf commande / vente ${saleId}`,
+            });
+          });
+        }
       });
     }
 
@@ -4245,12 +4350,24 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     });
 
-    // Commit all states synchronously
+    // Commit all states synchronously (localStorage immediately + ONLY modified stocks to Firestore)
     if (!shouldFreezeStock) {
       setStocks(nextStocks);
-      setMovements((prev) => [...newStockMovements, ...prev]);
-      saveMultipleStocksToFirebase(nextStocks).catch(console.warn);
-      newStockMovements.forEach((m) => saveMovementToFirebase(m).catch(console.warn));
+      safeSetLocalStorage('stocks', nextStocks);
+      setMovements((prev) => {
+        const nextMvts = [...newStockMovements, ...prev];
+        safeSetLocalStorage('movements', nextMvts);
+        return nextMvts;
+      });
+      const modifiedStocks = nextStocks.filter((s) =>
+        touchedStockPairs.has(`${s.articleId}__${s.warehouseId}`)
+      );
+      if (modifiedStocks.length > 0) {
+        saveMultipleStocksToFirebase(modifiedStocks).catch(console.warn);
+      }
+      if (newStockMovements.length > 0) {
+        saveMultipleMovementsToFirebase(newStockMovements).catch(console.warn);
+      }
     }
     setSales((prev) => [newSale, ...prev]);
     if (newPaymentRecords.length > 0) {
@@ -4313,39 +4430,75 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const nowIso = new Date().toISOString();
 
-    // 1. Return stock back to warehouse
-    let nextStocks = [...stocks];
-    const returnMovements: StockMovement[] = [];
+    // 1. Return unreturned stock back to warehouse (only if the sale was not stock-frozen)
+    if (!sale.isHistoricalFrozen) {
+      let nextStocks = deduplicateStocksList(stocks);
+      const touchedStockPairs = new Set<string>();
+      const returnMovements: StockMovement[] = [];
 
-    sale.items.forEach((item) => {
-      const currentQty = getStockForArticleAndWarehouse(item.articleId, sale.warehouseId);
-      nextStocks = applyStockDelta(nextStocks, item.articleId, sale.warehouseId, item.quantity);
+      sale.items.forEach((item) => {
+        const alreadyReturned = (sale.returns || []).reduce((sum, ret) => {
+          const match = ret.items.find((ri) => ri.articleId === item.articleId);
+          return sum + (match ? match.quantity : 0);
+        }, 0);
+        const unreturnedQty = Math.max(0, item.quantity - alreadyReturned);
+        if (unreturnedQty <= 0) return;
 
-      const mvtId = generateMovementId();
-      returnMovements.push({
-        id: mvtId,
-        date: nowIso,
-        type: 'ENTREE',
-        articleId: item.articleId,
-        quantity: item.quantity,
-        targetWarehouseId: sale.warehouseId,
-        userId: currentUser.id,
-        userName: currentUser.name,
-        documentRef: `ANNUL-${sale.id}`,
-        reason: `Annulation vente ${sale.receiptNumber} - ${params.reason}`,
-        thirdParty: sale.customerName,
-        unitPrice: item.unitPrice,
-        totalPrice: item.totalLine,
-        stockBefore: currentQty,
-        stockAfter: currentQty + item.quantity,
-        notes: `Régularisation annulation par ${currentUser.name}`,
+        const targetWhId = item.sourceWarehouseId || sale.warehouseId;
+        const currentRec = nextStocks.find(
+          (s) => s.articleId === item.articleId && s.warehouseId === targetWhId
+        );
+        const currentQty = currentRec ? Math.max(0, Number(currentRec.quantity) || 0) : 0;
+
+        nextStocks = applyStockDelta(
+          nextStocks,
+          item.articleId,
+          targetWhId,
+          unreturnedQty,
+          item.brand
+        );
+        touchedStockPairs.add(`${item.articleId}__${targetWhId}`);
+
+        const mvtId = generateMovementId();
+        returnMovements.push({
+          id: mvtId,
+          date: nowIso,
+          type: 'ENTREE',
+          articleId: item.articleId,
+          quantity: unreturnedQty,
+          targetWarehouseId: targetWhId,
+          userId: currentUser.id,
+          userName: currentUser.name,
+          documentRef: `ANNUL-${sale.id}`,
+          reason: `Annulation vente ${sale.receiptNumber} - ${params.reason}`,
+          thirdParty: sale.customerName,
+          unitPrice: item.unitPrice,
+          totalPrice: item.totalLine,
+          stockBefore: currentQty,
+          stockAfter: currentQty + unreturnedQty,
+          notes: `Régularisation annulation par ${currentUser.name}`,
+        });
       });
-    });
 
-    setStocks(nextStocks);
-    setMovements((prev) => [...returnMovements, ...prev]);
-    saveMultipleStocksToFirebase(nextStocks).catch(console.warn);
-    returnMovements.forEach((m) => saveMovementToFirebase(m).catch(console.warn));
+      if (touchedStockPairs.size > 0) {
+        setStocks(nextStocks);
+        safeSetLocalStorage('stocks', nextStocks);
+        const modifiedStocks = nextStocks.filter((s) =>
+          touchedStockPairs.has(`${s.articleId}__${s.warehouseId}`)
+        );
+        if (modifiedStocks.length > 0) {
+          saveMultipleStocksToFirebase(modifiedStocks).catch(console.warn);
+        }
+      }
+      if (returnMovements.length > 0) {
+        setMovements((prev) => {
+          const nextMvts = [...returnMovements, ...prev];
+          safeSetLocalStorage('movements', nextMvts);
+          return nextMvts;
+        });
+        saveMultipleMovementsToFirebase(returnMovements).catch(console.warn);
+      }
+    }
 
     // 2. Adjust customer balance if this sale had an outstanding debt
     if (sale.remainingDue > 0 && sale.customerId) {
@@ -4431,7 +4584,8 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // If the sale was not already cancelled or fully refunded, restore unreturned stock and adjust customer debt
     if (sale.status !== 'CANCELLED' && sale.status !== 'REFUNDED') {
       if (!sale.isHistoricalFrozen) {
-        let nextStocks = [...stocks];
+        let nextStocks = deduplicateStocksList(stocks);
+        const touchedStockPairs = new Set<string>();
         sale.items.forEach((item) => {
           const alreadyReturned = (sale.returns || []).reduce((sum, ret) => {
             const match = ret.items.find((ri) => ri.articleId === item.articleId);
@@ -4439,12 +4593,33 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           }, 0);
           const unreturnedQty = Math.max(0, item.quantity - alreadyReturned);
           if (unreturnedQty > 0) {
-            nextStocks = applyStockDelta(nextStocks, item.articleId, sale.warehouseId, unreturnedQty, item.brand);
+            const targetWhId = item.sourceWarehouseId || sale.warehouseId;
+            nextStocks = applyStockDelta(nextStocks, item.articleId, targetWhId, unreturnedQty, item.brand);
+            touchedStockPairs.add(`${item.articleId}__${targetWhId}`);
           }
         });
         setStocks(nextStocks);
         safeSetLocalStorage('stocks', nextStocks);
-        saveMultipleStocksToFirebase(nextStocks).catch(console.warn);
+        const modifiedStocks = nextStocks.filter((s) =>
+          touchedStockPairs.has(`${s.articleId}__${s.warehouseId}`)
+        );
+        if (modifiedStocks.length > 0) {
+          saveMultipleStocksToFirebase(modifiedStocks).catch(console.warn);
+        }
+
+        // Remove orphaned SORTIE stock movements tied to the deleted sale so movement ledger stays consistent
+        const saleStockMvtIds = movements
+          .filter((m) => m.documentRef === saleId && m.type === 'SORTIE')
+          .map((m) => m.id);
+        if (saleStockMvtIds.length > 0) {
+          markIdsDeleted('movements', saleStockMvtIds);
+          setMovements((prev) => {
+            const nextMvts = prev.filter((m) => !(m.documentRef === saleId && m.type === 'SORTIE'));
+            safeSetLocalStorage('movements', nextMvts);
+            return nextMvts;
+          });
+          deleteMovementsFromFirebase(saleStockMvtIds).catch(console.warn);
+        }
       }
 
       if (sale.remainingDue > 0 && sale.customerId) {
@@ -5353,7 +5528,8 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     let totalRefund = 0;
     const returnItems: SaleReturnItem[] = [];
-    let nextStocks = [...stocks];
+    let nextStocks = deduplicateStocksList(stocks);
+    const touchedStockPairs = new Set<string>();
     const newMovements: StockMovement[] = [];
 
     for (const it of params.items) {
@@ -5370,13 +5546,17 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const { lineRefund, netUnitPrice } = getSaleItemReturnRefund(sale, saleItem, returnQty);
       totalRefund += lineRefund;
 
-      const targetWhId = it.warehouseId || sale.warehouseId;
-      const currentQty = getStockForArticleAndWarehouse(it.articleId, targetWhId);
+      const targetWhId = it.warehouseId || saleItem.sourceWarehouseId || sale.warehouseId;
+      const currentRec = nextStocks.find(
+        (s) => s.articleId === it.articleId && s.warehouseId === targetWhId
+      );
+      const currentQty = currentRec ? Math.max(0, Number(currentRec.quantity) || 0) : 0;
       const isDefective = it.reason === 'DEFECTIVE';
 
       // Re-increment stock physically ONLY if the returned piece is NOT defective
       if (!isDefective) {
         nextStocks = applyStockDelta(nextStocks, it.articleId, targetWhId, returnQty, saleItem.brand);
+        touchedStockPairs.add(`${it.articleId}__${targetWhId}`);
       }
 
       const mvtId = generateMovementId();
@@ -5460,11 +5640,23 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       notes: params.notes,
     };
 
-    // 1. Stock & Movement update
+    // 1. Stock & Movement update (synchronously to localStorage + ONLY touched stocks to Firestore)
     setStocks(nextStocks);
-    setMovements((prev) => [...newMovements, ...prev]);
-    saveMultipleStocksToFirebase(nextStocks).catch(console.warn);
-    newMovements.forEach((m) => saveMovementToFirebase(m).catch(console.warn));
+    safeSetLocalStorage('stocks', nextStocks);
+    setMovements((prev) => {
+      const nextMvts = [...newMovements, ...prev];
+      safeSetLocalStorage('movements', nextMvts);
+      return nextMvts;
+    });
+    const modifiedStocks = nextStocks.filter((s) =>
+      touchedStockPairs.has(`${s.articleId}__${s.warehouseId}`)
+    );
+    if (modifiedStocks.length > 0) {
+      saveMultipleStocksToFirebase(modifiedStocks).catch(console.warn);
+    }
+    if (newMovements.length > 0) {
+      saveMultipleMovementsToFirebase(newMovements).catch(console.warn);
+    }
 
     // 2. Customer Debt & Account update
     // IMPORTANT: Only AVOIR_CLIENT adds surplus to customer deposit/avoir!
@@ -6338,6 +6530,317 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       totalUnits,
       failedItems: failedItems.length > 0 ? failedItems : undefined,
     };
+  };
+
+  // Stock vs Movements & Sales Audit (detects any discrepancy like sold pieces not deducted)
+  const auditStockDiscrepancies = useCallback((): StockAuditDiscrepancy[] => {
+    const defaultWhId =
+      warehouses.find((w) => w.isDefault)?.id || warehouses[0]?.id || 'mag_principal';
+    const discrepancies: StockAuditDiscrepancy[] = [];
+
+    // Group movements by articleId
+    const movementsByArt = new Map<string, StockMovement[]>();
+    for (const m of movements) {
+      if (!m || !m.articleId) continue;
+      const list = movementsByArt.get(m.articleId);
+      if (list) list.push(m);
+      else movementsByArt.set(m.articleId, [m]);
+    }
+
+    // Group valid non-cancelled, non-frozen sales items by articleId
+    const salesByArt = new Map<
+      string,
+      Array<{
+        saleId: string;
+        receiptNumber: string;
+        date: string;
+        warehouseId: string;
+        netSoldQty: number;
+      }>
+    >();
+    for (const sale of sales) {
+      if (!sale || sale.status === 'CANCELLED' || sale.isHistoricalFrozen) continue;
+      for (const item of sale.items || []) {
+        const returnedQty = (sale.returns || []).reduce((sum, ret) => {
+          const match = (ret.items || []).find((ri) => ri.articleId === item.articleId);
+          return sum + (match ? Math.max(0, Number(match.quantity) || 0) : 0);
+        }, 0);
+        const netSoldQty = Math.max(0, (Number(item.quantity) || 0) - returnedQty);
+        if (netSoldQty <= 0) continue;
+        const entry = {
+          saleId: sale.id,
+          receiptNumber: sale.receiptNumber,
+          date: sale.date,
+          warehouseId: item.sourceWarehouseId || sale.warehouseId || defaultWhId,
+          netSoldQty,
+        };
+        const list = salesByArt.get(item.articleId);
+        if (list) list.push(entry);
+        else salesByArt.set(item.articleId, [entry]);
+      }
+    }
+
+    for (const art of articles) {
+      if (art.status !== 'active') continue;
+      const artMovements = movementsByArt.get(art.id) || [];
+      const artSales = salesByArt.get(art.id) || [];
+      if (artMovements.length === 0 && artSales.length === 0) continue;
+
+      const currentStock = totalStockByArticleMap.get(art.id) || 0;
+
+      // Sort movements chronologically (oldest first)
+      const sortedMvts = [...artMovements].sort(
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+      );
+
+      // Anchor replay at the latest AJUSTEMENT movement (physical inventory / manual adjustment)
+      // because anything prior to a physical count is superseded by that count.
+      let lastAdjIdx = -1;
+      for (let i = sortedMvts.length - 1; i >= 0; i--) {
+        if (
+          sortedMvts[i].type === 'AJUSTEMENT' &&
+          sortedMvts[i].stockAfter !== undefined &&
+          !Number.isNaN(Number(sortedMvts[i].stockAfter))
+        ) {
+          lastAdjIdx = i;
+          break;
+        }
+      }
+
+      let hasBaseline = false;
+      let runningQty = 0;
+      let anchorTimeMs = 0;
+      const replayStartIdx = lastAdjIdx >= 0 ? lastAdjIdx + 1 : 0;
+
+      if (lastAdjIdx >= 0) {
+        hasBaseline = true;
+        runningQty = Math.max(0, Number(sortedMvts[lastAdjIdx].stockAfter) || 0);
+        anchorTimeMs = new Date(sortedMvts[lastAdjIdx].date).getTime() || 0;
+      } else if (sortedMvts.length > 0) {
+        const firstMvt = sortedMvts[0];
+        if (
+          firstMvt.stockBefore !== undefined &&
+          !Number.isNaN(Number(firstMvt.stockBefore))
+        ) {
+          hasBaseline = true;
+          runningQty = Math.max(0, Number(firstMvt.stockBefore) || 0);
+        }
+      }
+
+      const recordedSaleMvtQtyBySaleId = new Map<string, number>();
+
+      for (let i = replayStartIdx; i < sortedMvts.length; i++) {
+        const m = sortedMvts[i];
+        const qty = Math.max(0, Number(m.quantity) || 0);
+        if (m.type === 'ENTREE') {
+          if (hasBaseline) runningQty += qty;
+        } else if (m.type === 'SORTIE') {
+          if (hasBaseline) runningQty = Math.max(0, runningQty - qty);
+          if (m.documentRef) {
+            recordedSaleMvtQtyBySaleId.set(
+              m.documentRef,
+              (recordedSaleMvtQtyBySaleId.get(m.documentRef) || 0) + qty
+            );
+          }
+        } else if (m.type === 'AJUSTEMENT') {
+          if (m.stockAfter !== undefined && !Number.isNaN(Number(m.stockAfter))) {
+            hasBaseline = true;
+            runningQty = Math.max(0, Number(m.stockAfter) || 0);
+          }
+        }
+        // TRANSFERT is net 0 on total stock across warehouses
+      }
+
+      // Check for any validated non-frozen sale after the anchor that has NO (or insufficient) SORTIE movement
+      let missingSaleDeductionQty = 0;
+      let missingSalesCount = 0;
+      for (const s of artSales) {
+        const sTime = new Date(s.date).getTime() || 0;
+        if (lastAdjIdx >= 0 && sTime <= anchorTimeMs) continue;
+        const recordedQty =
+          (recordedSaleMvtQtyBySaleId.get(s.saleId) || 0) +
+          (s.receiptNumber && s.receiptNumber !== s.saleId
+            ? recordedSaleMvtQtyBySaleId.get(s.receiptNumber) || 0
+            : 0);
+        if (recordedQty < s.netSoldQty) {
+          missingSaleDeductionQty += s.netSoldQty - recordedQty;
+          missingSalesCount += 1;
+        }
+      }
+
+      let expectedStock = currentStock;
+      const reasons: string[] = [];
+
+      if (hasBaseline) {
+        expectedStock = Math.max(0, runningQty - missingSaleDeductionQty);
+        if (expectedStock !== currentStock) {
+          if (missingSaleDeductionQty > 0) {
+            reasons.push(
+              `${missingSalesCount} vente(s) non déduite(s) (-${missingSaleDeductionQty})`
+            );
+          }
+          const replayOnlyDiff = currentStock - runningQty;
+          if (replayOnlyDiff !== 0) {
+            reasons.push(
+              `Historique mouvements (${sortedMvts.length - replayStartIdx} op.) ➔ théorique ${runningQty} vs affiché ${currentStock}`
+            );
+          }
+        }
+      } else if (missingSaleDeductionQty > 0) {
+        expectedStock = Math.max(0, currentStock - missingSaleDeductionQty);
+        reasons.push(
+          `${missingSalesCount} vente(s) enregistrée(s) sans mouvement de sortie (-${missingSaleDeductionQty})`
+        );
+      }
+
+      if (expectedStock !== currentStock) {
+        // Pick the warehouse currently holding stock (or default warehouse)
+        const whWithStock = warehouses.find(
+          (w) => (stockByArticleAndWarehouseMap.get(`${art.id}__${w.id}`) || 0) > 0
+        );
+        discrepancies.push({
+          articleId: art.id,
+          mainReference: art.mainReference,
+          designation: art.designation,
+          brand: art.brand,
+          unit: art.unit,
+          currentStock,
+          expectedStock,
+          delta: currentStock - expectedStock,
+          targetWarehouseId: whWithStock?.id || defaultWhId,
+          movementsCount: sortedMvts.length,
+          salesCount: artSales.length,
+          missingSaleDeductionQty,
+          explanation: reasons.join(' · '),
+        });
+      }
+    }
+
+    return discrepancies.sort((a, b) => {
+      if (Math.abs(b.delta) !== Math.abs(a.delta)) return Math.abs(b.delta) - Math.abs(a.delta);
+      return a.mainReference.localeCompare(b.mainReference);
+    });
+  }, [articles, movements, sales, warehouses, totalStockByArticleMap, stockByArticleAndWarehouseMap]);
+
+  const applyStockAuditCorrections = (
+    corrections: Array<{
+      articleId: string;
+      targetQty: number;
+      warehouseId?: string;
+      reason?: string;
+    }>
+  ): { success: boolean; updatedCount: number; error?: string } => {
+    if (!corrections || corrections.length === 0) {
+      return { success: false, updatedCount: 0, error: 'Aucune correction sélectionnée.' };
+    }
+
+    const defaultWhId =
+      warehouses.find((w) => w.isDefault)?.id || warehouses[0]?.id || 'mag_principal';
+    const activeWhIds = new Set(warehouses.map((w) => w.id));
+    let nextStocks = deduplicateStocksList(stocks);
+    const touchedPairs = new Set<string>();
+    const newMovements: StockMovement[] = [];
+    const nowIso = new Date().toISOString();
+    const docRef = `CORR-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(Date.now()).slice(-4)}`;
+    let updatedCount = 0;
+
+    for (const corr of corrections) {
+      const art = articles.find((a) => a.id === corr.articleId);
+      if (!art) continue;
+      const targetTotal = Math.max(0, Math.floor(Number(corr.targetQty) || 0));
+
+      const artStocks = nextStocks.filter(
+        (s) => s.articleId === art.id && (activeWhIds.size === 0 || activeWhIds.has(s.warehouseId))
+      );
+      const beforeTotal = artStocks.reduce((sum, s) => sum + Math.max(0, Number(s.quantity) || 0), 0);
+      if (beforeTotal === targetTotal) continue;
+
+      const diff = targetTotal - beforeTotal;
+      const preferredWhId =
+        corr.warehouseId ||
+        artStocks.find((s) => (Number(s.quantity) || 0) > 0)?.warehouseId ||
+        defaultWhId;
+
+      if (targetTotal === 0) {
+        // Zero out all warehouses cleanly so the part is strictly in RUPTURE across all depots
+        for (const st of artStocks) {
+          if ((Number(st.quantity) || 0) > 0 || (st.brandBreakdown && Object.values(st.brandBreakdown).some((v) => v > 0))) {
+            nextStocks = applyStockDelta(nextStocks, art.id, st.warehouseId, -Math.max(0, Number(st.quantity) || 0), art.brand);
+            nextStocks = nextStocks.map((rec) =>
+              rec.articleId === art.id && rec.warehouseId === st.warehouseId
+                ? reconcileWarehouseStock({ ...rec, quantity: 0, updatedAt: nowIso, lastInventoryDate: nowIso })
+                : rec
+            );
+            touchedPairs.add(`${art.id}__${st.warehouseId}`);
+          }
+        }
+      } else if (diff < 0) {
+        // Deduct excess starting from preferredWhId, then any other warehouse with stock
+        let toCut = Math.abs(diff);
+        const orderedWhIds = Array.from(
+          new Set([preferredWhId, ...artStocks.map((s) => s.warehouseId)])
+        );
+        for (const whId of orderedWhIds) {
+          if (toCut <= 0) break;
+          const rec = nextStocks.find((s) => s.articleId === art.id && s.warehouseId === whId);
+          const avail = rec ? Math.max(0, Number(rec.quantity) || 0) : 0;
+          if (avail > 0) {
+            const cutHere = Math.min(avail, toCut);
+            nextStocks = applyStockDelta(nextStocks, art.id, whId, -cutHere, art.brand);
+            touchedPairs.add(`${art.id}__${whId}`);
+            toCut -= cutHere;
+          }
+        }
+      } else {
+        // Add missing units to preferredWhId
+        nextStocks = applyStockDelta(nextStocks, art.id, preferredWhId, diff, art.brand);
+        touchedPairs.add(`${art.id}__${preferredWhId}`);
+      }
+
+      newMovements.push({
+        id: generateMovementId(),
+        date: nowIso,
+        type: 'AJUSTEMENT',
+        articleId: art.id,
+        quantity: Math.abs(diff),
+        ...(diff >= 0 ? { targetWarehouseId: preferredWhId } : { sourceWarehouseId: preferredWhId }),
+        userId: currentUser.id,
+        userName: currentUser.name,
+        documentRef: docRef,
+        reason: corr.reason?.trim() || 'Correction écart mouvements / ventes',
+        thirdParty: 'Audit & Régularisation Stock',
+        unitPrice: art.purchasePrice,
+        totalPrice: Math.abs(diff) * art.purchasePrice,
+        stockBefore: beforeTotal,
+        stockAfter: targetTotal,
+        notes: `Stock réaligné de ${beforeTotal} ➔ ${targetTotal} ${art.unit}`,
+      });
+      updatedCount += 1;
+    }
+
+    if (updatedCount === 0) {
+      return { success: false, updatedCount: 0, error: 'Aucun écart à corriger.' };
+    }
+
+    setStocks(nextStocks);
+    safeSetLocalStorage('stocks', nextStocks);
+    const modifiedStocks = nextStocks.filter((s) =>
+      touchedPairs.has(`${s.articleId}__${s.warehouseId}`)
+    );
+    if (modifiedStocks.length > 0) {
+      saveMultipleStocksToFirebase(modifiedStocks).catch(console.warn);
+    }
+
+    setMovements((prev) => {
+      const nextMvts = [...newMovements, ...prev];
+      safeSetLocalStorage('movements', nextMvts);
+      return nextMvts;
+    });
+    if (newMovements.length > 0) {
+      saveMultipleMovementsToFirebase(newMovements).catch(console.warn);
+    }
+
+    return { success: true, updatedCount };
   };
 
   // Article Management
@@ -9551,11 +10054,21 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     setStocks(updatedStocks);
+    safeSetLocalStorage('stocks', updatedStocks);
     if (adjustmentMovements.length > 0) {
-      setMovements((prev) => [...adjustmentMovements, ...prev]);
-      adjustmentMovements.forEach((m) => saveMovementToFirebase(m).catch(console.warn));
+      setMovements((prev) => {
+        const nextMvts = [...adjustmentMovements, ...prev];
+        safeSetLocalStorage('movements', nextMvts);
+        return nextMvts;
+      });
+      saveMultipleMovementsToFirebase(adjustmentMovements).catch(console.warn);
     }
-    saveMultipleStocksToFirebase(updatedStocks).catch(console.warn);
+    const touchedInventoryStocks = updatedStocks.filter(
+      (s) => s.warehouseId === session.warehouseId && itemsByArticle.has(s.articleId)
+    );
+    if (touchedInventoryStocks.length > 0) {
+      saveMultipleStocksToFirebase(touchedInventoryStocks).catch(console.warn);
+    }
 
     const validatedSession: InventorySession = {
       ...session,
@@ -9703,8 +10216,15 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     );
 
     setStocks(updatedStocks);
+    safeSetLocalStorage('stocks', updatedStocks);
     setArticles(updatedArticles);
-    saveMultipleStocksToFirebase(updatedStocks).catch(console.warn);
+    safeSetLocalStorage('articles', updatedArticles);
+    const touchedLocStock = updatedStocks.find(
+      (s) => s.articleId === articleId && s.warehouseId === warehouseId
+    );
+    if (touchedLocStock) {
+      saveStockToFirebase(touchedLocStock).catch(console.warn);
+    }
     const updatedArt = updatedArticles.find((a) => a.id === articleId);
     if (updatedArt) {
       saveArticleToFirebase(updatedArt).catch(console.warn);
@@ -9865,7 +10385,11 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 : st
             )
           : [...prev, nextStock];
-        saveMultipleStocksToFirebase(updated).catch(console.warn);
+        safeSetLocalStorage('stocks', updated);
+        const savedRec = updated.find(
+          (st) => st.articleId === createdArticle.id && st.warehouseId === session.warehouseId
+        );
+        if (savedRec) saveStockToFirebase(savedRec).catch(console.warn);
         return updated;
       });
     }
@@ -10305,8 +10829,14 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const allCompleted = updatedItems.every((it) => it.quantityReceived >= it.quantityOrdered);
     const newStatus: SupplierOrderStatus = allCompleted ? 'RECEIVED' : 'PARTIALLY_RECEIVED';
 
+    const touchedOrderArticleIds = new Set(newMovements.map((m) => m.articleId));
     setStocks(updatedStocks);
-    setMovements((prev) => [...newMovements, ...prev]);
+    safeSetLocalStorage('stocks', updatedStocks);
+    setMovements((prev) => {
+      const nextMvts = [...newMovements, ...prev];
+      safeSetLocalStorage('movements', nextMvts);
+      return nextMvts;
+    });
 
     const updatedOrder: SupplierOrder = {
       ...order,
@@ -10319,8 +10849,15 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       prev.map((o) => (o.id === params.orderId ? updatedOrder : o))
     );
 
-    saveMultipleStocksToFirebase(updatedStocks).catch(console.warn);
-    newMovements.forEach((m) => saveMovementToFirebase(m).catch(console.warn));
+    const modifiedOrderStocks = updatedStocks.filter(
+      (s) => s.warehouseId === wh.id && touchedOrderArticleIds.has(s.articleId)
+    );
+    if (modifiedOrderStocks.length > 0) {
+      saveMultipleStocksToFirebase(modifiedOrderStocks).catch(console.warn);
+    }
+    if (newMovements.length > 0) {
+      saveMultipleMovementsToFirebase(newMovements).catch(console.warn);
+    }
     saveSupplierOrderToFirebase(updatedOrder).catch(console.warn);
 
     return { success: true };
@@ -11838,6 +12375,8 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         recordStockOut,
         recordTransfer,
         recordBatchTransfer,
+        auditStockDiscrepancies,
+        applyStockAuditCorrections,
         createArticle,
         updateArticle,
         bulkUpdateWarehouseMinThresholds,

@@ -78,10 +78,11 @@ async function commitBatchedItems<T>(
   collectionName: string,
   items: T[],
   getId: (item: T) => string,
-  options?: { ignoreQuotaSkip?: boolean }
+  options?: { ignoreQuotaSkip?: boolean; replaceDoc?: boolean }
 ): Promise<void> {
   if (!db || !isFirebaseSyncAllowed() || !items || items.length === 0) return;
   if (!options?.ignoreQuotaSkip && isQuotaExceeded()) return;
+  const shouldReplace = Boolean(options?.replaceDoc) || collectionName === 'stocks';
   const CHUNK_SIZE = 400;
   for (let i = 0; i < items.length; i += CHUNK_SIZE) {
     const chunk = items.slice(i, i + CHUNK_SIZE);
@@ -91,7 +92,11 @@ async function commitBatchedItems<T>(
       if (!docId) continue;
       const safeId = docId.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 120);
       const ref = doc(db, collectionName, safeId);
-      batch.set(ref, cleanForFirestore(item) as any, { merge: true });
+      if (shouldReplace) {
+        batch.set(ref, cleanForFirestore(item) as any);
+      } else {
+        batch.set(ref, cleanForFirestore(item) as any, { merge: true });
+      }
     }
     await batch.commit();
   }
@@ -240,7 +245,8 @@ export async function saveStockToFirebase(st: WarehouseStock): Promise<void> {
   try {
     const rawId = `${st.articleId}_${st.warehouseId}`;
     const safeId = rawId.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 120);
-    await setDoc(doc(db, 'stocks', safeId), cleanForFirestore(st), { merge: true });
+    // Replace stock document atomically (no merge:true) so dropped/zeroed brandBreakdown keys are never resurrected
+    await setDoc(doc(db, 'stocks', safeId), cleanForFirestore(st));
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, `stocks/${st.articleId}_${st.warehouseId}`);
   }
@@ -249,7 +255,9 @@ export async function saveStockToFirebase(st: WarehouseStock): Promise<void> {
 export async function saveMultipleStocksToFirebase(stocksList: WarehouseStock[]): Promise<void> {
   if (!db || !isFirebaseSyncAllowed() || !stocksList || stocksList.length === 0) return;
   try {
-    await commitBatchedItems('stocks', stocksList, (s) => `${s.articleId}_${s.warehouseId}`);
+    await commitBatchedItems('stocks', stocksList, (s) => `${s.articleId}_${s.warehouseId}`, {
+      replaceDoc: true,
+    });
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, 'stocks/batch');
   }

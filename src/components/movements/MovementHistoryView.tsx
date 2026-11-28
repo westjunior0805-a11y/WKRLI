@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useStock } from '../../context/StockContext';
+import { useStock, StockAuditDiscrepancy } from '../../context/StockContext';
 import { MovementType, StockMovement } from '../../types';
 import { formatFCFA, formatDateTime, exportToCSV } from '../../utils/formatters';
 import { fuzzyMatch } from '../../utils/fuzzySearch';
@@ -18,9 +18,13 @@ import {
   Info,
   X,
   RotateCcw,
+  AlertTriangle,
+  CheckCircle2,
+  Wrench,
 } from 'lucide-react';
 import { TablePagination, SortableTh, usePagination } from '../common/TablePagination';
 import { SearchField } from '../common/SearchField';
+import { NumericInput } from '../common/NumericInput';
 
 type MovementSortField =
   | 'date'
@@ -42,6 +46,8 @@ export const MovementHistoryView: React.FC = () => {
     selectedWarehouseId,
     getArticleById,
     getWarehouseById,
+    auditStockDiscrepancies,
+    applyStockAuditCorrections,
   } = useStock();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -54,6 +60,97 @@ export const MovementHistoryView: React.FC = () => {
   const [selectedMovementDetail, setSelectedMovementDetail] = useState<StockMovement | null>(null);
   const [sortField, setSortField] = useState<MovementSortField>('date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+  // Stock Audit & Reconciliation Modal State
+  const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
+  const [auditSearch, setAuditSearch] = useState('');
+  const [selectedAuditIds, setSelectedAuditIds] = useState<Set<string>>(new Set());
+  const [auditTargetOverrides, setAuditTargetOverrides] = useState<Record<string, number>>({});
+  const [auditFeedback, setAuditFeedback] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
+
+  const discrepancies = useMemo<StockAuditDiscrepancy[]>(
+    () => auditStockDiscrepancies(),
+    [auditStockDiscrepancies]
+  );
+
+  const filteredDiscrepancies = useMemo(() => {
+    if (!auditSearch.trim()) return discrepancies;
+    return discrepancies.filter((d) =>
+      fuzzyMatch(auditSearch, [d.mainReference, d.designation, d.brand, d.explanation])
+    );
+  }, [discrepancies, auditSearch]);
+
+  const openAuditModal = () => {
+    setAuditFeedback(null);
+    setAuditSearch('');
+    const nextOverrides: Record<string, number> = {};
+    const nextSelected = new Set<string>();
+    discrepancies.forEach((d) => {
+      nextSelected.add(d.articleId);
+      nextOverrides[d.articleId] = d.expectedStock;
+    });
+    setSelectedAuditIds(nextSelected);
+    setAuditTargetOverrides(nextOverrides);
+    setIsAuditModalOpen(true);
+  };
+
+  const toggleAuditSelection = (articleId: string) => {
+    setSelectedAuditIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(articleId)) next.delete(articleId);
+      else next.add(articleId);
+      return next;
+    });
+  };
+
+  const toggleSelectAllAudit = () => {
+    const visibleIds = filteredDiscrepancies.map((d) => d.articleId);
+    const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedAuditIds.has(id));
+    setSelectedAuditIds((prev) => {
+      const next = new Set(prev);
+      if (allSelected) {
+        visibleIds.forEach((id) => next.delete(id));
+      } else {
+        visibleIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  };
+
+  const handleApplyAuditCorrections = () => {
+    const payload = discrepancies
+      .filter((d) => selectedAuditIds.has(d.articleId))
+      .map((d) => ({
+        articleId: d.articleId,
+        targetQty:
+          auditTargetOverrides[d.articleId] !== undefined
+            ? Math.max(0, Math.floor(auditTargetOverrides[d.articleId]))
+            : d.expectedStock,
+        warehouseId: d.targetWarehouseId,
+        reason: `Correction écart stock (${d.currentStock} ➔ ${
+          auditTargetOverrides[d.articleId] !== undefined
+            ? Math.max(0, Math.floor(auditTargetOverrides[d.articleId]))
+            : d.expectedStock
+        })`,
+      }));
+
+    const result = applyStockAuditCorrections(payload);
+    if (result.success) {
+      setAuditFeedback({
+        type: 'success',
+        message: `${result.updatedCount} pièce${result.updatedCount > 1 ? 's' : ''} corrigée${result.updatedCount > 1 ? 's' : ''} et synchronisée${result.updatedCount > 1 ? 's' : ''} avec succès.`,
+      });
+      setSelectedAuditIds(new Set());
+    } else {
+      setAuditFeedback({
+        type: 'error',
+        message: result.error || 'Aucune correction appliquée.',
+      });
+    }
+  };
 
   const handleSort = (field: MovementSortField) => {
     if (sortField === field) {
@@ -267,13 +364,36 @@ export const MovementHistoryView: React.FC = () => {
             placeholder="Référence, document ou tiers..."
           />
 
-          <button
-            onClick={handleExportCSV}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg transition-colors whitespace-nowrap"
-          >
-            <Download className="w-3.5 h-3.5" />
-            Exporter l'historique CSV
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={openAuditModal}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-lg transition-colors whitespace-nowrap border ${
+                discrepancies.length > 0
+                  ? 'bg-[#FFCD11] hover:bg-[#E5B700] text-[#111111] border-[#E5B700] shadow-xs'
+                  : 'bg-white hover:bg-[#F4F4F4] text-[#111111] border-[#E0E0E0]'
+              }`}
+              title="Vérifier la cohérence entre le stock affiché et l'historique des mouvements et ventes"
+            >
+              {discrepancies.length > 0 ? (
+                <AlertTriangle className="w-3.5 h-3.5 text-[#111111]" />
+              ) : (
+                <Wrench className="w-3.5 h-3.5 text-[#595959]" />
+              )}
+              {discrepancies.length > 0
+                ? `Corriger ${discrepancies.length} écart${discrepancies.length > 1 ? 's' : ''}`
+                : 'Vérifier les écarts'}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleExportCSV}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg transition-colors whitespace-nowrap"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Exporter l'historique CSV
+            </button>
+          </div>
         </div>
 
         {/* Quick Suggestion Chips */}
@@ -803,6 +923,237 @@ export const MovementHistoryView: React.FC = () => {
               >
                 Fermer
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Stock vs Movements Audit & Correction Modal */}
+      {isAuditModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#111111]/60 backdrop-blur-xs">
+          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[88vh] border border-[#E0E0E0] flex flex-col overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-[#E0E0E0] bg-[#111111] text-white">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-lg bg-[#FFCD11] text-[#111111] flex items-center justify-center shrink-0 mt-0.5">
+                  <Wrench className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-extrabold tracking-tight">
+                    Audit & Correction des écarts de stock
+                  </h3>
+                  <p className="text-xs text-slate-300 mt-0.5">
+                    Compare le stock affiché de chaque pièce avec son historique réel de mouvements et ventes enregistrées.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAuditModalOpen(false)}
+                className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+                aria-label="Fermer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Feedback Banner */}
+            {auditFeedback && (
+              <div
+                className={`mx-5 mt-4 px-3.5 py-2.5 rounded-lg border text-xs font-semibold flex items-center justify-between gap-2 ${
+                  auditFeedback.type === 'success'
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                    : 'bg-rose-50 border-rose-200 text-rose-900'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  {auditFeedback.type === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  ) : (
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                  )}
+                  <span>{auditFeedback.message}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAuditFeedback(null)}
+                  className="text-current opacity-60 hover:opacity-100"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              {discrepancies.length === 0 ? (
+                <div className="py-12 px-4 text-center space-y-3">
+                  <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto">
+                    <CheckCircle2 className="w-6 h-6" />
+                  </div>
+                  <h4 className="text-sm font-bold text-[#111111]">
+                    Aucune anomalie détectée
+                  </h4>
+                  <p className="text-xs text-[#595959] max-w-md mx-auto">
+                    Tous vos stocks affichés correspondent exactement aux mouvements d&apos;entrées, sorties, ajustements et ventes enregistrés.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <SearchField
+                      value={auditSearch}
+                      onChange={setAuditSearch}
+                      className="flex-1"
+                      placeholder="Filtrer par référence (ex: OK301AN) ou désignation..."
+                    />
+                    <div className="flex items-center gap-2 text-xs text-[#595959]">
+                      <span className="font-mono font-bold text-[#111111]">
+                        {filteredDiscrepancies.length}
+                      </span>
+                      <span>
+                        pièce{filteredDiscrepancies.length > 1 ? 's' : ''} en écart détectée
+                        {filteredDiscrepancies.length > 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="border border-[#E0E0E0] rounded-lg overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-[#F4F4F4] border-b border-[#E0E0E0] text-[#595959] uppercase tracking-wider font-bold text-[10px]">
+                          <tr>
+                            <th className="py-2.5 px-3 w-10 text-center">
+                              <input
+                                type="checkbox"
+                                checked={
+                                  filteredDiscrepancies.length > 0 &&
+                                  filteredDiscrepancies.every((d) => selectedAuditIds.has(d.articleId))
+                                }
+                                onChange={toggleSelectAllAudit}
+                                className="rounded border-slate-300 accent-[#111111] cursor-pointer"
+                                title="Tout sélectionner / désélectionner"
+                              />
+                            </th>
+                            <th className="py-2.5 px-3">Réf. & Pièce</th>
+                            <th className="py-2.5 px-3 text-right whitespace-nowrap">Affiché</th>
+                            <th className="py-2.5 px-3 text-right whitespace-nowrap">Stock corrigé</th>
+                            <th className="py-2.5 px-3 text-right whitespace-nowrap">Écart</th>
+                            <th className="py-2.5 px-3">Diagnostic</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#E0E0E0]">
+                          {filteredDiscrepancies.map((d) => {
+                            const isChecked = selectedAuditIds.has(d.articleId);
+                            const targetVal =
+                              auditTargetOverrides[d.articleId] !== undefined
+                                ? auditTargetOverrides[d.articleId]
+                                : d.expectedStock;
+                            const effectiveDiff = targetVal - d.currentStock;
+
+                            return (
+                              <tr
+                                key={d.articleId}
+                                className={`transition-colors ${
+                                  isChecked ? 'bg-[#FFF9DF]/40' : 'bg-white hover:bg-[#F4F4F4]/50'
+                                }`}
+                              >
+                                <td className="py-2.5 px-3 text-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={() => toggleAuditSelection(d.articleId)}
+                                    className="rounded border-slate-300 accent-[#111111] cursor-pointer"
+                                  />
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  <div className="font-mono font-bold text-[#111111]">
+                                    {d.mainReference}
+                                  </div>
+                                  <div className="text-[11px] text-[#595959] truncate max-w-[220px]">
+                                    {d.designation}
+                                  </div>
+                                  {d.brand && (
+                                    <span className="text-[10px] text-slate-400 font-medium">
+                                      {d.brand}
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-2.5 px-3 text-right font-mono font-bold tabular-nums text-rose-700 whitespace-nowrap">
+                                  {d.currentStock} {d.unit}
+                                </td>
+                                <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                                  <div className="inline-flex items-center gap-1.5">
+                                    <NumericInput
+                                      value={targetVal}
+                                      min={0}
+                                      onChange={(val) =>
+                                        setAuditTargetOverrides((prev) => ({
+                                          ...prev,
+                                          [d.articleId]: Math.max(0, Math.floor(val)),
+                                        }))
+                                      }
+                                      className="w-16 px-2 py-1 text-right font-mono font-bold text-[#111111] bg-white border border-[#E0E0E0] rounded focus:outline-none focus:border-[#111111] tabular-nums"
+                                    />
+                                    {targetVal === 0 && (
+                                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-800">
+                                        Rupture
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-3 text-right font-mono font-bold tabular-nums whitespace-nowrap">
+                                  <span
+                                    className={
+                                      effectiveDiff < 0
+                                        ? 'text-rose-700'
+                                        : effectiveDiff > 0
+                                        ? 'text-emerald-700'
+                                        : 'text-slate-400'
+                                    }
+                                  >
+                                    {effectiveDiff > 0 ? `+${effectiveDiff}` : effectiveDiff}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3 text-[11px] text-[#595959] leading-snug max-w-[280px]">
+                                  {d.explanation}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-5 py-3.5 border-t border-[#E0E0E0] bg-[#F4F4F4] flex flex-wrap items-center justify-between gap-3">
+              <p className="text-[11px] text-[#595959]">
+                Chaque correction crée un mouvement d&apos;ajustement tracé (<span className="font-mono font-semibold">CORR-...</span>) et met à jour le stock local &amp; cloud.
+              </p>
+              <div className="flex items-center gap-2 ml-auto">
+                <button
+                  type="button"
+                  onClick={() => setIsAuditModalOpen(false)}
+                  className="px-3.5 py-2 text-xs font-semibold text-[#111111] bg-white hover:bg-slate-100 border border-[#E0E0E0] rounded-lg transition-colors"
+                >
+                  Fermer
+                </button>
+                {discrepancies.length > 0 && (
+                  <button
+                    type="button"
+                    disabled={selectedAuditIds.size === 0}
+                    onClick={handleApplyAuditCorrections}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-extrabold bg-[#FFCD11] hover:bg-[#E5B700] disabled:opacity-40 disabled:cursor-not-allowed text-[#111111] rounded-lg transition-colors shadow-xs"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Appliquer les corrections ({selectedAuditIds.size})
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
