@@ -12,6 +12,7 @@ import { DashboardView } from './components/dashboard/DashboardView';
 import { ArticleCatalogView } from './components/catalog/ArticleCatalogView';
 import { ImportCatalogView } from './components/catalog/ImportCatalogView';
 import { WarehouseListView } from './components/warehouses/WarehouseListView';
+import { BoutiqueReplenishmentView } from './components/warehouses/BoutiqueReplenishmentView';
 import { MovementHistoryView } from './components/movements/MovementHistoryView';
 import { InventoryListView } from './components/inventory/InventoryListView';
 import { AlertsAndReportsView } from './components/reports/AlertsAndReportsView';
@@ -46,6 +47,7 @@ import {
   ShoppingCart,
   Database,
   Download,
+  Store,
 } from 'lucide-react';
 
 interface ModuleSubTab {
@@ -65,6 +67,9 @@ function AppContent() {
     warehouses,
     getAlerts,
     getTotalStockForArticle,
+    getStockForArticleAndWarehouse,
+    boutiqueWarehouseId,
+    getBoutiqueMinThreshold,
     companyInfo,
     currentPermissions,
   } = useStock();
@@ -333,6 +338,15 @@ function AppContent() {
   const pendingQuotesCount = (quotes || []).filter(
     (q) => q.status === 'DRAFT' || q.status === 'SENT' || q.status === 'ACCEPTED'
   ).length;
+  const boutiqueReplenishmentCount = boutiqueWarehouseId
+    ? articles.filter((art) => {
+        if (art.status !== 'active') return false;
+        const norm = getBoutiqueMinThreshold(art, boutiqueWarehouseId);
+        if (norm <= 0) return false;
+        const currentQty = getStockForArticleAndWarehouse(art.id, boutiqueWarehouseId);
+        return currentQty < norm;
+      }).length
+    : 0;
 
   // Determine if the active view belongs to a multi-tab module hub
   const getModuleSubTabs = (): { tabs: ModuleSubTab[]; rightAction?: React.ReactNode } | null => {
@@ -356,13 +370,27 @@ function AppContent() {
       };
     }
 
-    if (['warehouses', 'movements', 'inventory', 'warehouse_management'].includes(activeView)) {
+    if (
+      [
+        'warehouses',
+        'boutique_replenishment',
+        'movements',
+        'inventory',
+        'warehouse_management',
+      ].includes(activeView)
+    ) {
       return {
         tabs: [
           {
             id: 'warehouses',
             label: 'Stock des pièces',
             icon: Boxes,
+          },
+          {
+            id: 'boutique_replenishment',
+            label: 'Réappro. Boutique',
+            icon: Store,
+            count: boutiqueReplenishmentCount > 0 ? boutiqueReplenishmentCount : undefined,
           },
           { id: 'movements', label: 'Historique entrées/sorties', icon: History },
           { id: 'inventory', label: 'Inventaire physique', icon: ClipboardCheck },
@@ -575,6 +603,14 @@ function AppContent() {
                 onNavigateToStock={() => setActiveView('warehouses')}
                 onOpenPurchaseOrder={(artId, brand) => handleOpenPurchaseOrder(artId, brand)}
                 onNavigateToPurchaseOrder={(orderId) => handleNavigateToPurchaseOrder(orderId)}
+              />
+            )}
+            {activeView === 'boutique_replenishment' && (
+              <BoutiqueReplenishmentView
+                onOpenPurchaseOrder={(artId, brand) => handleOpenPurchaseOrder(artId, brand)}
+                onNavigateToPurchaseOrder={(orderId) => handleNavigateToPurchaseOrder(orderId)}
+                onSuccess={(title, msg) => addToast('success', title, msg)}
+                onError={(title, msg) => addToast('error', title, msg)}
               />
             )}
             {activeView === 'movements' && <MovementHistoryView />}

@@ -122,6 +122,8 @@ export const Header: React.FC<HeaderProps> = ({
         return 'Achats Fournisseurs';
       case 'warehouses':
         return 'Stock & Dépôts';
+      case 'boutique_replenishment':
+        return 'Réapprovisionnement Boutique';
       case 'warehouse_management':
         return 'Magasins & Dépôts';
       case 'movements':

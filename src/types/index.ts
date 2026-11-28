@@ -163,6 +163,7 @@ export interface Article {
   purchasePrice: number; // En FCFA (prix de la marque principale)
   salePrice: number; // En FCFA (prix de la marque principale)
   minStockThreshold: number; // Seuil de réapprovisionnement minimal (global pour la pièce)
+  warehouseMinThresholds?: Record<string, number>; // Norme de stock minimum spécifique par dépôt/boutique (warehouseId -> quantité min)
   brandOffers?: ArticleBrandOffer[]; // Grille multi-marques & constructeurs avec leurs prix et stocks respectifs
   defaultLocation: string; // Emplacement théorique (ex: Travée A - Étagère 03)
   invoiceNumber?: string; // Numéro de facture de commande de référence

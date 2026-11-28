@@ -44,9 +44,14 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       id: 'warehouses',
       label: 'Stock',
       icon: Layers,
-      isActive: ['warehouses', 'movements', 'inventory', 'warehouse_management', 'catalog'].includes(
-        activeView
-      ),
+      isActive: [
+        'warehouses',
+        'boutique_replenishment',
+        'movements',
+        'inventory',
+        'warehouse_management',
+        'catalog',
+      ].includes(activeView),
       onClick: () => onSelectView('warehouses'),
       accent: false,
     },

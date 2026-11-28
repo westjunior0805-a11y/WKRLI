@@ -180,6 +180,11 @@ interface StockContextType {
   selectedWarehouseId: string | null;
   setSelectedWarehouseId: (id: string | null) => void;
 
+  // Target Boutique / Dépôt Magasin for internal replenishment
+  boutiqueWarehouseId: string;
+  setBoutiqueWarehouseId: (id: string) => void;
+  getBoutiqueMinThreshold: (article: Article, warehouseId?: string) => number;
+
   // Global preference for product images display
   showProductImages: boolean;
   setShowProductImages: (show: boolean | ((prev: boolean) => boolean)) => void;
@@ -383,6 +388,26 @@ interface StockContextType {
     notes?: string;
   }) => { success: boolean; error?: string };
 
+  recordBatchTransfer: (params: {
+    items: Array<{
+      articleId: string;
+      sourceWarehouseId: string;
+      targetWarehouseId: string;
+      quantity: number;
+      brand?: string;
+      targetLocation?: string;
+    }>;
+    documentRef: string;
+    reason: string;
+    notes?: string;
+  }) => {
+    success: boolean;
+    error?: string;
+    transferredCount: number;
+    totalUnits: number;
+    failedItems?: Array<{ articleId: string; reason: string }>;
+  };
+
   // Article Management
   createArticle: (articleData: Omit<Article, 'id' | 'createdAt' | 'updatedAt'>) => {
     success: boolean;
@@ -390,6 +415,10 @@ interface StockContextType {
     article?: Article;
   };
   updateArticle: (id: string, updates: Partial<Article>) => { success: boolean; error?: string };
+  bulkUpdateWarehouseMinThresholds: (
+    warehouseId: string,
+    updates: Array<{ articleId: string; threshold: number | null }>
+  ) => { success: boolean; updatedCount: number; error?: string };
   addMachineApplication: (
     articleId: string,
     app: Omit<MachineApplication, 'id'>
@@ -1552,6 +1581,47 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
     return IS_AI_STUDIO_DEMO ? INITIAL_WAREHOUSES : CLEAN_DEFAULT_WAREHOUSES;
   });
+
+  // Target Boutique / Dépôt Magasin for internal replenishment (persisted in localStorage)
+  const [boutiqueWarehouseIdRaw, setBoutiqueWarehouseIdRaw] = useState<string>(() => {
+    try {
+      return localStorage.getItem('equipstock_boutique_warehouse_id') || '';
+    } catch {
+      return '';
+    }
+  });
+
+  const boutiqueWarehouseId = useMemo(() => {
+    if (boutiqueWarehouseIdRaw && warehouses.some((w) => w.id === boutiqueWarehouseIdRaw)) {
+      return boutiqueWarehouseIdRaw;
+    }
+    return warehouses.find((w) => w.isDefault)?.id || warehouses[0]?.id || '';
+  }, [boutiqueWarehouseIdRaw, warehouses]);
+
+  const setBoutiqueWarehouseId = useCallback((id: string) => {
+    setBoutiqueWarehouseIdRaw(id);
+    try {
+      localStorage.setItem('equipstock_boutique_warehouse_id', id);
+    } catch (err) {
+      console.warn('Could not persist boutiqueWarehouseId preference:', err);
+    }
+  }, []);
+
+  const getBoutiqueMinThreshold = useCallback(
+    (article: Article, warehouseId?: string): number => {
+      const targetWhId = warehouseId || boutiqueWarehouseId;
+      if (
+        targetWhId &&
+        article.warehouseMinThresholds &&
+        typeof article.warehouseMinThresholds[targetWhId] === 'number' &&
+        !Number.isNaN(article.warehouseMinThresholds[targetWhId])
+      ) {
+        return Math.max(0, Math.floor(article.warehouseMinThresholds[targetWhId]));
+      }
+      return Math.max(0, Math.floor(Number(article.minStockThreshold) || 0));
+    },
+    [boutiqueWarehouseId]
+  );
 
   const [stocks, setStocks] = useState<WarehouseStock[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEY_PREFIX + 'stocks');
@@ -5997,6 +6067,279 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return { success: true };
   };
 
+  // Operation: TRANSFERT GROUPÉ ATOMIQUE (Réapprovisionnement Boutique / Multi-pièces)
+  const recordBatchTransfer = (params: {
+    items: Array<{
+      articleId: string;
+      sourceWarehouseId: string;
+      targetWarehouseId: string;
+      quantity: number;
+      brand?: string;
+      targetLocation?: string;
+    }>;
+    documentRef: string;
+    reason: string;
+    notes?: string;
+  }): {
+    success: boolean;
+    error?: string;
+    transferredCount: number;
+    totalUnits: number;
+    failedItems?: Array<{ articleId: string; reason: string }>;
+  } => {
+    if (!params.items || params.items.length === 0) {
+      return {
+        success: false,
+        error: 'Aucune pièce sélectionnée pour le transfert groupé.',
+        transferredCount: 0,
+        totalUnits: 0,
+      };
+    }
+
+    const cleanDocRef = params.documentRef.trim();
+    if (!cleanDocRef) {
+      return {
+        success: false,
+        error: 'Le numéro de bordereau de transfert est obligatoire.',
+        transferredCount: 0,
+        totalUnits: 0,
+      };
+    }
+
+    let workingStocks = [...stocks];
+    const createdMovements: StockMovement[] = [];
+    const affectedPairs = new Set<string>();
+    const failedItems: Array<{ articleId: string; reason: string }> = [];
+    const nowIso = new Date().toISOString();
+    let totalUnits = 0;
+
+    params.items.forEach((item, idx) => {
+      if (item.sourceWarehouseId === item.targetWarehouseId) {
+        failedItems.push({
+          articleId: item.articleId,
+          reason: 'Le dépôt source et le dépôt cible sont identiques.',
+        });
+        return;
+      }
+
+      const qty = Math.floor(Number(item.quantity) || 0);
+      if (qty <= 0) {
+        failedItems.push({
+          articleId: item.articleId,
+          reason: 'Quantité invalide.',
+        });
+        return;
+      }
+
+      const article = articles.find((a) => a.id === item.articleId);
+      if (!article) {
+        failedItems.push({ articleId: item.articleId, reason: 'Article introuvable.' });
+        return;
+      }
+
+      const sourceWh = warehouses.find((w) => w.id === item.sourceWarehouseId);
+      const targetWh = warehouses.find((w) => w.id === item.targetWarehouseId);
+      if (!sourceWh || !targetWh) {
+        failedItems.push({
+          articleId: item.articleId,
+          reason: 'Dépôt source ou destinataire introuvable.',
+        });
+        return;
+      }
+
+      const sourceStockRecord = workingStocks.find(
+        (s) => s.articleId === item.articleId && s.warehouseId === item.sourceWarehouseId
+      );
+      const sourceQty = Math.max(0, Number(sourceStockRecord?.quantity) || 0);
+      if (sourceQty < qty) {
+        failedItems.push({
+          articleId: item.articleId,
+          reason: `${article.mainReference} : stock insuffisant dans ${sourceWh.name} (${sourceQty} dispo, ${qty} demandé).`,
+        });
+        return;
+      }
+
+      const requestedBrand = item.brand?.trim();
+      const transferredByBrand: Record<string, number> = {};
+      const defaultBrandName = (
+        requestedBrand ||
+        article.brand ||
+        article.brandOffers?.[0]?.brand ||
+        ''
+      ).trim();
+
+      if (
+        sourceStockRecord?.brandBreakdown &&
+        Object.keys(sourceStockRecord.brandBreakdown).length > 0
+      ) {
+        let remainingToDeduct = qty;
+        if (requestedBrand) {
+          const normReq = requestedBrand.toLowerCase();
+          const matchedKey = Object.keys(sourceStockRecord.brandBreakdown).find(
+            (k) => k.toLowerCase().trim() === normReq
+          );
+          if (matchedKey !== undefined) {
+            const avail = Math.max(0, Number(sourceStockRecord.brandBreakdown[matchedKey]) || 0);
+            const take = Math.min(avail, remainingToDeduct);
+            if (take > 0) {
+              transferredByBrand[matchedKey] = take;
+              remainingToDeduct -= take;
+            }
+          }
+        }
+        if (remainingToDeduct > 0) {
+          for (const k of Object.keys(sourceStockRecord.brandBreakdown)) {
+            if (remainingToDeduct <= 0) break;
+            const alreadyTaken = transferredByBrand[k] || 0;
+            const avail = Math.max(
+              0,
+              (Number(sourceStockRecord.brandBreakdown[k]) || 0) - alreadyTaken
+            );
+            if (avail > 0) {
+              const take = Math.min(avail, remainingToDeduct);
+              transferredByBrand[k] = alreadyTaken + take;
+              remainingToDeduct -= take;
+            }
+          }
+        }
+        if (remainingToDeduct > 0) {
+          transferredByBrand[defaultBrandName] =
+            (transferredByBrand[defaultBrandName] || 0) + remainingToDeduct;
+        }
+      } else {
+        transferredByBrand[defaultBrandName] = qty;
+      }
+
+      for (const [bName, bQty] of Object.entries(transferredByBrand)) {
+        if (bQty > 0) {
+          workingStocks = applyStockDelta(
+            workingStocks,
+            item.articleId,
+            item.sourceWarehouseId,
+            -bQty,
+            bName
+          );
+        }
+      }
+      for (const [bName, bQty] of Object.entries(transferredByBrand)) {
+        if (bQty > 0) {
+          workingStocks = applyStockDelta(
+            workingStocks,
+            item.articleId,
+            item.targetWarehouseId,
+            bQty,
+            bName
+          );
+        }
+      }
+
+      const formattedTargetLocation =
+        item.targetLocation &&
+        item.targetLocation.trim() &&
+        item.targetLocation.trim() !== 'Non renseigné'
+          ? prefixLocationWithWarehouse(item.targetLocation, targetWh.name, warehouses)
+          : undefined;
+
+      workingStocks = workingStocks.map((s) => {
+        if (s.articleId === item.articleId && s.warehouseId === item.targetWarehouseId) {
+          const nextBrandLocs: Record<string, string> = { ...(s.brandLocations || {}) };
+          if (formattedTargetLocation) {
+            for (const bName of Object.keys(transferredByBrand)) {
+              const existingKey =
+                Object.keys(nextBrandLocs).find(
+                  (k) => k.toLowerCase().trim() === bName.toLowerCase().trim()
+                ) || bName;
+              nextBrandLocs[existingKey] = formattedTargetLocation;
+            }
+          }
+          const targetShelfLoc = formattedTargetLocation
+            ? formattedTargetLocation
+            : s.shelfLocation &&
+              s.shelfLocation !== 'Non renseigné' &&
+              !s.shelfLocation.toLowerCase().startsWith(`${sourceWh.name.toLowerCase()} :`)
+            ? prefixLocationWithWarehouse(s.shelfLocation, targetWh.name, warehouses)
+            : 'Non renseigné';
+
+          return reconcileWarehouseStock({
+            ...s,
+            shelfLocation: targetShelfLoc,
+            brandLocations:
+              Object.keys(nextBrandLocs).length > 0 ? nextBrandLocs : s.brandLocations,
+            lastInventoryDate: nowIso,
+          });
+        }
+        if (s.articleId === item.articleId && s.warehouseId === item.sourceWarehouseId) {
+          return reconcileWarehouseStock({
+            ...s,
+            lastInventoryDate: nowIso,
+          });
+        }
+        return s;
+      });
+
+      affectedPairs.add(`${item.articleId}__${item.sourceWarehouseId}`);
+      affectedPairs.add(`${item.articleId}__${item.targetWarehouseId}`);
+
+      const newSourceQty = Math.max(0, sourceQty - qty);
+      createdMovements.push({
+        id: `${generateMovementId()}-${idx + 1}`,
+        date: nowIso,
+        type: 'TRANSFERT',
+        articleId: item.articleId,
+        quantity: qty,
+        sourceWarehouseId: item.sourceWarehouseId,
+        targetWarehouseId: item.targetWarehouseId,
+        userId: currentUser.id,
+        userName: currentUser.name,
+        documentRef: cleanDocRef,
+        reason:
+          params.reason.trim() ||
+          `Réapprovisionnement boutique (${sourceWh.code} ➔ ${targetWh.code})`,
+        thirdParty: `${sourceWh.name} ➔ ${targetWh.name}`,
+        unitPrice: article.purchasePrice,
+        totalPrice: article.purchasePrice * qty,
+        stockBefore: sourceQty,
+        stockAfter: newSourceQty,
+        notes: params.notes?.trim(),
+      });
+      totalUnits += qty;
+    });
+
+    if (createdMovements.length === 0) {
+      return {
+        success: false,
+        error: failedItems[0]?.reason || 'Aucun transfert valide n’a pu être effectué.',
+        transferredCount: 0,
+        totalUnits: 0,
+        failedItems,
+      };
+    }
+
+    setStocks(workingStocks);
+    safeSetLocalStorage('stocks', workingStocks);
+
+    const affectedRecords = workingStocks.filter((s) =>
+      affectedPairs.has(`${s.articleId}__${s.warehouseId}`)
+    );
+    if (affectedRecords.length > 0) {
+      saveMultipleStocksToFirebase(affectedRecords).catch(console.warn);
+    }
+
+    setMovements((prev) => {
+      const nextMvts = [...createdMovements, ...prev];
+      safeSetLocalStorage('movements', nextMvts);
+      return nextMvts;
+    });
+    saveMultipleMovementsToFirebase(createdMovements).catch(console.warn);
+
+    return {
+      success: true,
+      transferredCount: createdMovements.length,
+      totalUnits,
+      failedItems: failedItems.length > 0 ? failedItems : undefined,
+    };
+  };
+
   // Article Management
   const createArticle = (articleData: Omit<Article, 'id' | 'createdAt' | 'updatedAt'>) => {
     const targetRef = articleData.mainReference.toLowerCase().trim();
@@ -6110,6 +6453,60 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     saveArticleToFirebase(updatedArticle).catch(console.warn);
 
     return { success: true };
+  };
+
+  // Bulk update per-warehouse minimum stock norms (e.g. Boutique replenishment thresholds)
+  const bulkUpdateWarehouseMinThresholds = (
+    warehouseId: string,
+    updates: Array<{ articleId: string; threshold: number | null }>
+  ): { success: boolean; updatedCount: number; error?: string } => {
+    if (!warehouseId) {
+      return { success: false, updatedCount: 0, error: 'Aucun dépôt cible sélectionné.' };
+    }
+    if (!updates || updates.length === 0) {
+      return { success: false, updatedCount: 0, error: 'Aucune pièce à mettre à jour.' };
+    }
+
+    const updateMap = new Map<string, number | null>();
+    updates.forEach((u) => {
+      updateMap.set(
+        u.articleId,
+        u.threshold === null ? null : Math.max(0, Math.floor(Number(u.threshold) || 0))
+      );
+    });
+
+    const nowIso = new Date().toISOString();
+    const changedArticles: Article[] = [];
+
+    const nextArticles = articles.map((art) => {
+      if (!updateMap.has(art.id)) return art;
+      const nextThreshold = updateMap.get(art.id);
+      const nextMap: Record<string, number> = { ...(art.warehouseMinThresholds || {}) };
+
+      if (nextThreshold === null || nextThreshold === undefined) {
+        delete nextMap[warehouseId];
+      } else {
+        nextMap[warehouseId] = nextThreshold;
+      }
+
+      const updated: Article = {
+        ...art,
+        warehouseMinThresholds: Object.keys(nextMap).length > 0 ? nextMap : undefined,
+        updatedAt: nowIso,
+      };
+      changedArticles.push(updated);
+      return updated;
+    });
+
+    if (changedArticles.length === 0) {
+      return { success: false, updatedCount: 0, error: 'Aucune pièce correspondante trouvée.' };
+    }
+
+    setArticles(nextArticles);
+    safeSetLocalStorage('articles', nextArticles);
+    saveMultipleArticlesToFirebase(changedArticles).catch(console.warn);
+
+    return { success: true, updatedCount: changedArticles.length };
   };
 
   const addMachineApplication = (
@@ -11407,6 +11804,9 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         logout,
         selectedWarehouseId,
         setSelectedWarehouseId,
+        boutiqueWarehouseId,
+        setBoutiqueWarehouseId,
+        getBoutiqueMinThreshold,
         showProductImages,
         setShowProductImages,
         toggleProductImages,
@@ -11437,8 +11837,10 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         recordStockIn,
         recordStockOut,
         recordTransfer,
+        recordBatchTransfer,
         createArticle,
         updateArticle,
+        bulkUpdateWarehouseMinThresholds,
         addMachineApplication,
         updateMachineApplication,
         removeMachineApplication,

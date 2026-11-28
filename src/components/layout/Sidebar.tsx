@@ -166,7 +166,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {
           id: 'mod_logistics',
           defaultView: 'warehouses',
-          matchViews: ['warehouses', 'movements', 'inventory', 'warehouse_management'],
+          matchViews: [
+            'warehouses',
+            'boutique_replenishment',
+            'movements',
+            'inventory',
+            'warehouse_management',
+          ],
           label: 'Stock & Dépôts',
           subLabel: 'Stock, prix, import & mouvements',
           icon: Layers,

@@ -967,14 +967,16 @@ export const SalesAndCashReportsView: React.FC = () => {
                 setPeriodMode('TODAY');
                 setSelectedSingleDate(getLocalDateString());
               }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border ${
                 periodMode === 'TODAY'
-                  ? 'bg-[#111111] text-[#FFCD11] shadow-2xs'
-                  : 'bg-[#FFF9DF] text-[#111111] hover:bg-[#FFCD11]/30 border border-[#E5C130]'
+                  ? 'bg-[#111111]! text-[#FFCD11]! border-[#111111]! shadow-2xs'
+                  : 'bg-[#FFF9DF]! text-[#111111]! hover:bg-[#FFCD11]/40! border-[#E5C130]!'
               }`}
               title="Ventes en temps réel d'aujourd'hui"
             >
-              <span className="text-[#ffffff]">Aujourd&apos;hui (Temps réel)</span>
+              <span className={periodMode === 'TODAY' ? 'text-[#FFCD11]!' : 'text-[#111111]!'}>
+                Aujourd&apos;hui (Temps réel)
+              </span>
             </button>
 
             <button
